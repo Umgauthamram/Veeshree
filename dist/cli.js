@@ -1,12 +1,16 @@
 import {
   generateContext,
   handleCaptureCommand,
+  handleDecisionsCommand,
+  handleGcCommand,
   handleKeysCommand,
   handleModelsCommand,
+  handleSearchCommand,
+  handleStatusCommand,
   initializeVeeshree,
   logger,
   syncVeeshree
-} from "./chunk-W4P7SBL7.js";
+} from "./chunk-6KMVC56C.js";
 
 // src/cli.ts
 import { Command } from "commander";
@@ -65,6 +69,38 @@ program.command("capture").description("Extract structured decisions and memory 
     await handleCaptureCommand(options, process.cwd());
   } catch (err) {
     logger.error(`Capture failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("status").description("Display terminal memory health dashboard, task progress, and stale drift alerts").option("-c, --check", "Exit with error code 1 if stale drift is detected (for CI / pre-commit)", false).action((options) => {
+  try {
+    handleStatusCommand(options, process.cwd());
+  } catch (err) {
+    logger.error(`Status check failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("search <query>").description("Search indexed memory and decisions for keywords").option("-a, --archived", "Include archived and superseded records", false).option("-j, --json", "Output results as structured JSON", false).action((query, options) => {
+  try {
+    handleSearchCommand(query, options, process.cwd());
+  } catch (err) {
+    logger.error(`Search failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("decisions").description("List architectural decision records (ADRs) with status and linked code files").option("-a, --all", "Include superseded and proposed decisions", false).option("-s, --status <status>", "Filter by status (active, superseded, proposed)").action((options) => {
+  try {
+    handleDecisionsCommand(options, process.cwd());
+  } catch (err) {
+    logger.error(`Decisions listing failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("gc").description("Prune old progress into archive/ and move superseded decisions into archive/decisions/").action(() => {
+  try {
+    handleGcCommand(process.cwd());
+  } catch (err) {
+    logger.error(`GC failed: ${err?.message || err}`);
     process.exit(1);
   }
 });

@@ -5,7 +5,12 @@ import { generateContext } from "./commands/context.js";
 import { handleKeysCommand } from "./commands/keys.js";
 import { handleModelsCommand } from "./commands/models.js";
 import { handleCaptureCommand } from "./commands/capture.js";
+import { handleStatusCommand } from "./commands/status.js";
+import { handleSearchCommand } from "./commands/search.js";
+import { handleDecisionsCommand } from "./commands/decisions.js";
+import { handleGcCommand } from "./commands/gc.js";
 import { logger } from "./utils/logger.js";
+
 
 // Check Node.js version >= 18
 const nodeVersion = process.versions.node.split(".");
@@ -116,10 +121,68 @@ program
     }
   });
 
+// Status Dashboard
+program
+  .command("status")
+  .description("Display terminal memory health dashboard, task progress, and stale drift alerts")
+  .option("-c, --check", "Exit with error code 1 if stale drift is detected (for CI / pre-commit)", false)
+  .action((options) => {
+    try {
+      handleStatusCommand(options, process.cwd());
+    } catch (err: any) {
+      logger.error(`Status check failed: ${err?.message || err}`);
+      process.exit(1);
+    }
+  });
+
+// Search Interface
+program
+  .command("search <query>")
+  .description("Search indexed memory and decisions for keywords")
+  .option("-a, --archived", "Include archived and superseded records", false)
+  .option("-j, --json", "Output results as structured JSON", false)
+  .action((query, options) => {
+    try {
+      handleSearchCommand(query, options, process.cwd());
+    } catch (err: any) {
+      logger.error(`Search failed: ${err?.message || err}`);
+      process.exit(1);
+    }
+  });
+
+// Decisions Catalog
+program
+  .command("decisions")
+  .description("List architectural decision records (ADRs) with status and linked code files")
+  .option("-a, --all", "Include superseded and proposed decisions", false)
+  .option("-s, --status <status>", "Filter by status (active, superseded, proposed)")
+  .action((options) => {
+    try {
+      handleDecisionsCommand(options, process.cwd());
+    } catch (err: any) {
+      logger.error(`Decisions listing failed: ${err?.message || err}`);
+      process.exit(1);
+    }
+  });
+
+// Garbage Collection & Archive
+program
+  .command("gc")
+  .description("Prune old progress into archive/ and move superseded decisions into archive/decisions/")
+  .action(() => {
+    try {
+      handleGcCommand(process.cwd());
+    } catch (err: any) {
+      logger.error(`GC failed: ${err?.message || err}`);
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
 if (!process.argv.slice(2).length) {
   program.outputHelp();
 }
+
 
 

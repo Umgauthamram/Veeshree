@@ -10,4 +10,7 @@ export const logger = {
   dim: (msg: string) => pc.dim(msg),
   bold: (msg: string) => pc.bold(msg),
   cyan: (msg: string) => pc.cyan(msg),
+  yellow: (msg: string) => pc.yellow(msg),
+  red: (msg: string) => pc.red(msg),
 };
+

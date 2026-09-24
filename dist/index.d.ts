@@ -214,15 +214,6 @@ declare const ExtractionDeltaSchema: z.ZodObject<{
     }>, "many">>;
     discoveries: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
 }, "strip", z.ZodTypeAny, {
-    tasks: {
-        task_name: string;
-        action: "remove" | "add" | "complete";
-    }[];
-    constraints: {
-        type: "hard" | "soft";
-        rule: string;
-    }[];
-    discoveries: string[];
     decisions: {
         status: "active" | "superseded" | "proposed";
         decision: string;
@@ -232,6 +223,15 @@ declare const ExtractionDeltaSchema: z.ZodObject<{
         linked_files: string[];
         tags: string[];
     }[];
+    tasks: {
+        task_name: string;
+        action: "remove" | "add" | "complete";
+    }[];
+    constraints: {
+        type: "hard" | "soft";
+        rule: string;
+    }[];
+    discoveries: string[];
     current_state: {
         current_feature: string;
         completed_in_session: string[];
@@ -242,15 +242,6 @@ declare const ExtractionDeltaSchema: z.ZodObject<{
         approach: string;
     }[];
 }, {
-    tasks?: {
-        task_name: string;
-        action?: "remove" | "add" | "complete" | undefined;
-    }[] | undefined;
-    constraints?: {
-        rule: string;
-        type?: "hard" | "soft" | undefined;
-    }[] | undefined;
-    discoveries?: string[] | undefined;
     decisions?: {
         decision: string;
         title: string;
@@ -260,6 +251,15 @@ declare const ExtractionDeltaSchema: z.ZodObject<{
         linked_files?: string[] | undefined;
         tags?: string[] | undefined;
     }[] | undefined;
+    tasks?: {
+        task_name: string;
+        action?: "remove" | "add" | "complete" | undefined;
+    }[] | undefined;
+    constraints?: {
+        rule: string;
+        type?: "hard" | "soft" | undefined;
+    }[] | undefined;
+    discoveries?: string[] | undefined;
     current_state?: {
         current_feature?: string | undefined;
         completed_in_session?: string[] | undefined;
@@ -354,6 +354,33 @@ declare function reconcileExtraction(delta: ExtractionDelta, rootDir?: string): 
     updatedFiles: string[];
 };
 
+interface GCResult {
+    archivedTasksCount: number;
+    supersededDecisionsCount: number;
+    relocatedDecisions: string[];
+}
+/**
+ * Runs State Garbage Collection:
+ * 1. Caches rolling progress items in current-state.md to max 5 items, archiving excess to archive/completed-tasks.md
+ * 2. Moves decisions with status: "superseded" to archive/decisions/
+ * 3. Re-indexes memory so index.json reflects the clean state
+ */
+declare function runGarbageCollection(rootDir?: string): GCResult;
+
+interface SearchResultItem {
+    id: string;
+    title: string;
+    path: string;
+    type: string;
+    status: string;
+    tags: string[];
+    snippet: string;
+    score: number;
+}
+declare function searchMemory(query: string, options?: {
+    includeArchived?: boolean;
+}, rootDir?: string): SearchResultItem[];
+
 interface InitOptions {
     force?: boolean;
 }
@@ -380,6 +407,22 @@ interface CaptureOptions {
 }
 declare function handleCaptureCommand(options: CaptureOptions, rootDir?: string): Promise<void>;
 
+declare function handleStatusCommand(options?: {
+    check?: boolean;
+}, rootDir?: string): void;
+
+declare function handleSearchCommand(query: string, options?: {
+    archived?: boolean;
+    json?: boolean;
+}, rootDir?: string): void;
+
+declare function handleDecisionsCommand(options?: {
+    all?: boolean;
+    status?: string;
+}, rootDir?: string): void;
+
+declare function handleGcCommand(rootDir?: string): void;
+
 declare const MEMORY_DIR_REL: string;
 declare const DECISIONS_DIR_REL: string;
 declare const ARCHIVE_DIR_REL: string;
@@ -404,6 +447,8 @@ declare const logger: {
     dim: (msg: string) => string;
     bold: (msg: string) => string;
     cyan: (msg: string) => string;
+    yellow: (msg: string) => string;
+    red: (msg: string) => string;
 };
 
-export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type CaptureOptions, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, type ExtractionDelta, ExtractionDeltaSchema, INDEX_FILE_REL, type IndexDocument, type InitOptions, type KeyProvider, MEMORY_DIR_REL, type ModelRuntimeInfo, REJECTED_FILE_REL, type ScannedProjectInfo, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, detectAvailableModels, estimateTokens, extractMemoryFromContent, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getApiKey, getDefaultConfig, handleCaptureCommand, handleKeysCommand, handleModelsCommand, initializeVeeshree, listApiKeys, loadConfig, loadOrBuildIndex, logger, maskKey, parseMemoryFile, reconcileExtraction, removeApiKey, saveConfig, scanRepository, setApiKey, syncVeeshree, truncateToTokens };
+export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type CaptureOptions, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, type ExtractionDelta, ExtractionDeltaSchema, type GCResult, INDEX_FILE_REL, type IndexDocument, type InitOptions, type KeyProvider, MEMORY_DIR_REL, type ModelRuntimeInfo, REJECTED_FILE_REL, type ScannedProjectInfo, type SearchResultItem, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, detectAvailableModels, estimateTokens, extractMemoryFromContent, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getApiKey, getDefaultConfig, handleCaptureCommand, handleDecisionsCommand, handleGcCommand, handleKeysCommand, handleModelsCommand, handleSearchCommand, handleStatusCommand, initializeVeeshree, listApiKeys, loadConfig, loadOrBuildIndex, logger, maskKey, parseMemoryFile, reconcileExtraction, removeApiKey, runGarbageCollection, saveConfig, scanRepository, searchMemory, setApiKey, syncVeeshree, truncateToTokens };
