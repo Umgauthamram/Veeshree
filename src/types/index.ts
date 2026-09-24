@@ -100,3 +100,53 @@ export interface ContextAssembleResult {
   staleWarnings: string[];
 }
 
+export const ExtractionDeltaSchema = z.object({
+  decisions: z.array(
+    z.object({
+      title: z.string(),
+      decision: z.string(),
+      reason: z.string(),
+      alternatives_considered: z.array(z.string()).optional().default([]),
+      linked_files: z.array(z.string()).optional().default([]),
+      status: z.enum(["active", "superseded", "proposed"]).default("active"),
+      tags: z.array(z.string()).optional().default([]),
+    })
+  ).default([]),
+  current_state: z.object({
+    current_feature: z.string().optional().default(""),
+    completed_in_session: z.array(z.string()).optional().default([]),
+    next_immediate_steps: z.array(z.string()).optional().default([]),
+  }).default({}),
+  tasks: z.array(
+    z.object({
+      task_name: z.string(),
+      action: z.enum(["add", "complete", "remove"]).default("add"),
+    })
+  ).default([]),
+  constraints: z.array(
+    z.object({
+      rule: z.string(),
+      type: z.enum(["hard", "soft"]).default("hard"),
+    })
+  ).default([]),
+  rejected_approaches: z.array(
+    z.object({
+      approach: z.string(),
+      reason: z.string(),
+    })
+  ).default([]),
+  discoveries: z.array(z.string()).optional().default([]),
+});
+
+export type ExtractionDelta = z.infer<typeof ExtractionDeltaSchema>;
+
+export interface ModelRuntimeInfo {
+  name: string;
+  provider: "ollama" | "lmstudio" | "gemini" | "openai" | "anthropic";
+  status: "available" | "unavailable" | "missing_key";
+  endpoint?: string;
+  models: string[];
+  latencyMs?: number;
+}
+
+

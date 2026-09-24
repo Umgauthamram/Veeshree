@@ -1,9 +1,12 @@
 import {
   generateContext,
+  handleCaptureCommand,
+  handleKeysCommand,
+  handleModelsCommand,
   initializeVeeshree,
   logger,
   syncVeeshree
-} from "./chunk-WD7IMQGJ.js";
+} from "./chunk-W4P7SBL7.js";
 
 // src/cli.ts
 import { Command } from "commander";
@@ -36,6 +39,32 @@ program.command("context [request]").description("Generate token-budgeted system
     generateContext(request, options, process.cwd());
   } catch (err) {
     logger.error(`Context assembly failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+var keysCmd = program.command("keys").description("Manage AI provider API keys locally in .vee/config.json");
+keysCmd.command("list").description("List configured AI model providers with masked keys").action(() => {
+  handleKeysCommand("list", void 0, void 0, process.cwd());
+});
+keysCmd.command("set <provider> <key>").description("Store an API key for a provider (gemini, openai, anthropic)").action((provider, key) => {
+  handleKeysCommand("set", provider, key, process.cwd());
+});
+keysCmd.command("remove <provider>").description("Remove stored API key for a provider").action((provider) => {
+  handleKeysCommand("remove", provider, void 0, process.cwd());
+});
+program.command("models").description("Scan local engine ports (11434, 1234) and configured keys to display active LLM runtimes").action(async () => {
+  try {
+    await handleModelsCommand(process.cwd());
+  } catch (err) {
+    logger.error(`Models probe failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("capture").description("Extract structured decisions and memory updates from conversation logs or diffs").option("-f, --file <path>", "Path to conversation transcript, session log, or diff file").option("-p, --provider <provider>", "Extraction provider (gemini, openai, ollama)").option("-m, --model <model>", "Custom model name for extraction").action(async (options) => {
+  try {
+    await handleCaptureCommand(options, process.cwd());
+  } catch (err) {
+    logger.error(`Capture failed: ${err?.message || err}`);
     process.exit(1);
   }
 });

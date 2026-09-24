@@ -50,12 +50,12 @@ declare const VeeshreeConfigSchema: z.ZodObject<{
         auto_sync_on_commit?: boolean | undefined;
     }>>;
 }, "strip", z.ZodTypeAny, {
-    version: string;
     keys: {
         openai: string;
         anthropic: string;
         gemini: string;
     };
+    version: string;
     default_extractor: {
         provider: "openai" | "anthropic" | "gemini" | "ollama";
         model: string;
@@ -70,12 +70,12 @@ declare const VeeshreeConfigSchema: z.ZodObject<{
         auto_sync_on_commit: boolean;
     };
 }, {
-    version?: string | undefined;
     keys?: {
         openai?: string | undefined;
         anthropic?: string | undefined;
         gemini?: string | undefined;
     } | undefined;
+    version?: string | undefined;
     default_extractor?: {
         provider?: "openai" | "anthropic" | "gemini" | "ollama" | undefined;
         model?: string | undefined;
@@ -143,6 +143,142 @@ interface ContextAssembleResult {
     };
     staleWarnings: string[];
 }
+declare const ExtractionDeltaSchema: z.ZodObject<{
+    decisions: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        title: z.ZodString;
+        decision: z.ZodString;
+        reason: z.ZodString;
+        alternatives_considered: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
+        linked_files: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
+        status: z.ZodDefault<z.ZodEnum<["active", "superseded", "proposed"]>>;
+        tags: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
+    }, "strip", z.ZodTypeAny, {
+        status: "active" | "superseded" | "proposed";
+        decision: string;
+        title: string;
+        reason: string;
+        alternatives_considered: string[];
+        linked_files: string[];
+        tags: string[];
+    }, {
+        decision: string;
+        title: string;
+        reason: string;
+        status?: "active" | "superseded" | "proposed" | undefined;
+        alternatives_considered?: string[] | undefined;
+        linked_files?: string[] | undefined;
+        tags?: string[] | undefined;
+    }>, "many">>;
+    current_state: z.ZodDefault<z.ZodObject<{
+        current_feature: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+        completed_in_session: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
+        next_immediate_steps: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
+    }, "strip", z.ZodTypeAny, {
+        current_feature: string;
+        completed_in_session: string[];
+        next_immediate_steps: string[];
+    }, {
+        current_feature?: string | undefined;
+        completed_in_session?: string[] | undefined;
+        next_immediate_steps?: string[] | undefined;
+    }>>;
+    tasks: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        task_name: z.ZodString;
+        action: z.ZodDefault<z.ZodEnum<["add", "complete", "remove"]>>;
+    }, "strip", z.ZodTypeAny, {
+        task_name: string;
+        action: "remove" | "add" | "complete";
+    }, {
+        task_name: string;
+        action?: "remove" | "add" | "complete" | undefined;
+    }>, "many">>;
+    constraints: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        rule: z.ZodString;
+        type: z.ZodDefault<z.ZodEnum<["hard", "soft"]>>;
+    }, "strip", z.ZodTypeAny, {
+        type: "hard" | "soft";
+        rule: string;
+    }, {
+        rule: string;
+        type?: "hard" | "soft" | undefined;
+    }>, "many">>;
+    rejected_approaches: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        approach: z.ZodString;
+        reason: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        reason: string;
+        approach: string;
+    }, {
+        reason: string;
+        approach: string;
+    }>, "many">>;
+    discoveries: z.ZodDefault<z.ZodOptional<z.ZodArray<z.ZodString, "many">>>;
+}, "strip", z.ZodTypeAny, {
+    tasks: {
+        task_name: string;
+        action: "remove" | "add" | "complete";
+    }[];
+    constraints: {
+        type: "hard" | "soft";
+        rule: string;
+    }[];
+    discoveries: string[];
+    decisions: {
+        status: "active" | "superseded" | "proposed";
+        decision: string;
+        title: string;
+        reason: string;
+        alternatives_considered: string[];
+        linked_files: string[];
+        tags: string[];
+    }[];
+    current_state: {
+        current_feature: string;
+        completed_in_session: string[];
+        next_immediate_steps: string[];
+    };
+    rejected_approaches: {
+        reason: string;
+        approach: string;
+    }[];
+}, {
+    tasks?: {
+        task_name: string;
+        action?: "remove" | "add" | "complete" | undefined;
+    }[] | undefined;
+    constraints?: {
+        rule: string;
+        type?: "hard" | "soft" | undefined;
+    }[] | undefined;
+    discoveries?: string[] | undefined;
+    decisions?: {
+        decision: string;
+        title: string;
+        reason: string;
+        status?: "active" | "superseded" | "proposed" | undefined;
+        alternatives_considered?: string[] | undefined;
+        linked_files?: string[] | undefined;
+        tags?: string[] | undefined;
+    }[] | undefined;
+    current_state?: {
+        current_feature?: string | undefined;
+        completed_in_session?: string[] | undefined;
+        next_immediate_steps?: string[] | undefined;
+    } | undefined;
+    rejected_approaches?: {
+        reason: string;
+        approach: string;
+    }[] | undefined;
+}>;
+type ExtractionDelta = z.infer<typeof ExtractionDeltaSchema>;
+interface ModelRuntimeInfo {
+    name: string;
+    provider: "ollama" | "lmstudio" | "gemini" | "openai" | "anthropic";
+    status: "available" | "unavailable" | "missing_key";
+    endpoint?: string;
+    models: string[];
+    latencyMs?: number;
+}
 
 declare function getDefaultConfig(): VeeshreeConfig;
 declare function loadConfig(targetDir?: string): VeeshreeConfig;
@@ -195,6 +331,29 @@ declare function truncateToTokens(text: string, maxTokens: number): string;
  */
 declare function assembleContext(rootDir?: string, options?: ContextAssembleOptions): ContextAssembleResult;
 
+type KeyProvider = "openai" | "anthropic" | "gemini";
+declare function maskKey(key: string): string;
+declare function setApiKey(provider: KeyProvider, key: string, rootDir?: string): void;
+declare function removeApiKey(provider: KeyProvider, rootDir?: string): void;
+declare function getApiKey(provider: KeyProvider, rootDir?: string): string | undefined;
+declare function listApiKeys(rootDir?: string): Record<string, {
+    configured: boolean;
+    masked: string;
+    source: string;
+}>;
+
+declare function detectAvailableModels(rootDir?: string): Promise<ModelRuntimeInfo[]>;
+
+declare function extractMemoryFromContent(content: string, rootDir?: string, customProvider?: string, customModel?: string): Promise<ExtractionDelta>;
+
+/**
+ * Reconciles an extracted delta into the /docs/memory/ markdown files
+ */
+declare function reconcileExtraction(delta: ExtractionDelta, rootDir?: string): {
+    newDecisions: string[];
+    updatedFiles: string[];
+};
+
 interface InitOptions {
     force?: boolean;
 }
@@ -209,6 +368,17 @@ interface ContextCommandOptions {
     raw?: boolean;
 }
 declare function generateContext(request?: string, options?: ContextCommandOptions, rootDir?: string): void;
+
+declare function handleKeysCommand(action: string, provider?: string, key?: string, rootDir?: string): void;
+
+declare function handleModelsCommand(rootDir?: string): Promise<void>;
+
+interface CaptureOptions {
+    file?: string;
+    provider?: string;
+    model?: string;
+}
+declare function handleCaptureCommand(options: CaptureOptions, rootDir?: string): Promise<void>;
 
 declare const MEMORY_DIR_REL: string;
 declare const DECISIONS_DIR_REL: string;
@@ -236,4 +406,4 @@ declare const logger: {
     cyan: (msg: string) => string;
 };
 
-export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, INDEX_FILE_REL, type IndexDocument, type InitOptions, MEMORY_DIR_REL, REJECTED_FILE_REL, type ScannedProjectInfo, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, estimateTokens, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getDefaultConfig, initializeVeeshree, loadConfig, loadOrBuildIndex, logger, parseMemoryFile, saveConfig, scanRepository, syncVeeshree, truncateToTokens };
+export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type CaptureOptions, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, type ExtractionDelta, ExtractionDeltaSchema, INDEX_FILE_REL, type IndexDocument, type InitOptions, type KeyProvider, MEMORY_DIR_REL, type ModelRuntimeInfo, REJECTED_FILE_REL, type ScannedProjectInfo, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, detectAvailableModels, estimateTokens, extractMemoryFromContent, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getApiKey, getDefaultConfig, handleCaptureCommand, handleKeysCommand, handleModelsCommand, initializeVeeshree, listApiKeys, loadConfig, loadOrBuildIndex, logger, maskKey, parseMemoryFile, reconcileExtraction, removeApiKey, saveConfig, scanRepository, setApiKey, syncVeeshree, truncateToTokens };

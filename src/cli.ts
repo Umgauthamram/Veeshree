@@ -2,6 +2,9 @@ import { Command } from "commander";
 import { initializeVeeshree } from "./commands/init.js";
 import { syncVeeshree } from "./commands/sync.js";
 import { generateContext } from "./commands/context.js";
+import { handleKeysCommand } from "./commands/keys.js";
+import { handleModelsCommand } from "./commands/models.js";
+import { handleCaptureCommand } from "./commands/capture.js";
 import { logger } from "./utils/logger.js";
 
 // Check Node.js version >= 18
@@ -60,9 +63,63 @@ program
     }
   });
 
+// Keys management
+const keysCmd = program.command("keys").description("Manage AI provider API keys locally in .vee/config.json");
+
+keysCmd
+  .command("list")
+  .description("List configured AI model providers with masked keys")
+  .action(() => {
+    handleKeysCommand("list", undefined, undefined, process.cwd());
+  });
+
+keysCmd
+  .command("set <provider> <key>")
+  .description("Store an API key for a provider (gemini, openai, anthropic)")
+  .action((provider, key) => {
+    handleKeysCommand("set", provider, key, process.cwd());
+  });
+
+keysCmd
+  .command("remove <provider>")
+  .description("Remove stored API key for a provider")
+  .action((provider) => {
+    handleKeysCommand("remove", provider, undefined, process.cwd());
+  });
+
+// Models prober
+program
+  .command("models")
+  .description("Scan local engine ports (11434, 1234) and configured keys to display active LLM runtimes")
+  .action(async () => {
+    try {
+      await handleModelsCommand(process.cwd());
+    } catch (err: any) {
+      logger.error(`Models probe failed: ${err?.message || err}`);
+      process.exit(1);
+    }
+  });
+
+// Capture engine
+program
+  .command("capture")
+  .description("Extract structured decisions and memory updates from conversation logs or diffs")
+  .option("-f, --file <path>", "Path to conversation transcript, session log, or diff file")
+  .option("-p, --provider <provider>", "Extraction provider (gemini, openai, ollama)")
+  .option("-m, --model <model>", "Custom model name for extraction")
+  .action(async (options) => {
+    try {
+      await handleCaptureCommand(options, process.cwd());
+    } catch (err: any) {
+      logger.error(`Capture failed: ${err?.message || err}`);
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
 if (!process.argv.slice(2).length) {
   program.outputHelp();
 }
+
 
