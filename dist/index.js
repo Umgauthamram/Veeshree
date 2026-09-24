@@ -13,7 +13,14 @@ import {
   TASKS_FILE_REL,
   VEE_DIR_REL,
   VeeshreeConfigSchema,
+  assembleContext,
+  buildIndex,
+  calculateFileHash,
+  createSearchEngine,
+  estimateTokens,
+  findMarkdownFiles,
   generateConstraintsTemplate,
+  generateContext,
   generateCurrentStateTemplate,
   generateDecisionStubTemplate,
   generateDiscoveriesTemplate,
@@ -22,10 +29,14 @@ import {
   getDefaultConfig,
   initializeVeeshree,
   loadConfig,
+  loadOrBuildIndex,
   logger,
+  parseMemoryFile,
   saveConfig,
-  scanRepository
-} from "./chunk-UIRF5AEJ.js";
+  scanRepository,
+  syncVeeshree,
+  truncateToTokens
+} from "./chunk-WD7IMQGJ.js";
 export {
   ARCHIVE_DECISIONS_DIR_REL,
   ARCHIVE_DIR_REL,
@@ -41,7 +52,14 @@ export {
   TASKS_FILE_REL,
   VEE_DIR_REL,
   VeeshreeConfigSchema,
+  assembleContext,
+  buildIndex,
+  calculateFileHash,
+  createSearchEngine,
+  estimateTokens,
+  findMarkdownFiles,
   generateConstraintsTemplate,
+  generateContext,
   generateCurrentStateTemplate,
   generateDecisionStubTemplate,
   generateDiscoveriesTemplate,
@@ -50,8 +68,12 @@ export {
   getDefaultConfig,
   initializeVeeshree,
   loadConfig,
+  loadOrBuildIndex,
   logger,
+  parseMemoryFile,
   saveConfig,
-  scanRepository
+  scanRepository,
+  syncVeeshree,
+  truncateToTokens
 };
 //# sourceMappingURL=index.js.map

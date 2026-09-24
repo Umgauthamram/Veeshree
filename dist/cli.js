@@ -1,7 +1,9 @@
 import {
+  generateContext,
   initializeVeeshree,
-  logger
-} from "./chunk-UIRF5AEJ.js";
+  logger,
+  syncVeeshree
+} from "./chunk-WD7IMQGJ.js";
 
 // src/cli.ts
 import { Command } from "commander";
@@ -18,6 +20,22 @@ program.command("init").description("Bootstrap Veeshree project memory, heuristi
     initializeVeeshree(process.cwd(), { force: options.force });
   } catch (err) {
     logger.error(`Initialization failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("sync").description("Re-scan /docs/memory/, update /.vee/index.json, and calculate linked code SHA-256 hashes").action(() => {
+  try {
+    syncVeeshree(process.cwd());
+  } catch (err) {
+    logger.error(`Sync failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+program.command("context [request]").description("Generate token-budgeted system prompt context payload from active memory").option("-m, --max-tokens <tokens>", "Maximum total context tokens budget (default: 2000)").option("-t, --tasks", "Include project tasks list in context", false).option("-j, --json", "Output structured JSON metadata instead of raw prompt", false).option("-r, --raw", "Output pure prompt text without stderr notices", false).action((request, options) => {
+  try {
+    generateContext(request, options, process.cwd());
+  } catch (err) {
+    logger.error(`Context assembly failed: ${err?.message || err}`);
     process.exit(1);
   }
 });

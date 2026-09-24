@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import MiniSearch from 'minisearch';
 
 declare const VeeshreeConfigSchema: z.ZodObject<{
     version: z.ZodDefault<z.ZodString>;
@@ -101,11 +102,46 @@ interface ScannedProjectInfo {
 }
 interface DecisionFrontmatter {
     id?: string;
-    title: string;
-    status: "active" | "superseded" | "proposed";
+    title?: string;
+    status?: "active" | "superseded" | "proposed";
     date?: string;
     tags?: string[];
     linked_files?: string[];
+}
+interface IndexDocument {
+    id: string;
+    path: string;
+    title: string;
+    type: "decision" | "state" | "tasks" | "constraints" | "rejected" | "discoveries" | "archived_decision" | "other";
+    status: "active" | "superseded" | "proposed";
+    tags: string[];
+    linked_files: string[];
+    linked_hashes: Record<string, string>;
+    stale: boolean;
+    content: string;
+    last_modified: string;
+}
+interface VeeshreeIndexData {
+    last_updated: string;
+    documents: IndexDocument[];
+}
+interface ContextAssembleOptions {
+    request?: string;
+    maxTokens?: number;
+    includeTasks?: boolean;
+}
+interface ContextAssembleResult {
+    prompt: string;
+    totalEstimatedTokens: number;
+    includedSections: {
+        systemRules: number;
+        constraints: number;
+        currentState: number;
+        tasks: number;
+        decisionsCount: number;
+        decisionsTokens: number;
+    };
+    staleWarnings: string[];
 }
 
 declare function getDefaultConfig(): VeeshreeConfig;
@@ -121,10 +157,58 @@ declare function generateRejectedTemplate(): string;
 declare function generateDiscoveriesTemplate(): string;
 declare function generateDecisionStubTemplate(title: string, category: string, detectedTech?: string): string;
 
+/**
+ * Calculates SHA-256 hash of a file on disk
+ */
+declare function calculateFileHash(filePath: string): string | null;
+/**
+ * Recursively find all .md files in a directory
+ */
+declare function findMarkdownFiles(dir: string): string[];
+/**
+ * Parses a markdown memory file into an IndexDocument
+ */
+declare function parseMemoryFile(filePath: string, rootDir: string): IndexDocument;
+/**
+ * Builds and updates the index for the workspace
+ */
+declare function buildIndex(rootDir?: string): VeeshreeIndexData;
+/**
+ * Creates and initializes MiniSearch instance loaded with indexed documents
+ */
+declare function createSearchEngine(documents: IndexDocument[]): MiniSearch<IndexDocument>;
+/**
+ * Loads index from disk or rebuilds if missing
+ */
+declare function loadOrBuildIndex(rootDir?: string): VeeshreeIndexData;
+
+/**
+ * Approximate token count helper (~4 characters per token heuristic with safety margin)
+ */
+declare function estimateTokens(text: string): number;
+/**
+ * Truncate text to fit within a given token budget
+ */
+declare function truncateToTokens(text: string, maxTokens: number): string;
+/**
+ * Builds the pre-formatted system prompt payload strictly obeying the token budget
+ */
+declare function assembleContext(rootDir?: string, options?: ContextAssembleOptions): ContextAssembleResult;
+
 interface InitOptions {
     force?: boolean;
 }
 declare function initializeVeeshree(targetDir?: string, options?: InitOptions): void;
+
+declare function syncVeeshree(rootDir?: string): void;
+
+interface ContextCommandOptions {
+    maxTokens?: string;
+    tasks?: boolean;
+    json?: boolean;
+    raw?: boolean;
+}
+declare function generateContext(request?: string, options?: ContextCommandOptions, rootDir?: string): void;
 
 declare const MEMORY_DIR_REL: string;
 declare const DECISIONS_DIR_REL: string;
@@ -152,4 +236,4 @@ declare const logger: {
     cyan: (msg: string) => string;
 };
 
-export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, INDEX_FILE_REL, type InitOptions, MEMORY_DIR_REL, REJECTED_FILE_REL, type ScannedProjectInfo, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, generateConstraintsTemplate, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getDefaultConfig, initializeVeeshree, loadConfig, logger, saveConfig, scanRepository };
+export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, INDEX_FILE_REL, type IndexDocument, type InitOptions, MEMORY_DIR_REL, REJECTED_FILE_REL, type ScannedProjectInfo, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, estimateTokens, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getDefaultConfig, initializeVeeshree, loadConfig, loadOrBuildIndex, logger, parseMemoryFile, saveConfig, scanRepository, syncVeeshree, truncateToTokens };

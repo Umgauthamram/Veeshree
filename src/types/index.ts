@@ -54,9 +54,49 @@ export interface ScannedProjectInfo {
 
 export interface DecisionFrontmatter {
   id?: string;
-  title: string;
-  status: "active" | "superseded" | "proposed";
+  title?: string;
+  status?: "active" | "superseded" | "proposed";
   date?: string;
   tags?: string[];
   linked_files?: string[];
 }
+
+export interface IndexDocument {
+  id: string;
+  path: string;
+  title: string;
+  type: "decision" | "state" | "tasks" | "constraints" | "rejected" | "discoveries" | "archived_decision" | "other";
+  status: "active" | "superseded" | "proposed";
+  tags: string[];
+  linked_files: string[];
+  linked_hashes: Record<string, string>;
+  stale: boolean;
+  content: string;
+  last_modified: string;
+}
+
+export interface VeeshreeIndexData {
+  last_updated: string;
+  documents: IndexDocument[];
+}
+
+export interface ContextAssembleOptions {
+  request?: string;
+  maxTokens?: number;
+  includeTasks?: boolean;
+}
+
+export interface ContextAssembleResult {
+  prompt: string;
+  totalEstimatedTokens: number;
+  includedSections: {
+    systemRules: number;
+    constraints: number;
+    currentState: number;
+    tasks: number;
+    decisionsCount: number;
+    decisionsTokens: number;
+  };
+  staleWarnings: string[];
+}
+
