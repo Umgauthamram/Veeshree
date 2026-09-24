@@ -39,10 +39,23 @@ export function assembleContext(
 ): ContextAssembleResult {
   const config = loadConfig(rootDir);
   const maxTokens = options.maxTokens || config.settings?.max_context_tokens || 2000;
-  const request = options.request || "";
+  let request = options.request || "";
+
+  // Auto-detect intent if request was omitted by inspecting current-state.md or git
+  if (!request.trim()) {
+    const currentStatePath = path.join(rootDir, CURRENT_STATE_FILE_REL);
+    if (fs.existsSync(currentStatePath)) {
+      const stateContent = fs.readFileSync(currentStatePath, "utf-8");
+      const focusMatch = stateContent.match(/- \*\*Current Focus\*\*: (.+)/);
+      if (focusMatch) {
+        request = focusMatch[1].trim();
+      }
+    }
+  }
 
   let remainingTokens = maxTokens;
   const staleWarnings: string[] = [];
+
 
   // Section 1: System Rules & Preamble (~300 tokens budget) - NEVER TRUNCATED
   const systemRulesText = `## VEESHREE PERSISTENCE LAYER: SYSTEM CONTEXT & RULES

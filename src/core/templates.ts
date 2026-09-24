@@ -2,9 +2,12 @@ import type { ScannedProjectInfo } from "../types/index.js";
 
 export function generateCurrentStateTemplate(info: ScannedProjectInfo): string {
   const stackSummary = [
+    `- **Primary Purpose**: ${info.purpose}`,
     info.languages.length > 0 ? `- **Languages**: ${info.languages.join(", ")}` : "",
     info.frameworks.length > 0 ? `- **Frameworks / Libraries**: ${info.frameworks.join(", ")}` : "",
     info.databases.length > 0 ? `- **Databases / Data Layer**: ${info.databases.join(", ")}` : "",
+    info.domainEntities.length > 0 ? `- **Core Domain Entities**: ${info.domainEntities.join(", ")}` : "",
+    info.apiEndpoints.length > 0 ? `- **Detected API Endpoints**: ${info.apiEndpoints.slice(0, 8).join(", ")}` : "",
     info.infrastructure.length > 0 ? `- **Infrastructure & Tools**: ${info.infrastructure.join(", ")}` : "",
   ]
     .filter(Boolean)
@@ -15,15 +18,18 @@ export function generateCurrentStateTemplate(info: ScannedProjectInfo): string {
       ? info.recentCommits.map((c) => `- ${c}`).join("\n")
       : "- Initial setup / repository initialization";
 
+  const activeFocus = info.activeFeatureFocus || "Project Initialization & Core Architecture";
+
   return `# Current Project State
 
-## 1. System Overview
+## 1. System Overview & Purpose
 - **Project Name**: ${info.name}
-- **Detected Stack**:
+- **Active Branch**: \`${info.activeBranch || "main"}\`
+- **Detected Stack & Architecture**:
 ${stackSummary || "- Standard software project"}
 
 ## 2. Active Feature / Milestone
-- **Current Focus**: Project Initialization & Core Architecture
+- **Current Focus**: ${activeFocus}
 - **Status**: In Progress
 
 ## 3. Recent Progress (Rolling Snapshot - Max 5)
@@ -35,6 +41,7 @@ ${commitSummary}
 - [ ] Set active development goals in \`docs/memory/tasks.md\`
 `;
 }
+
 
 export function generateTasksTemplate(): string {
   return `# Project Tasks & Milestones

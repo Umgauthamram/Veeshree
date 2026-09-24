@@ -45,12 +45,18 @@ export type VeeshreeConfig = z.infer<typeof VeeshreeConfigSchema>;
 export interface ScannedProjectInfo {
   name: string;
   projectType: string;
+  purpose: string;
+  domainEntities: string[];
+  apiEndpoints: string[];
   frameworks: string[];
   languages: string[];
   databases: string[];
   infrastructure: string[];
   recentCommits: string[];
+  activeBranch?: string;
+  activeFeatureFocus?: string;
 }
+
 
 export interface DecisionFrontmatter {
   id?: string;

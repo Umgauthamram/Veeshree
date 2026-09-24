@@ -94,11 +94,16 @@ type VeeshreeConfig = z.infer<typeof VeeshreeConfigSchema>;
 interface ScannedProjectInfo {
     name: string;
     projectType: string;
+    purpose: string;
+    domainEntities: string[];
+    apiEndpoints: string[];
     frameworks: string[];
     languages: string[];
     databases: string[];
     infrastructure: string[];
     recentCommits: string[];
+    activeBranch?: string;
+    activeFeatureFocus?: string;
 }
 interface DecisionFrontmatter {
     id?: string;
@@ -284,6 +289,15 @@ declare function getDefaultConfig(): VeeshreeConfig;
 declare function loadConfig(targetDir?: string): VeeshreeConfig;
 declare function saveConfig(config: VeeshreeConfig, targetDir?: string): void;
 
+/**
+ * Enhanced Local Heuristic Scanner
+ * Automatically detects:
+ * 1. Project Purpose / Idea from README and package descriptions
+ * 2. Domain Entities from Prisma schemas, Python models, or TypeScript interfaces
+ * 3. API Endpoints from Next.js, Express, FastAPI, Flask routes
+ * 4. Active feature focus from Git branch name and recent commit history
+ * 5. Languages, Frameworks, Databases, and Infrastructure
+ */
 declare function scanRepository(targetDir?: string): ScannedProjectInfo;
 
 declare function generateCurrentStateTemplate(info: ScannedProjectInfo): string;
