@@ -18,14 +18,8 @@ export function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#08090a]/80 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-[#C2F84F] flex items-center justify-center font-bold text-[#08090a] group-hover:scale-105 transition-transform">
-            V
-          </div>
           <span className="font-bold text-lg tracking-tight text-white group-hover:text-[#C2F84F] transition-colors">
             veeshree
-          </span>
-          <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70">
-            v0.1.0
           </span>
         </Link>
 

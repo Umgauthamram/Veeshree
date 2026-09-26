@@ -29,10 +29,6 @@ export function HeroScroll() {
 
       {/* Hero Title and Interactive Scroll Path */}
       <div className="mt-32 relative flex w-fit max-w-5xl flex-col items-center justify-center gap-6 text-center z-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-[#C2F84F]">
-          <span className="w-2 h-2 rounded-full bg-[#C2F84F] animate-pulse" />
-          Local-First • Model-Independent Context Layer
-        </div>
 
         <h1 className="text-5xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[1.05] text-white">
           The Memory Layer <br />
