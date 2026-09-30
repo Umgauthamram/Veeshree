@@ -463,6 +463,7 @@ declare const logger: {
     cyan: (msg: string) => string;
     yellow: (msg: string) => string;
     red: (msg: string) => string;
+    green: (msg: string) => string;
 };
 
 export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type CaptureOptions, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, type ExtractionDelta, ExtractionDeltaSchema, type GCResult, INDEX_FILE_REL, type IndexDocument, type InitOptions, type KeyProvider, MEMORY_DIR_REL, type ModelRuntimeInfo, REJECTED_FILE_REL, type ScannedProjectInfo, type SearchResultItem, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, detectAvailableModels, estimateTokens, extractMemoryFromContent, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getApiKey, getDefaultConfig, handleCaptureCommand, handleDecisionsCommand, handleGcCommand, handleKeysCommand, handleModelsCommand, handleSearchCommand, handleStatusCommand, initializeVeeshree, listApiKeys, loadConfig, loadOrBuildIndex, logger, maskKey, parseMemoryFile, reconcileExtraction, removeApiKey, runGarbageCollection, saveConfig, scanRepository, searchMemory, setApiKey, syncVeeshree, truncateToTokens };

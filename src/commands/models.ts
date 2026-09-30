@@ -11,12 +11,13 @@ export async function handleModelsCommand(rootDir: string = process.cwd()): Prom
     let statusBadge = "";
     if (r.status === "available") {
       const lat = r.latencyMs ? ` (${r.latencyMs}ms)` : "";
-      statusBadge = logger.cyan(`✔ READY${lat}`);
+      statusBadge = logger.green(`READY${lat}`);
     } else if (r.status === "missing_key") {
-      statusBadge = logger.dim("✖ Missing API Key (run: vee keys set)");
+      statusBadge = logger.dim("Missing API Key (run: vee keys set)");
     } else {
-      statusBadge = logger.dim("✖ Engine Offline");
+      statusBadge = logger.dim("Engine Offline");
     }
+
 
     console.log(`${logger.bold(r.name.padEnd(28))} [${statusBadge}]`);
     if (r.endpoint) {
