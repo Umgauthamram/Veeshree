@@ -157,13 +157,14 @@ You are operating within a project utilizing Veeshree for model-independent memo
   // Assemble full prompt
   const sections: string[] = [
     systemRulesText,
-    constraintsText ? `## ACTIVE ARCHITECTURAL CONSTRAINTS\n${constraintsText}` : "",
-    currentStateText ? `## ACTIVE PROJECT STATE SNAPSHOT\n${currentStateText}` : "",
-    tasksText ? `## CURRENT TASKS\n${tasksText}` : "",
+    constraintsText ? `## ACTIVE ARCHITECTURAL CONSTRAINTS\n${constraintsText.replace(/^#\s+[^\n]*\n+/m, "")}` : "",
+    currentStateText ? `## ACTIVE PROJECT STATE SNAPSHOT\n${currentStateText.replace(/^#\s+[^\n]*\n+/m, "")}` : "",
+    tasksText ? `## CURRENT TASKS\n${tasksText.replace(/^#\s+[^\n]*\n+/m, "")}` : "",
     selectedDecisionBlocks.length > 0
       ? `## RELEVANT ARCHITECTURAL DECISION RECORDS (ADRs)\n${selectedDecisionBlocks.join("\n\n---\n\n")}`
       : "",
   ].filter(Boolean);
+
 
   const finalPrompt = sections.join("\n\n==================================================\n\n");
   const totalEstimatedTokens = estimateTokens(finalPrompt);
