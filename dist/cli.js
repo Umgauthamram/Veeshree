@@ -1,4 +1,6 @@
 import {
+  buildIndex,
+  extractMemoryFromContent,
   generateContext,
   handleCaptureCommand,
   handleDecisionsCommand,
@@ -9,11 +11,112 @@ import {
   handleStatusCommand,
   initializeVeeshree,
   logger,
+  reconcileExtraction,
+  resolveActiveEngine,
   syncVeeshree
-} from "./chunk-RGMR6GPU.js";
+} from "./chunk-I726VYZO.js";
 
 // src/cli.ts
 import { Command } from "commander";
+
+// src/core/watcher.ts
+import fs from "fs";
+import { execSync } from "child_process";
+async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
+  const debounceTime = options.debounceMs || 5e3;
+  let debounceTimer = null;
+  let isExtracting = false;
+  logger.title("Veeshree Ambient Memory Watcher");
+  try {
+    const engine = await resolveActiveEngine(rootDir, options.provider, options.model);
+    logger.info(`Active Extraction Engine: ${logger.bold(engine.provider)} (${engine.model}) via ${engine.source}`);
+  } catch (err) {
+    logger.warn(`No active AI engine detected yet. Memory watcher will run indexing without AI extraction.`);
+  }
+  logger.info(`Watching workspace for code modifications (settle debounce: ${debounceTime / 1e3}s)...`);
+  logger.info("Press Ctrl+C to stop.\n");
+  const ignoreList = [
+    "node_modules",
+    ".git",
+    ".vee",
+    "dist",
+    "build",
+    ".next",
+    "coverage",
+    ".DS_Store"
+  ];
+  function shouldIgnore(filePath) {
+    const normalized = filePath.replace(/\\/g, "/");
+    return ignoreList.some((pattern) => normalized.includes(`/${pattern}/`) || normalized.endsWith(`/${pattern}`));
+  }
+  async function triggerAutonomousReconciliation() {
+    if (isExtracting) return;
+    isExtracting = true;
+    try {
+      let diff = "";
+      try {
+        diff = execSync("git diff HEAD", {
+          cwd: rootDir,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"]
+        });
+      } catch {
+      }
+      buildIndex(rootDir);
+      if (diff && diff.trim().length > 30) {
+        logger.info(`[AMBIENT] Detected settled code changes (${diff.split("\n").length} diff lines). Extracting memory...`);
+        try {
+          const delta = await extractMemoryFromContent(diff, rootDir, options.provider, options.model);
+          const report = reconcileExtraction(delta, rootDir);
+          buildIndex(rootDir);
+          const totalChanges = report.newDecisions.length + report.updatedFiles.length;
+          if (totalChanges > 0) {
+            logger.success(`[AMBIENT] Auto-updated memory: +${report.newDecisions.length} new decisions, ${report.updatedFiles.length} updated files.`);
+          }
+        } catch (extractErr) {
+          logger.warn(`[AMBIENT] Background extraction skipped: ${extractErr?.message || extractErr}`);
+        }
+      }
+    } catch {
+    } finally {
+      isExtracting = false;
+    }
+  }
+  const watcher = fs.watch(
+    rootDir,
+    { recursive: true },
+    (eventType, filename) => {
+      if (!filename || shouldIgnore(filename)) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        triggerAutonomousReconciliation();
+      }, debounceTime);
+    }
+  );
+  return {
+    stop: () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      watcher.close();
+    }
+  };
+}
+
+// src/commands/watch.ts
+async function handleWatchCommand(options) {
+  try {
+    const debounceMs = options.debounce ? parseInt(options.debounce, 10) * 1e3 : 5e3;
+    await startMemoryWatcher(process.cwd(), {
+      debounceMs,
+      provider: options.provider,
+      model: options.model
+    });
+  } catch (err) {
+    logger.error(`Failed to start memory watcher: ${err?.message || err}`);
+    process.exit(1);
+  }
+}
+
+// src/cli.ts
 var nodeVersion = process.versions.node.split(".");
 var majorVersion = parseInt(nodeVersion[0], 10);
 if (majorVersion < 18) {
@@ -37,6 +140,9 @@ program.command("sync").description("Re-scan /docs/memory/, update /.vee/index.j
     logger.error(`Sync failed: ${err?.message || err}`);
     process.exit(1);
   }
+});
+program.command("watch").description("Start ambient background watcher to auto-capture code diffs into memory with zero commands").option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)").option("-p, --provider <provider>", "Specific model provider override (gemini, openai, anthropic, ollama, lmstudio)").option("-m, --model <model>", "Specific model name override").action((options) => {
+  handleWatchCommand(options);
 });
 program.command("context [request]").description("Generate token-budgeted system prompt context payload from active memory").option("-m, --max-tokens <tokens>", "Maximum total context tokens budget (default: 2000)").option("-t, --tasks", "Include project tasks list in context", false).option("-j, --json", "Output structured JSON metadata instead of raw prompt", false).option("-r, --raw", "Output pure prompt text without stderr notices", false).action((request, options) => {
   try {

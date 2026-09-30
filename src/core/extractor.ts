@@ -1,5 +1,4 @@
-import { getApiKey } from "./auth.js";
-import { loadConfig } from "./config.js";
+import { resolveActiveEngine } from "./engine-resolver.js";
 import { ExtractionDeltaSchema, type ExtractionDelta } from "../types/index.js";
 
 const EXTRACTION_SYSTEM_PROMPT = `You are Veeshree's background memory extraction engine.
@@ -41,23 +40,20 @@ export async function extractMemoryFromContent(
   customProvider?: string,
   customModel?: string
 ): Promise<ExtractionDelta> {
-  const config = loadConfig(rootDir);
-  const provider = customProvider || config.default_extractor?.provider || "gemini";
-  const model = customModel || config.default_extractor?.model || "gemini-1.5-flash";
+  const engine = await resolveActiveEngine(rootDir, customProvider, customModel);
 
-  // Provider dispatch
-  if (provider === "gemini") {
-    const key = getApiKey("gemini", rootDir);
-    if (!key) throw new Error("Gemini API key not found. Set it using 'vee keys set gemini <KEY>' or GEMINI_API_KEY.");
-    return callGemini(content, key, model);
-  } else if (provider === "openai") {
-    const key = getApiKey("openai", rootDir);
-    if (!key) throw new Error("OpenAI API key not found. Set it using 'vee keys set openai <KEY>' or OPENAI_API_KEY.");
-    return callOpenAI(content, key, model);
-  } else if (provider === "ollama") {
-    return callOllama(content, model);
+  if (engine.provider === "gemini") {
+    return callGemini(content, engine.apiKey!, engine.model);
+  } else if (engine.provider === "openai") {
+    return callOpenAI(content, engine.apiKey!, engine.model);
+  } else if (engine.provider === "anthropic") {
+    return callAnthropic(content, engine.apiKey!, engine.model);
+  } else if (engine.provider === "ollama") {
+    return callOllama(content, engine.model, engine.endpoint);
+  } else if (engine.provider === "lmstudio") {
+    return callLmStudio(content, engine.model, engine.endpoint);
   } else {
-    throw new Error(`Unsupported extraction provider: ${provider}`);
+    throw new Error(`Unsupported extraction provider: ${(engine as any).provider}`);
   }
 }
 
@@ -123,8 +119,40 @@ async function callOpenAI(content: string, apiKey: string, modelName: string): P
   return ExtractionDeltaSchema.parse(parsed);
 }
 
-async function callOllama(content: string, modelName: string): Promise<ExtractionDelta> {
-  const url = "http://127.0.0.1:11434/api/generate";
+async function callAnthropic(content: string, apiKey: string, modelName: string): Promise<ExtractionDelta> {
+  const url = "https://api.anthropic.com/v1/messages";
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: modelName,
+      max_tokens: 4096,
+      system: EXTRACTION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Anthropic API error (${response.status}): ${errText}`);
+  }
+
+  const data = (await response.json()) as any;
+  const rawJson = data.content?.[0]?.text;
+  if (!rawJson) throw new Error("Empty response from Anthropic API");
+
+  // Strip possible markdown ticks if any
+  const cleanedJson = rawJson.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+  const parsed = JSON.parse(cleanedJson);
+  return ExtractionDeltaSchema.parse(parsed);
+}
+
+async function callOllama(content: string, modelName: string, endpoint: string = "http://127.0.0.1:11434"): Promise<ExtractionDelta> {
+  const url = `${endpoint}/api/generate`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -144,6 +172,34 @@ async function callOllama(content: string, modelName: string): Promise<Extractio
   const data = (await response.json()) as any;
   const rawJson = data.response;
   if (!rawJson) throw new Error("Empty response from Ollama API");
+
+  const parsed = JSON.parse(rawJson);
+  return ExtractionDeltaSchema.parse(parsed);
+}
+
+async function callLmStudio(content: string, modelName: string, endpoint: string = "http://127.0.0.1:1234"): Promise<ExtractionDelta> {
+  const url = `${endpoint}/v1/chat/completions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: modelName,
+      messages: [
+        { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+        { role: "user", content },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`LM Studio API error (${response.status}): ${errText}`);
+  }
+
+  const data = (await response.json()) as any;
+  const rawJson = data.choices?.[0]?.message?.content;
+  if (!rawJson) throw new Error("Empty response from LM Studio API");
 
   const parsed = JSON.parse(rawJson);
   return ExtractionDeltaSchema.parse(parsed);

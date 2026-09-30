@@ -9,6 +9,7 @@ import { handleStatusCommand } from "./commands/status.js";
 import { handleSearchCommand } from "./commands/search.js";
 import { handleDecisionsCommand } from "./commands/decisions.js";
 import { handleGcCommand } from "./commands/gc.js";
+import { handleWatchCommand } from "./commands/watch.js";
 import { logger } from "./utils/logger.js";
 
 
@@ -50,6 +51,16 @@ program
       logger.error(`Sync failed: ${err?.message || err}`);
       process.exit(1);
     }
+  });
+
+program
+  .command("watch")
+  .description("Start ambient background watcher to auto-capture code diffs into memory with zero commands")
+  .option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)")
+  .option("-p, --provider <provider>", "Specific model provider override (gemini, openai, anthropic, ollama, lmstudio)")
+  .option("-m, --model <model>", "Specific model name override")
+  .action((options) => {
+    handleWatchCommand(options);
   });
 
 program
