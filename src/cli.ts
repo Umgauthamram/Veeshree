@@ -26,7 +26,7 @@ const program = new Command();
 program
   .name("vee")
   .description("Veeshree: Local-first context persistence layer for multi-model AI software development")
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("init")

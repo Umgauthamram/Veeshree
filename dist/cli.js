@@ -124,7 +124,7 @@ if (majorVersion < 18) {
   process.exit(1);
 }
 var program = new Command();
-program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version("0.1.0");
+program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version("0.2.0");
 program.command("init").description("Bootstrap Veeshree project memory, heuristic scanner, and Git hooks").option("-f, --force", "Overwrite existing memory scaffolds and hooks", false).action((options) => {
   try {
     initializeVeeshree(process.cwd(), { force: options.force });
