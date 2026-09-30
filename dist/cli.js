@@ -10,7 +10,7 @@ import {
   initializeVeeshree,
   logger,
   syncVeeshree
-} from "./chunk-PG2CDMSK.js";
+} from "./chunk-RGMR6GPU.js";
 
 // src/cli.ts
 import { Command } from "commander";

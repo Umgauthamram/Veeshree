@@ -16,14 +16,9 @@
     "README.md",
     "LICENSE"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Umgauthamram/Veeshree.git"
-  },
-  "homepage": "https://github.com/Umgauthamram/Veeshree#readme",
-  "bugs": {
-    "url": "https://github.com/Umgauthamram/Veeshree/issues"
-  },
+  "repository": {},
+  "homepage": "",
+  "bugs": {},
   "scripts": {
     "build": "tsup",
     "prepublishOnly": "npm run build && npm test",

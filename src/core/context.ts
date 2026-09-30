@@ -5,7 +5,7 @@ import type {
   ContextAssembleOptions,
   ContextAssembleResult,
 } from "../types/index.js";
-import { loadOrBuildIndex, createSearchEngine } from "./indexer.js";
+import { loadOrBuildIndex, buildIndex, createSearchEngine } from "./indexer.js";
 import { loadConfig } from "./config.js";
 import {
   CURRENT_STATE_FILE_REL,
@@ -103,7 +103,7 @@ You are operating within a project utilizing Veeshree for model-independent memo
   }
 
   // Section 5: Dynamic Decision Retrieval via BM25 Search (Remaining Tokens Budget ~1,000 - 1,200)
-  const indexData = loadOrBuildIndex(rootDir);
+  const indexData = buildIndex(rootDir);
   // Filter active decisions only (excluding archive)
   const activeDecisions = indexData.documents.filter(
     (d) => d.type === "decision" && d.status === "active"

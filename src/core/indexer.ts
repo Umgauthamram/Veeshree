@@ -158,7 +158,12 @@ export function buildIndex(rootDir: string = process.cwd()): VeeshreeIndexData {
         if (previousHash && previousHash !== currentHash) {
           // Code changed without memory update!
           doc.stale = true;
+          // Keep the original baseline hash so subsequent calls also identify drift until memory is reconciled
+          doc.linked_hashes[linkedFile] = previousHash;
         }
+      }
+      if (oldDoc.stale) {
+        doc.stale = true;
       }
     }
 
