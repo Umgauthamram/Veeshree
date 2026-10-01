@@ -60,9 +60,10 @@ export async function startMemoryWatcher(
     isExtracting = true;
 
     try {
-      // 1. Check if git diff exists
+      // 1. Collect code modifications (from git or changed file buffers)
       let diff = "";
       try {
+        // Tracked modifications
         diff = execSync("git diff HEAD", {
           cwd: rootDir,
           encoding: "utf-8",
@@ -70,6 +71,27 @@ export async function startMemoryWatcher(
         });
       } catch {
         // Not a git repo or no commits yet
+      }
+
+      // If git diff is empty, check for untracked files (e.g. newly created src/todo.ts)
+      try {
+        const untracked = execSync("git ls-files --others --exclude-standard", {
+          cwd: rootDir,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"],
+        }).trim().split("\n").filter(Boolean);
+
+        for (const file of untracked.slice(0, 5)) {
+          if (!shouldIgnore(file) && (file.endsWith(".ts") || file.endsWith(".js") || file.endsWith(".tsx") || file.endsWith(".jsx") || file.endsWith(".py"))) {
+            const filePath = path.join(rootDir, file);
+            if (fs.existsSync(filePath)) {
+              const fileContent = fs.readFileSync(filePath, "utf-8");
+              diff += `\n--- /dev/null\n+++ b/${file}\n@@ -0,0 +1,50 @@\n${fileContent.slice(0, 3000)}\n`;
+            }
+          }
+        }
+      } catch {
+        // Ignore git error
       }
 
       // Re-index code hashes

@@ -57,7 +57,7 @@ export async function resolveActiveEngine(
     }
     return {
       provider: customProvider as any,
-      model: customModel || (customProvider === "gemini" ? "gemini-1.5-flash" : "gpt-4o-mini"),
+      model: customModel || (customProvider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini"),
       source: "explicit CLI override",
       isLocal: false,
       apiKey: key,
@@ -95,7 +95,7 @@ export async function resolveActiveEngine(
   if (geminiKey) {
     return {
       provider: "gemini",
-      model: config.default_extractor?.model || "gemini-1.5-flash",
+      model: config.default_extractor?.model && config.default_extractor.model !== "gemini-1.5-flash" ? config.default_extractor.model : "gemini-2.5-flash",
       source: process.env["GEMINI_API_KEY"] ? "environment ($GEMINI_API_KEY)" : "config (.vee/config.json)",
       isLocal: false,
       apiKey: geminiKey,

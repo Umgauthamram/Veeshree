@@ -5,11 +5,11 @@ export const VeeshreeConfigSchema = z.object({
   default_extractor: z
     .object({
       provider: z.enum(["openai", "anthropic", "gemini", "ollama"]).default("gemini"),
-      model: z.string().default("gemini-1.5-flash"),
+      model: z.string().default("gemini-2.5-flash"),
     })
     .default({
       provider: "gemini",
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
     }),
   keys: z
     .object({

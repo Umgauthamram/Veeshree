@@ -14,13 +14,14 @@ import {
   reconcileExtraction,
   resolveActiveEngine,
   syncVeeshree
-} from "./chunk-I726VYZO.js";
+} from "./chunk-FEBHBWTW.js";
 
 // src/cli.ts
 import { Command } from "commander";
 
 // src/core/watcher.ts
 import fs from "fs";
+import path from "path";
 import { execSync } from "child_process";
 async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
   const debounceTime = options.debounceMs || 5e3;
@@ -60,6 +61,28 @@ async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
           encoding: "utf-8",
           stdio: ["pipe", "pipe", "ignore"]
         });
+      } catch {
+      }
+      try {
+        const untracked = execSync("git ls-files --others --exclude-standard", {
+          cwd: rootDir,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"]
+        }).trim().split("\n").filter(Boolean);
+        for (const file of untracked.slice(0, 5)) {
+          if (!shouldIgnore(file) && (file.endsWith(".ts") || file.endsWith(".js") || file.endsWith(".tsx") || file.endsWith(".jsx") || file.endsWith(".py"))) {
+            const filePath = path.join(rootDir, file);
+            if (fs.existsSync(filePath)) {
+              const fileContent = fs.readFileSync(filePath, "utf-8");
+              diff += `
+--- /dev/null
++++ b/${file}
+@@ -0,0 +1,50 @@
+${fileContent.slice(0, 3e3)}
+`;
+            }
+          }
+        }
       } catch {
       }
       buildIndex(rootDir);
