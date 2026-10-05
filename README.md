@@ -18,7 +18,7 @@
 
 **Veeshree** decouples architectural decisions, hard constraints, and task progress from temporary AI chat sessions and saves them as human-readable, version-controlled Markdown directly in `docs/memory/`.
 
-Modern software teams constantly switch between AI models (Claude 3.7 Sonnet, Gemini 2.5 Flash, GPT-4o, and local Ollama instances) and platforms (Google Antigravity, Cursor, Claude Code, Copilot). However, chat histories are ephemeral: once token limits compact or a new session starts, critical knowledge—such as why a library was rejected or which security boundaries must never be crossed—is forgotten.
+Modern software teams constantly switch between AI models (Claude 3.7 Sonnet, Gemini 2.5 Flash, GPT-4o, and local Ollama instances) and platforms (Google Antigravity, Cursor, Claude Code, Copilot). However, chat histories are ephemeral: once token limits compact or a new session starts, critical knowledge, such as why a library was rejected or which security boundaries must never be crossed is forgotten.
 
 Veeshree treats AI models as interchangeable temporary workers while making project knowledge persistent, verifiable, and deterministic.
 

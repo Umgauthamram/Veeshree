@@ -10,7 +10,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Veeshree — Local Memory for AI Software Engineering",
+  title: "Veeshree",
   description: "Decouple architectural decisions, hard constraints, and task progress from temporary chat sessions. Stored as version-controlled Markdown in docs/memory/.",
   icons: {
     icon: "/icon.svg",
