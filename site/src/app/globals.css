@@ -1,35 +1,51 @@
 @import "tailwindcss";
 
 :root {
-  --background: #08090a;
-  --foreground: #f3f4f6;
+  /* Duna Color Tokens */
+  --color-aubergine-ink: #1b0624;
+  --color-espresso: #160f0c;
+  --color-warm-ash: #766a7c;
+  --color-graphite: #444444;
+  --color-stone: #898683;
+  --color-onyx: #0d0d0d;
+  --color-smoke: #1a1816;
+  --color-charcoal: #292421;
+  --color-paper-white: #ffffff;
+  --color-linen: #f7f7f5;
+  --color-bone: #edece7;
+  --color-mist: #eeeeee;
+
+  /* Surfaces */
+  --background: #f7f7f5;
+  --foreground: #1b0624;
 }
 
 body {
-  background-color: #08090a;
-  color: #f3f4f6;
+  background-color: #f7f7f5;
+  color: #1b0624;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
-  selection-background-color: #c2f84f;
-  selection-color: #08090a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background-color: #c2f84f;
-  color: #08090a;
+  background-color: #160f0c;
+  color: #ffffff;
 }
 
-/* Custom scrollbar */
+/* Custom subtle scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #08090a;
+  background: #f7f7f5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #23272d;
-  border-radius: 4px;
+  background: #edece7;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #343a42;
+  background: #898683;
 }
+
