@@ -23,16 +23,20 @@ export function Navbar() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm font-normal text-[#444444]">
-            <Link href="/#saving-data" className="hover:text-[#1b0624] transition-colors">
+            <Link href="/docs" className="hover:text-[#1b0624] transition-colors">
+              Docs
+            </Link>
+            <Link href="/docs/saving-data" className="hover:text-[#1b0624] transition-colors">
               Saving Data
             </Link>
-            <Link href="/#architecture" className="hover:text-[#1b0624] transition-colors">
-              Architecture
-            </Link>
-            <Link href="/docs#commands" className="hover:text-[#1b0624] transition-colors">
+            <Link href="/docs/commands" className="hover:text-[#1b0624] transition-colors">
               Commands
             </Link>
+            <Link href="/docs/architecture" className="hover:text-[#1b0624] transition-colors">
+              Architecture
+            </Link>
           </nav>
+
         </div>
 
         <div className="flex items-center gap-3">
