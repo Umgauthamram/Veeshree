@@ -23,9 +23,6 @@ export function Navbar() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm font-normal text-[#444444]">
-            <Link href="/docs" className="hover:text-[#1b0624] transition-colors">
-              Documentation
-            </Link>
             <Link href="/#saving-data" className="hover:text-[#1b0624] transition-colors">
               Saving Data
             </Link>
