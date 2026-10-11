@@ -347,13 +347,18 @@ declare function assembleContext(rootDir?: string, options?: ContextAssembleOpti
 
 type KeyProvider = "openai" | "anthropic" | "gemini";
 declare function maskKey(key: string): string;
-declare function setApiKey(provider: KeyProvider, key: string, rootDir?: string): void;
-declare function removeApiKey(provider: KeyProvider, rootDir?: string): void;
+declare function getGlobalCredentialsDir(): string;
+declare function getGlobalCredentialsPath(): string;
+declare function loadGlobalCredentials(): Record<string, string>;
+declare function saveGlobalCredentials(credentials: Record<string, string>): void;
+declare function setApiKey(provider: KeyProvider, key: string, rootDir?: string, isGlobal?: boolean): void;
+declare function removeApiKey(provider: KeyProvider, rootDir?: string, isGlobal?: boolean): void;
 declare function getApiKey(provider: KeyProvider, rootDir?: string): string | undefined;
 declare function listApiKeys(rootDir?: string): Record<string, {
     configured: boolean;
     masked: string;
     source: string;
+    isGlobal: boolean;
 }>;
 
 declare function detectAvailableModels(rootDir?: string): Promise<ModelRuntimeInfo[]>;
@@ -410,9 +415,15 @@ interface ContextCommandOptions {
 }
 declare function generateContext(request?: string, options?: ContextCommandOptions, rootDir?: string): void;
 
-declare function handleKeysCommand(action: string, provider?: string, key?: string, rootDir?: string): void;
+interface KeysCommandOptions {
+    local?: boolean;
+    global?: boolean;
+}
+declare function handleKeysCommand(action: string, provider?: string, key?: string, options?: KeysCommandOptions, rootDir?: string): void;
 
 declare function handleModelsCommand(rootDir?: string): Promise<void>;
+declare function handleModelsUseCommand(provider: string, model: string, rootDir?: string): void;
+declare function handleModelsPullCommand(modelName: string): void;
 
 interface CaptureOptions {
     file?: string;
@@ -436,6 +447,15 @@ declare function handleDecisionsCommand(options?: {
 }, rootDir?: string): void;
 
 declare function handleGcCommand(rootDir?: string): void;
+
+interface DoctorCheckItem {
+    category: string;
+    name: string;
+    status: "ok" | "warn" | "fail";
+    message: string;
+    remedy?: string;
+}
+declare function handleDoctorCommand(rootDir?: string): Promise<void>;
 
 declare const MEMORY_DIR_REL: string;
 declare const DECISIONS_DIR_REL: string;
@@ -466,4 +486,4 @@ declare const logger: {
     green: (msg: string) => string;
 };
 
-export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type CaptureOptions, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, type ExtractionDelta, ExtractionDeltaSchema, type GCResult, INDEX_FILE_REL, type IndexDocument, type InitOptions, type KeyProvider, MEMORY_DIR_REL, type ModelRuntimeInfo, REJECTED_FILE_REL, type ScannedProjectInfo, type SearchResultItem, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, detectAvailableModels, estimateTokens, extractMemoryFromContent, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getApiKey, getDefaultConfig, handleCaptureCommand, handleDecisionsCommand, handleGcCommand, handleKeysCommand, handleModelsCommand, handleSearchCommand, handleStatusCommand, initializeVeeshree, listApiKeys, loadConfig, loadOrBuildIndex, logger, maskKey, parseMemoryFile, reconcileExtraction, removeApiKey, runGarbageCollection, saveConfig, scanRepository, searchMemory, setApiKey, syncVeeshree, truncateToTokens };
+export { ARCHIVE_DECISIONS_DIR_REL, ARCHIVE_DIR_REL, COMPLETED_TASKS_FILE_REL, CONFIG_FILE_REL, CONSTRAINTS_FILE_REL, CURRENT_STATE_FILE_REL, type CaptureOptions, type ContextAssembleOptions, type ContextAssembleResult, type ContextCommandOptions, DECISIONS_DIR_REL, DISCOVERIES_FILE_REL, type DecisionFrontmatter, type DoctorCheckItem, type ExtractionDelta, ExtractionDeltaSchema, type GCResult, INDEX_FILE_REL, type IndexDocument, type InitOptions, type KeyProvider, type KeysCommandOptions, MEMORY_DIR_REL, type ModelRuntimeInfo, REJECTED_FILE_REL, type ScannedProjectInfo, type SearchResultItem, TASKS_FILE_REL, VEE_DIR_REL, type VeeshreeConfig, VeeshreeConfigSchema, type VeeshreeIndexData, assembleContext, buildIndex, calculateFileHash, createSearchEngine, detectAvailableModels, estimateTokens, extractMemoryFromContent, findMarkdownFiles, generateConstraintsTemplate, generateContext, generateCurrentStateTemplate, generateDecisionStubTemplate, generateDiscoveriesTemplate, generateRejectedTemplate, generateTasksTemplate, getApiKey, getDefaultConfig, getGlobalCredentialsDir, getGlobalCredentialsPath, handleCaptureCommand, handleDecisionsCommand, handleDoctorCommand, handleGcCommand, handleKeysCommand, handleModelsCommand, handleModelsPullCommand, handleModelsUseCommand, handleSearchCommand, handleStatusCommand, initializeVeeshree, listApiKeys, loadConfig, loadGlobalCredentials, loadOrBuildIndex, logger, maskKey, parseMemoryFile, reconcileExtraction, removeApiKey, runGarbageCollection, saveConfig, saveGlobalCredentials, scanRepository, searchMemory, setApiKey, syncVeeshree, truncateToTokens };

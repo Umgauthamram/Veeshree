@@ -20,6 +20,7 @@ export * from "./commands/status.js";
 export * from "./commands/search.js";
 export * from "./commands/decisions.js";
 export * from "./commands/gc.js";
+export * from "./commands/doctor.js";
 export * from "./utils/constants.js";
 export * from "./utils/logger.js";
 

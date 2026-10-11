@@ -14,11 +14,11 @@
 
 ---
 
-## ✱ Overview
+## Overview
 
-**Veeshree** decouples architectural decisions, hard constraints, and task progress from temporary AI chat sessions and saves them as human-readable, version-controlled Markdown directly in `docs/memory/`.
+**Veeshree** decouples architectural decisions, hard constraints, and task progress from temporary AI chat sessions and persists them as human-readable, version-controlled Markdown directly in `docs/memory/`.
 
-Modern software teams constantly switch between AI models (Claude 3.7 Sonnet, Gemini 2.5 Flash, GPT-4o, and local Ollama instances) and platforms (Google Antigravity, Cursor, Claude Code, Copilot). However, chat histories are ephemeral: once token limits compact or a new session starts, critical knowledge, such as why a library was rejected or which security boundaries must never be crossed is forgotten.
+Modern software teams switch between AI models (Claude 3.7 Sonnet, Gemini 2.0 Flash, GPT-4o, and local Ollama instances) and platforms (Google Antigravity, Cursor, Claude Code, GitHub Copilot). However, chat histories are ephemeral: once token limits compact or a new session starts, critical knowledge—such as why a library was rejected or which security boundaries must never be crossed—is forgotten.
 
 Veeshree treats AI models as interchangeable temporary workers while making project knowledge persistent, verifiable, and deterministic.
 
@@ -33,18 +33,19 @@ Veeshree treats AI models as interchangeable temporary workers while making proj
 
 ---
 
-## ⚡ Key Highlights
+## Key Highlights
 
-- 🧠 **100% Model Agnostic**: Work across Claude, Gemini, OpenAI, and local Ollama/LM Studio models without vendor lock-in.
-- 📁 **Git-Native Markdown**: All memory lives in `docs/memory/` and is reviewed and audited via regular Git Pull Requests.
-- ⚡ **Zero-Token Scaffolding**: Heuristic scanner analyzes frameworks, database schemas (Prisma, SQLAlchemy, Drizzle), and Git history without spending any LLM tokens.
-- 🛡️ **SHA-256 Code Drift Guard**: Cryptographically tracks source code files linked to Architectural Decision Records (ADRs) and alerts agents when code changes without memory updates.
-- 🎯 **Strict Token Budgeting**: Enforces a strict ~2,000 token maximum ceiling per prompt injection, ensuring critical constraints are never truncated.
-- 🚀 **Pure JavaScript / Zero Native C++**: Fast in-memory BM25 indexing (`minisearch`) serialized to `.vee/index.json`. Instant install on macOS, Linux, and Windows.
+- **100% Model Agnostic**: Work across Claude, Gemini, OpenAI, and local Ollama / LM Studio models without vendor lock-in.
+- **Git-Native Markdown**: All memory lives in `docs/memory/` and is reviewed and audited via regular Git Pull Requests.
+- **Zero-Token Scaffolding**: Heuristic scanner analyzes frameworks, database schemas (Prisma, SQLAlchemy, Drizzle), and Git history without spending any LLM tokens.
+- **Global Keystore (Zero Key Leakage)**: API keys are stored in your machine user directory (`~/.veeshree/credentials.json`), preventing accidental Git commits or repository leaks.
+- **SHA-256 Code Drift Guard**: Cryptographically tracks source code files linked to Architectural Decision Records (ADRs) and alerts agents when code changes without memory updates.
+- **Strict Token Budgeting**: Enforces a strict ~2,000 token maximum ceiling per prompt injection, ensuring critical constraints are never truncated.
+- **Pure JavaScript / Zero Native Dependencies**: Fast in-memory BM25 indexing (`minisearch`) serialized to `.vee/index.json`. Instant install on macOS, Linux, and Windows.
 
 ---
 
-## 📦 Installation
+## Installation
 
 Install globally or per-project via npm:
 
@@ -64,65 +65,121 @@ npx veeshree init
 
 ---
 
-## 🚀 3-Minute Quickstart
+## Quickstart
 
 ### 1. Initialize your repository
 ```bash
 vee init
 ```
-Scaffolds `docs/memory/` with pre-populated templates and generates instruction files for Google Antigravity (`GEMINI.md`, `.agents/rules/veeshree.md`), Claude (`CLAUDE.md`), and Cursor (`.cursorrules`). *(Cost: 0 LLM Tokens)*
+Scaffolds `docs/memory/` with pre-populated templates, protects local config in `.gitignore`, and generates instruction files for Google Antigravity (`GEMINI.md`, `.agents/rules/veeshree.md`), Claude (`CLAUDE.md`), and Cursor (`.cursorrules`). *(Token cost: 0)*
 
-### 2. Start ambient memory extraction
+### 2. Configure your AI model credentials
+```bash
+# Store securely in global machine keystore (~/.veeshree/credentials.json)
+vee keys set gemini YOUR_GEMINI_API_KEY
+```
+Keys are stored in your user profile directory by default, ensuring they are accessible across all local projects without ever being checked into Git or exposed to GitHub.
+
+### 3. Start ambient memory extraction
 ```bash
 vee watch
 ```
-Runs quietly in a secondary terminal. Debounces your edits, captures git diffs, extracts architectural decisions, and updates task lists automatically.
+Runs quietly in a secondary terminal tab or background daemon. Debounces your edits, captures git diffs, extracts architectural decisions, and updates task lists automatically.
 
-### 3. Generate token-budgeted prompt context
+### 4. Run system health & security diagnostics
+```bash
+vee doctor
+```
+Verifies memory scaffold integrity, validates `.gitignore` secret protections, confirms active model connectivity, and checks for code drift.
+
+### 5. Generate token-budgeted prompt context
 ```bash
 vee context "Implement rate limiter middleware"
 ```
-Assembles a priority-ranked prompt payload capped at ~2,000 tokens with system rules, active constraints, milestone snapshot, and relevant BM25-ranked ADRs.
+Assembles a priority-ranked prompt payload capped at ~2,000 tokens with system rules, active constraints, milestone snapshots, and relevant BM25-ranked ADRs.
 
-### 4. Check health & code drift
+---
+
+## Security & Keystore Architecture
+
+Veeshree employs a multi-tiered security hierarchy to eliminate API key exposure:
+
+1. **Global Machine Keystore (Default)**:
+   Running `vee keys set <provider> <key>` saves credentials to `~/.veeshree/credentials.json` (outside the repository). No keys ever touch project folders.
+2. **Automated `.gitignore` Protection**:
+   `vee init` automatically verifies and appends `/.vee/config.json` and `/.vee/index.json` to `.gitignore`.
+3. **Environment & Local `.env` Support**:
+   Veeshree resolves keys in the following priority:
+   - System environment (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+   - Project `.env` file
+   - Local `.vee/config.json` (project-specific override if set with `--local`)
+   - Global keystore (`~/.veeshree/credentials.json`)
+
+### Key Management Commands
 ```bash
-vee status
+# Set key globally (default)
+vee keys set gemini AIzaSy...
+
+# Update existing key
+vee keys update gemini AIzaSy...
+
+# Set key locally in project only
+vee keys set gemini AIzaSy... --local
+
+# List all providers and credential sources
+vee keys list
+
+# Remove a configured key
+vee keys remove gemini
 ```
-Displays a live dashboard of current milestones, task completion progress, active model engines, and SHA-256 code drift alerts.
 
 ---
 
-## 💾 3 Ways to Save & Manage Data
+## Model Selection & Version Management
 
-Veeshree gives you complete freedom in how memory is captured and maintained:
+Veeshree allows you to select, configure, and pull model versions directly from the terminal:
 
-| Mode | How it Works | Best For | Model Key Needed? |
-|---|---|---|---|
-| **Mode 1: Ambient Watcher** (`vee watch`) | Runs in the background, debounces file saves, parses diffs, and writes ADRs automatically. | Developers who want zero-touch automated memory persistence. | Optional (Local Ollama is 100% free) |
-| **Mode 2: Native IDE Rules** | Instructions in `GEMINI.md`, `CLAUDE.md`, and `.cursorrules` instruct the IDE's assistant to read and update `docs/memory/` directly. | Engineers using Antigravity, Cursor, or Claude Code with built-in model subscriptions. | None (uses IDE assistant) |
-| **Mode 3: Manual CLI Pipeline** | Explicit commands (`vee context`, `git diff \| vee capture`, `vee sync`) for terminal workflows and scripts. | Scripting, custom shell aliases, git hooks, and CI/CD pipelines. | Optional |
+```bash
+# Probe active LLM engines (Ollama, LM Studio, Gemini, OpenAI, Claude)
+vee models
+
+# Set default extraction model version
+vee models use gemini gemini-2.0-flash
+vee models use openai gpt-4o-mini
+vee models use ollama llama3.2
+
+# Download or update a local Ollama model
+vee models pull llama3.2
+vee models pull qwen2.5-coder
+```
 
 ---
 
-## 🛠️ Complete CLI Command Reference
+## Complete CLI Command Reference
 
 | Command | Category | Description | Token Cost |
 |---|---|---|---|
-| [`vee init`](#vee-init) | Scaffolding | Scans repo stack, scaffolds `docs/memory/`, creates IDE rule files | 0 Tokens |
-| [`vee watch`](#vee-watch) | Ambient Engine | Starts background file watcher for automatic diff extraction | Low (~1-2k per diff) |
-| [`vee status`](#vee-status) | Dashboard | Live terminal overview of milestones, tasks, models, and drift | 0 Tokens |
-| [`vee context [query]`](#vee-context) | Context Injection | Assembles strict ~2,000 token prompt payload with BM25 ADRs | 0 Tokens |
-| [`vee sync`](#vee-sync) | Indexing | Recalculates source file SHA-256 hashes and updates search index | 0 Tokens |
-| [`vee capture`](#vee-capture) | AI Extraction | Parses git diffs or conversation transcripts into ADRs and tasks | Low (~1-2k Tokens) |
-| [`vee models`](#vee-models) | Discovery | Probes local Ollama / LM Studio ports and cloud API credentials | 0 Tokens |
-| [`vee keys`](#vee-keys) | Security | Securely stores and masks API keys in `.vee/config.json` | 0 Tokens |
-| [`vee search <query>`](#vee-search) | Search | Fast BM25 keyword and phrase search across all memory files | 0 Tokens |
-| [`vee decisions`](#vee-decisions) | Inspection | Lists all Architectural Decision Records with status and tags | 0 Tokens |
-| [`vee gc`](#vee-gc) | Pruning | Prunes completed tasks and archives superseded ADRs | 0 Tokens |
+| `vee init` | Scaffolding | Scans repo stack, scaffolds `docs/memory/`, updates `.gitignore`, creates IDE rules | 0 Tokens |
+| `vee doctor` | Diagnostics | Validates memory health, `.gitignore` security, and AI engine connectivity | 0 Tokens |
+| `vee watch` | Ambient Engine | Starts background file watcher for automatic diff extraction | Low (~1-2k per diff) |
+| `vee status` | Dashboard | Live terminal overview of milestones, tasks, models, and drift | 0 Tokens |
+| `vee context [query]` | Context Injection | Assembles strict ~2,000 token prompt payload with BM25 ADRs | 0 Tokens |
+| `vee sync` | Indexing | Recalculates source file SHA-256 hashes and updates search index | 0 Tokens |
+| `vee capture` | AI Extraction | Parses git diffs or conversation transcripts into ADRs and tasks | Low (~1-2k Tokens) |
+| `vee models` | Discovery | Probes local Ollama / LM Studio ports and cloud API credentials | 0 Tokens |
+| `vee models use <p> <m>` | Model Config | Sets active extraction model version (e.g., gemini-2.0-flash) | 0 Tokens |
+| `vee models pull <m>` | Local Engine | Pulls/updates model weights using local Ollama | 0 Tokens |
+| `vee keys list` | Security | Lists configured AI model providers with masked keys and sources | 0 Tokens |
+| `vee keys set <p> <key>` | Security | Stores an API key in machine keystore (or `--local` for project) | 0 Tokens |
+| `vee keys update <p> <key>` | Security | Updates an existing API key | 0 Tokens |
+| `vee keys remove <p>` | Security | Removes a stored API key | 0 Tokens |
+| `vee search <query>` | Search | Fast BM25 keyword and phrase search across all memory files | 0 Tokens |
+| `vee decisions` | Inspection | Lists all Architectural Decision Records with status and tags | 0 Tokens |
+| `vee gc` | Pruning | Prunes completed tasks and archives superseded ADRs | 0 Tokens |
 
 ---
 
-## 📂 Repository Memory Structure
+## Repository Memory Structure
 
 ```plaintext
 your-codebase/
@@ -140,14 +197,14 @@ your-codebase/
 │           ├── completed-tasks.md
 │           └── decisions/
 ├── .vee/                            <-- Local search cache & config (Git ignored)
-│   ├── config.json                  <-- Preferences & local API key storage
+│   ├── config.json                  <-- Project settings
 │   └── index.json                   <-- Fast search index & SHA-256 code hashes
 └── .agents/rules/veeshree.md        <-- Native IDE assistant instruction file
 ```
 
 ---
 
-## 🎯 Token Budget Allocation Pipeline
+## Token Budget Allocation Pipeline
 
 When injecting context into an AI model, Veeshree enforces an uncompromising **~2,000 token maximum ceiling** organized into strict priority tiers:
 
@@ -164,7 +221,7 @@ Total Context Payload:                       <= 2,000 tokens
 
 ---
 
-## 🛡️ SHA-256 Code Drift Detection
+## SHA-256 Code Drift Detection
 
 Every Architectural Decision Record (ADR) tracks the exact SHA-256 checksums of the source files it governs. If code is modified out-of-band without an ADR update, Veeshree detects the drift:
 
@@ -179,33 +236,27 @@ To reconcile: run 'vee capture --diff' or 'vee sync'
 
 ---
 
-## 📊 Comparison: Why Veeshree?
+## Architecture Comparison
 
 | Capability | Raw Chat Logs | Vector Memory (Mem0, etc.) | Veeshree (`vee`) |
 |---|---|---|---|
-| **Model Independence** | ❌ Tied to specific chat session | ⚠️ Requires remote cloud API | **✓ 100% Model Agnostic** |
-| **Human Verifiability** | ❌ Hidden in proprietary UI | ❌ Opaque binary vector embeddings | **✓ Git-Native Markdown Files** |
-| **Architectural Rationale** | ⚠️ Lost during context compaction | ❌ Unstructured fact snippets | **✓ Structured ADRs & Rejected Alternatives** |
-| **Code Drift Detection** | ❌ None | ❌ None | **✓ Cryptographic SHA-256 Hash Guard** |
-| **Token Budget Control** | ❌ Bloated (50k+ tokens) | ⚠️ Variable retrieval window | **✓ Strict ~2,000 Token Cap** |
-| **Installation Friction** | N/A | Requires Python, C++ builds, or DBs | **✓ Pure JavaScript / Zero Native C++** |
+| **Model Independence** | Tied to specific chat session | Requires remote cloud API | Yes (100% Model Agnostic) |
+| **Human Verifiability** | Hidden in proprietary UI | Opaque binary vector embeddings | Yes (Git-Native Markdown Files) |
+| **Architectural Rationale** | Lost during context compaction | Unstructured fact snippets | Yes (Structured ADRs & Rejected Alternatives) |
+| **Code Drift Detection** | None | None | Yes (Cryptographic SHA-256 Hash Guard) |
+| **Token Budget Control** | Bloated (50k+ tokens) | Variable retrieval window | Yes (Strict ~2,000 Token Cap) |
+| **Secret Protection** | N/A | Variable | Yes (Global Keystore + Auto-Gitignore) |
+| **Installation Friction** | N/A | Requires Python, C++ builds, or DBs | Pure JavaScript / Zero Native Dependencies |
 
 ---
 
-## 🤖 Supported Model Providers & Local Engines
+## Supported Model Providers & Engines
 
-- **Cloud APIs**: Google Gemini (`gemini-2.5-flash`, `gemini-1.5-pro`), OpenAI (`gpt-4o`, `gpt-4o-mini`), Anthropic (`claude-3-5-sonnet`).
+- **Cloud APIs**: Google Gemini (`gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-1.5-pro`), OpenAI (`gpt-4o`, `gpt-4o-mini`), Anthropic (`claude-3-5-sonnet`, `claude-3-5-haiku`).
 - **Local Zero-Cost Engines**: Ollama (`http://localhost:11434`, e.g. `llama3.2`, `qwen2.5-coder`), LM Studio (`http://localhost:1234`).
 
-Configure keys locally with:
-```bash
-vee keys set gemini AIzaSy...
-vee keys set openai sk-...
-vee keys list
-```
-
 ---
 
-## 📄 License
+## License
 
 MIT © 2026 Veeshree

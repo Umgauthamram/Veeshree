@@ -98,7 +98,7 @@ export async function detectAvailableModels(rootDir: string = process.cwd()): Pr
     name: "Google Gemini Cloud",
     provider: "gemini",
     status: geminiKey ? "available" : "missing_key",
-    models: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"],
+    models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
   });
 
   // 4. OpenAI Cloud Provider

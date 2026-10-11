@@ -4,9 +4,12 @@ import {
   generateContext,
   handleCaptureCommand,
   handleDecisionsCommand,
+  handleDoctorCommand,
   handleGcCommand,
   handleKeysCommand,
   handleModelsCommand,
+  handleModelsPullCommand,
+  handleModelsUseCommand,
   handleSearchCommand,
   handleStatusCommand,
   initializeVeeshree,
@@ -14,7 +17,7 @@ import {
   reconcileExtraction,
   resolveActiveEngine,
   syncVeeshree
-} from "./chunk-FEBHBWTW.js";
+} from "./chunk-XFIIFRS7.js";
 
 // src/cli.ts
 import { Command } from "commander";
@@ -147,7 +150,7 @@ if (majorVersion < 18) {
   process.exit(1);
 }
 var program = new Command();
-program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version("0.2.1");
+program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version("0.3.0");
 program.command("init").description("Bootstrap Veeshree project memory, heuristic scanner, and Git hooks").option("-f, --force", "Overwrite existing memory scaffolds and hooks", false).action((options) => {
   try {
     initializeVeeshree(process.cwd(), { force: options.force });
@@ -175,21 +178,43 @@ program.command("context [request]").description("Generate token-budgeted system
     process.exit(1);
   }
 });
-var keysCmd = program.command("keys").description("Manage AI provider API keys locally in .vee/config.json");
-keysCmd.command("list").description("List configured AI model providers with masked keys").action(() => {
-  handleKeysCommand("list", void 0, void 0, process.cwd());
+var keysCmd = program.command("keys").description("Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)");
+keysCmd.command("list").description("List configured AI model providers with masked keys and sources").action(() => {
+  handleKeysCommand("list", void 0, void 0, {}, process.cwd());
 });
-keysCmd.command("set <provider> <key>").description("Store an API key for a provider (gemini, openai, anthropic)").action((provider, key) => {
-  handleKeysCommand("set", provider, key, process.cwd());
+keysCmd.command("set <provider> <key>").description("Store an API key for a provider (gemini, openai, anthropic). Saved in global keystore by default.").option("-l, --local", "Store in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
+  handleKeysCommand("set", provider, key, options, process.cwd());
 });
-keysCmd.command("remove <provider>").description("Remove stored API key for a provider").action((provider) => {
-  handleKeysCommand("remove", provider, void 0, process.cwd());
+keysCmd.command("update <provider> <key>").description("Update an existing API key for a provider").option("-l, --local", "Update in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
+  handleKeysCommand("update", provider, key, options, process.cwd());
 });
-program.command("models").description("Scan local engine ports (11434, 1234) and configured keys to display active LLM runtimes").action(async () => {
+keysCmd.command("remove <provider>").description("Remove stored API key for a provider").option("-l, --local", "Remove from local .vee/config.json only", false).option("-g, --global", "Remove from global keystore only", false).action((provider, options) => {
+  handleKeysCommand("remove", provider, void 0, options, process.cwd());
+});
+var modelsCmd = program.command("models").description("Scan local engine ports (11434, 1234), active LLM runtimes, and configure model versions").action(async () => {
   try {
     await handleModelsCommand(process.cwd());
   } catch (err) {
     logger.error(`Models probe failed: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+modelsCmd.command("use <provider> <model>").description("Set default extractor model version (e.g. 'vee models use gemini gemini-2.0-flash')").action((provider, model) => {
+  try {
+    handleModelsUseCommand(provider, model, process.cwd());
+  } catch (err) {
+    logger.error(`Failed to update default model: ${err?.message || err}`);
+    process.exit(1);
+  }
+});
+modelsCmd.command("pull <model>").description("Pull / update a local model via Ollama (e.g. 'vee models pull llama3.2')").action((model) => {
+  handleModelsPullCommand(model);
+});
+program.command("doctor").description("Run comprehensive repository health, security, and AI engine connectivity diagnostics").action(async () => {
+  try {
+    await handleDoctorCommand(process.cwd());
+  } catch (err) {
+    logger.error(`Diagnostics failed: ${err?.message || err}`);
     process.exit(1);
   }
 });

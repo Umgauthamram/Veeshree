@@ -57,7 +57,7 @@ export async function resolveActiveEngine(
     }
     return {
       provider: customProvider as any,
-      model: customModel || (customProvider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini"),
+      model: customModel || (customProvider === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini"),
       source: "explicit CLI override",
       isLocal: false,
       apiKey: key,
@@ -90,13 +90,17 @@ export async function resolveActiveEngine(
     };
   }
 
-  // 3. Check Cloud Providers with Ambient Environment Keys / Config
+  // 3. Check Cloud Providers with Ambient Environment Keys / Keystore
   const geminiKey = getApiKey("gemini", rootDir);
   if (geminiKey) {
+    const defaultModel = config.default_extractor?.model && config.default_extractor.model !== "gemini-2.5-flash"
+      ? config.default_extractor.model
+      : "gemini-2.0-flash";
+    const envSource = process.env["GEMINI_API_KEY"] ? "environment ($GEMINI_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "gemini",
-      model: config.default_extractor?.model && config.default_extractor.model !== "gemini-1.5-flash" ? config.default_extractor.model : "gemini-2.5-flash",
-      source: process.env["GEMINI_API_KEY"] ? "environment ($GEMINI_API_KEY)" : "config (.vee/config.json)",
+      model: defaultModel,
+      source: envSource,
       isLocal: false,
       apiKey: geminiKey,
     };
@@ -104,10 +108,14 @@ export async function resolveActiveEngine(
 
   const openaiKey = getApiKey("openai", rootDir);
   if (openaiKey) {
+    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "openai"
+      ? config.default_extractor.model
+      : "gpt-4o-mini";
+    const envSource = process.env["OPENAI_API_KEY"] ? "environment ($OPENAI_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "openai",
-      model: "gpt-4o-mini",
-      source: process.env["OPENAI_API_KEY"] ? "environment ($OPENAI_API_KEY)" : "config (.vee/config.json)",
+      model: defaultModel,
+      source: envSource,
       isLocal: false,
       apiKey: openaiKey,
     };
@@ -115,10 +123,14 @@ export async function resolveActiveEngine(
 
   const anthropicKey = getApiKey("anthropic", rootDir);
   if (anthropicKey) {
+    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "anthropic"
+      ? config.default_extractor.model
+      : "claude-3-5-haiku";
+    const envSource = process.env["ANTHROPIC_API_KEY"] ? "environment ($ANTHROPIC_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "anthropic",
-      model: "claude-3-5-haiku",
-      source: process.env["ANTHROPIC_API_KEY"] ? "environment ($ANTHROPIC_API_KEY)" : "config (.vee/config.json)",
+      model: defaultModel,
+      source: envSource,
       isLocal: false,
       apiKey: anthropicKey,
     };

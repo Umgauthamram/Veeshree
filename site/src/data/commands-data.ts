@@ -75,7 +75,7 @@ Extractor model: Local Ollama / Gemini 2.5 Flash
     flags: "-c, --check : Exits with a non-zero exit code if any decision is stale (ideal for CI/CD checks).",
     example: "vee status\nvee status --check",
     outputExample: `=== Veeshree Project Status ===
-Project: veeshree (v0.2.1)
+Project: veeshree (v0.3.0)
 Current Focus: Production Documentation & Multi-Page Routing
 Milestone Progress: [||||||||||||||||||||] 100% (6/6 tasks)
 Active ADRs: 4 (0 drifted)

@@ -21,6 +21,27 @@ export interface ModeratorReport {
   databases: string[];
   installedRules: string[];
   seededFiles: string[];
+  gitIgnoreUpdated?: boolean;
+}
+
+export function ensureGitIgnoreProtection(rootDir: string): boolean {
+  const gitignorePath = path.join(rootDir, ".gitignore");
+  const entries = ["/.vee/config.json", "/.vee/index.json"];
+
+  if (!fs.existsSync(gitignorePath)) {
+    const content = `# Veeshree local config & search index (auto-generated)\n/.vee/config.json\n/.vee/index.json\n.env\n`;
+    fs.writeFileSync(gitignorePath, content, "utf-8");
+    return true;
+  }
+
+  const existing = fs.readFileSync(gitignorePath, "utf-8");
+  const missing = entries.filter((e) => !existing.includes(e));
+  if (missing.length > 0) {
+    const toAppend = `\n# Veeshree local config & search cache\n` + missing.join("\n") + "\n";
+    fs.appendFileSync(gitignorePath, toAppend, "utf-8");
+    return true;
+  }
+  return false;
 }
 
 export function moderateAndBootstrap(
@@ -119,7 +140,10 @@ export function moderateAndBootstrap(
   // 6. Automatically inject IDE Rules (Zero-Human setup for Cursor, Claude, Antigravity, Copilot)
   const installedRules = installIdeRules(rootDir);
 
-  // 7. Initial Sync & Hash Calculation
+  // 7. Protect local config & index from Git exposure
+  const gitIgnoreUpdated = ensureGitIgnoreProtection(rootDir);
+
+  // 8. Initial Sync & Hash Calculation
   buildIndex(rootDir);
 
   return {
@@ -130,5 +154,6 @@ export function moderateAndBootstrap(
     databases: scan.databases,
     installedRules,
     seededFiles,
+    gitIgnoreUpdated,
   };
 }

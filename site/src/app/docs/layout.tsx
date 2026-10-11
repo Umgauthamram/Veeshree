@@ -179,7 +179,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             </nav>
 
             <div className="pt-6 border-t border-[#edece7] px-1 space-y-2 text-xs text-[#898683]">
-              <div>Veeshree 0.2.1</div>
+              <div>Veeshree 0.3.0</div>
               <a
                 href="https://www.npmjs.com/package/veeshree"
                 target="_blank"
