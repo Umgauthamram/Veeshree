@@ -46,8 +46,8 @@ export async function extractMemoryFromContent(
     return callGemini(content, engine.apiKey!, engine.model);
   } else if (engine.provider === "openai") {
     return callOpenAI(content, engine.apiKey!, engine.model);
-  } else if (engine.provider === "anthropic") {
-    return callAnthropic(content, engine.apiKey!, engine.model);
+  } else if (engine.provider === "groq" || engine.provider === "nvidia") {
+    return callOpenAICompatible(engine.endpoint!, content, engine.apiKey!, engine.model, engine.provider);
   } else if (engine.provider === "ollama") {
     return callOllama(content, engine.model, engine.endpoint);
   } else if (engine.provider === "lmstudio") {
@@ -55,6 +55,29 @@ export async function extractMemoryFromContent(
   } else {
     throw new Error(`Unsupported extraction provider: ${(engine as any).provider}`);
   }
+}
+
+function cleanAndParseJson(raw: string): any {
+  let cleaned = raw.trim();
+  // Strip Markdown JSON codeblocks
+  if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.slice(7);
+  } else if (cleaned.startsWith("```")) {
+    cleaned = cleaned.slice(3);
+  }
+  if (cleaned.endsWith("```")) {
+    cleaned = cleaned.slice(0, -3);
+  }
+  cleaned = cleaned.trim();
+
+  // Extract JSON payload between outer braces if model included conversational preamble
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+
+  return JSON.parse(cleaned);
 }
 
 async function callGemini(content: string, apiKey: string, modelName: string): Promise<ExtractionDelta> {
@@ -84,71 +107,64 @@ async function callGemini(content: string, apiKey: string, modelName: string): P
   const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!rawJson) throw new Error("Empty response from Gemini API");
 
-  const parsed = JSON.parse(rawJson);
+  const parsed = cleanAndParseJson(rawJson);
   return ExtractionDeltaSchema.parse(parsed);
 }
 
-async function callOpenAI(content: string, apiKey: string, modelName: string): Promise<ExtractionDelta> {
-  const url = "https://api.openai.com/v1/chat/completions";
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
+async function callOpenAICompatible(
+  url: string,
+  content: string,
+  apiKey: string,
+  modelName: string,
+  providerName: string = "OpenAI"
+): Promise<ExtractionDelta> {
+  const executeCall = async (withFormat: boolean) => {
+    const body: any = {
       model: modelName,
       messages: [
         { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
         { role: "user", content },
       ],
-      response_format: { type: "json_object" },
-    }),
-  });
+    };
+    if (withFormat) {
+      body.response_format = { type: "json_object" };
+    }
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+  };
+
+  // Attempt with JSON response_format
+  let response = await executeCall(true);
+
+  // If endpoint/model does not support response_format (e.g. certain NVIDIA NIM or Groq setups)
+  if (!response.ok && response.status === 400) {
+    const retry = await executeCall(false);
+    if (retry.ok) {
+      response = retry;
+    }
+  }
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`OpenAI API error (${response.status}): ${errText}`);
+    throw new Error(`${providerName} API error (${response.status}): ${errText}`);
   }
 
   const data = (await response.json()) as any;
   const rawJson = data.choices?.[0]?.message?.content;
-  if (!rawJson) throw new Error("Empty response from OpenAI API");
+  if (!rawJson) throw new Error(`Empty response from ${providerName} API`);
 
-  const parsed = JSON.parse(rawJson);
+  const parsed = cleanAndParseJson(rawJson);
   return ExtractionDeltaSchema.parse(parsed);
 }
 
-async function callAnthropic(content: string, apiKey: string, modelName: string): Promise<ExtractionDelta> {
-  const url = "https://api.anthropic.com/v1/messages";
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: modelName,
-      max_tokens: 4096,
-      system: EXTRACTION_SYSTEM_PROMPT,
-      messages: [{ role: "user", content }],
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Anthropic API error (${response.status}): ${errText}`);
-  }
-
-  const data = (await response.json()) as any;
-  const rawJson = data.content?.[0]?.text;
-  if (!rawJson) throw new Error("Empty response from Anthropic API");
-
-  // Strip possible markdown ticks if any
-  const cleanedJson = rawJson.replace(/^```json\s*/, "").replace(/```$/, "").trim();
-  const parsed = JSON.parse(cleanedJson);
-  return ExtractionDeltaSchema.parse(parsed);
+async function callOpenAI(content: string, apiKey: string, modelName: string): Promise<ExtractionDelta> {
+  return callOpenAICompatible("https://api.openai.com/v1/chat/completions", content, apiKey, modelName, "OpenAI");
 }
 
 async function callOllama(content: string, modelName: string, endpoint: string = "http://127.0.0.1:11434"): Promise<ExtractionDelta> {
@@ -173,7 +189,7 @@ async function callOllama(content: string, modelName: string, endpoint: string =
   const rawJson = data.response;
   if (!rawJson) throw new Error("Empty response from Ollama API");
 
-  const parsed = JSON.parse(rawJson);
+  const parsed = cleanAndParseJson(rawJson);
   return ExtractionDeltaSchema.parse(parsed);
 }
 
@@ -201,6 +217,6 @@ async function callLmStudio(content: string, modelName: string, endpoint: string
   const rawJson = data.choices?.[0]?.message?.content;
   if (!rawJson) throw new Error("Empty response from LM Studio API");
 
-  const parsed = JSON.parse(rawJson);
+  const parsed = cleanAndParseJson(rawJson);
   return ExtractionDeltaSchema.parse(parsed);
 }

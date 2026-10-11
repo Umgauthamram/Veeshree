@@ -4,27 +4,30 @@ import MiniSearch from 'minisearch';
 declare const VeeshreeConfigSchema: z.ZodObject<{
     version: z.ZodDefault<z.ZodString>;
     default_extractor: z.ZodDefault<z.ZodObject<{
-        provider: z.ZodDefault<z.ZodEnum<["openai", "anthropic", "gemini", "ollama"]>>;
+        provider: z.ZodDefault<z.ZodEnum<["openai", "gemini", "ollama", "groq", "nvidia", "lmstudio"]>>;
         model: z.ZodDefault<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        provider: "openai" | "anthropic" | "gemini" | "ollama";
+        provider: "openai" | "gemini" | "ollama" | "groq" | "nvidia" | "lmstudio";
         model: string;
     }, {
-        provider?: "openai" | "anthropic" | "gemini" | "ollama" | undefined;
+        provider?: "openai" | "gemini" | "ollama" | "groq" | "nvidia" | "lmstudio" | undefined;
         model?: string | undefined;
     }>>;
     keys: z.ZodDefault<z.ZodObject<{
         openai: z.ZodDefault<z.ZodOptional<z.ZodString>>;
-        anthropic: z.ZodDefault<z.ZodOptional<z.ZodString>>;
         gemini: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+        groq: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+        nvidia: z.ZodDefault<z.ZodOptional<z.ZodString>>;
     }, "strip", z.ZodTypeAny, {
         openai: string;
-        anthropic: string;
         gemini: string;
+        groq: string;
+        nvidia: string;
     }, {
         openai?: string | undefined;
-        anthropic?: string | undefined;
         gemini?: string | undefined;
+        groq?: string | undefined;
+        nvidia?: string | undefined;
     }>>;
     local_engine: z.ZodDefault<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;
@@ -52,12 +55,13 @@ declare const VeeshreeConfigSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     keys: {
         openai: string;
-        anthropic: string;
         gemini: string;
+        groq: string;
+        nvidia: string;
     };
     version: string;
     default_extractor: {
-        provider: "openai" | "anthropic" | "gemini" | "ollama";
+        provider: "openai" | "gemini" | "ollama" | "groq" | "nvidia" | "lmstudio";
         model: string;
     };
     local_engine: {
@@ -72,12 +76,13 @@ declare const VeeshreeConfigSchema: z.ZodObject<{
 }, {
     keys?: {
         openai?: string | undefined;
-        anthropic?: string | undefined;
         gemini?: string | undefined;
+        groq?: string | undefined;
+        nvidia?: string | undefined;
     } | undefined;
     version?: string | undefined;
     default_extractor?: {
-        provider?: "openai" | "anthropic" | "gemini" | "ollama" | undefined;
+        provider?: "openai" | "gemini" | "ollama" | "groq" | "nvidia" | "lmstudio" | undefined;
         model?: string | undefined;
     } | undefined;
     local_engine?: {
@@ -278,7 +283,7 @@ declare const ExtractionDeltaSchema: z.ZodObject<{
 type ExtractionDelta = z.infer<typeof ExtractionDeltaSchema>;
 interface ModelRuntimeInfo {
     name: string;
-    provider: "ollama" | "lmstudio" | "gemini" | "openai" | "anthropic";
+    provider: "ollama" | "lmstudio" | "gemini" | "openai" | "groq" | "nvidia";
     status: "available" | "unavailable" | "missing_key";
     endpoint?: string;
     models: string[];
@@ -345,7 +350,7 @@ declare function truncateToTokens(text: string, maxTokens: number): string;
  */
 declare function assembleContext(rootDir?: string, options?: ContextAssembleOptions): ContextAssembleResult;
 
-type KeyProvider = "openai" | "anthropic" | "gemini";
+type KeyProvider = "gemini" | "groq" | "nvidia" | "openai";
 declare function maskKey(key: string): string;
 declare function getGlobalCredentialsDir(): string;
 declare function getGlobalCredentialsPath(): string;
@@ -379,10 +384,11 @@ interface GCResult {
     relocatedDecisions: string[];
 }
 /**
- * Runs State Garbage Collection:
- * 1. Caches rolling progress items in current-state.md to max 5 items, archiving excess to archive/completed-tasks.md
- * 2. Moves decisions with status: "superseded" to archive/decisions/
- * 3. Re-indexes memory so index.json reflects the clean state
+ * Runs State Garbage Collection & Archival:
+ * 1. Archives excess rolling progress items in current-state.md (>5 items) to archive/completed-tasks.md
+ * 2. Archives completed tasks (- [x]) from tasks.md to archive/completed-tasks.md, keeping tasks.md clean
+ * 3. Moves decisions with status: "superseded" from decisions/ to archive/decisions/
+ * 4. Re-indexes memory so index.json reflects the clean state
  */
 declare function runGarbageCollection(rootDir?: string): GCResult;
 

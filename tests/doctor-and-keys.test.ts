@@ -55,4 +55,33 @@ describe("Doctor, Security & Keystore Protection", () => {
     expect(config.default_extractor.provider).toBe("gemini");
     expect(config.default_extractor.model).toBe("gemini-2.0-flash");
   });
+
+  it("resolves active engine for gemini, groq, nvidia, and openai providers", async () => {
+    const { resolveActiveEngine } = await import("../src/core/engine-resolver.js");
+
+    setApiKey("gemini", "mock-gemini-key", tempDir, false);
+    setApiKey("groq", "mock-groq-key", tempDir, false);
+    setApiKey("nvidia", "mock-nvidia-key", tempDir, false);
+    setApiKey("openai", "mock-openai-key", tempDir, false);
+
+    const geminiEngine = await resolveActiveEngine(tempDir, "gemini");
+    expect(geminiEngine.provider).toBe("gemini");
+    expect(geminiEngine.model).toBe("gemini-2.0-flash");
+    expect(geminiEngine.apiKey).toBe("mock-gemini-key");
+
+    const groqEngine = await resolveActiveEngine(tempDir, "groq");
+    expect(groqEngine.provider).toBe("groq");
+    expect(groqEngine.model).toBe("llama-3.3-70b-versatile");
+    expect(groqEngine.endpoint).toBe("https://api.groq.com/openai/v1/chat/completions");
+
+    const nvidiaEngine = await resolveActiveEngine(tempDir, "nvidia");
+    expect(nvidiaEngine.provider).toBe("nvidia");
+    expect(nvidiaEngine.model).toBe("meta/llama-3.1-70b-instruct");
+    expect(nvidiaEngine.endpoint).toBe("https://integrate.api.nvidia.com/v1/chat/completions");
+
+    const openaiEngine = await resolveActiveEngine(tempDir, "openai");
+    expect(openaiEngine.provider).toBe("openai");
+    expect(openaiEngine.model).toBe("gpt-4o-mini");
+    expect(openaiEngine.endpoint).toBe("https://api.openai.com/v1/chat/completions");
+  });
 });

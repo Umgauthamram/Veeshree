@@ -3,7 +3,7 @@ import { getApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
 
 export interface ResolvedEngine {
-  provider: "ollama" | "lmstudio" | "gemini" | "openai" | "anthropic";
+  provider: "ollama" | "lmstudio" | "gemini" | "groq" | "nvidia" | "openai";
   model: string;
   source: string;
   isLocal: boolean;
@@ -17,10 +17,11 @@ export interface ResolvedEngine {
  * 1. Explicit Custom Provider & Model (if passed)
  * 2. Local Ollama (if active on 11434 with downloaded models)
  * 3. Local LM Studio (if active on 1234)
- * 4. Gemini (from GEMINI_API_KEY env or .vee/config.json)
- * 5. OpenAI (from OPENAI_API_KEY env or .vee/config.json)
- * 6. Anthropic (from ANTHROPIC_API_KEY env or .vee/config.json)
- * 7. Configured default extractor from .vee/config.json
+ * 4. Configured default extractor from .vee/config.json (if key is set)
+ * 5. Gemini (from GEMINI_API_KEY env, .env, keystore, or .vee/config.json)
+ * 6. Groq (from GROQ_API_KEY env, .env, keystore, or .vee/config.json)
+ * 7. NVIDIA (from NVIDIA_API_KEY env, .env, keystore, or .vee/config.json)
+ * 8. OpenAI (from OPENAI_API_KEY env, .env, keystore, or .vee/config.json)
  */
 export async function resolveActiveEngine(
   rootDir: string = process.cwd(),
@@ -31,7 +32,8 @@ export async function resolveActiveEngine(
 
   // 1. If explicit custom provider requested
   if (customProvider) {
-    if (customProvider === "ollama") {
+    const cp = customProvider.toLowerCase();
+    if (cp === "ollama") {
       return {
         provider: "ollama",
         model: customModel || "llama3",
@@ -40,7 +42,7 @@ export async function resolveActiveEngine(
         endpoint: "http://127.0.0.1:11434",
       };
     }
-    if (customProvider === "lmstudio") {
+    if (cp === "lmstudio") {
       return {
         provider: "lmstudio",
         model: customModel || "local-model",
@@ -49,19 +51,58 @@ export async function resolveActiveEngine(
         endpoint: "http://127.0.0.1:1234",
       };
     }
-    const key = getApiKey(customProvider as any, rootDir);
+
+    const key = getApiKey(cp as any, rootDir);
     if (!key) {
       throw new Error(
-        `API key for '${customProvider}' not found. Please set '${customProvider.toUpperCase()}_API_KEY' or run 'vee keys set ${customProvider} <KEY>'.`
+        `API key for '${customProvider}' not found. Please set '${cp.toUpperCase()}_API_KEY' or run 'vee keys set ${cp} <KEY>'.`
       );
     }
-    return {
-      provider: customProvider as any,
-      model: customModel || (customProvider === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini"),
-      source: "explicit CLI override",
-      isLocal: false,
-      apiKey: key,
-    };
+
+    if (cp === "gemini") {
+      return {
+        provider: "gemini",
+        model: customModel || "gemini-2.0-flash",
+        source: "explicit CLI override",
+        isLocal: false,
+        apiKey: key,
+      };
+    }
+
+    if (cp === "groq") {
+      return {
+        provider: "groq",
+        model: customModel || "llama-3.3-70b-versatile",
+        source: "explicit CLI override",
+        isLocal: false,
+        apiKey: key,
+        endpoint: "https://api.groq.com/openai/v1/chat/completions",
+      };
+    }
+
+    if (cp === "nvidia") {
+      return {
+        provider: "nvidia",
+        model: customModel || "meta/llama-3.1-70b-instruct",
+        source: "explicit CLI override",
+        isLocal: false,
+        apiKey: key,
+        endpoint: "https://integrate.api.nvidia.com/v1/chat/completions",
+      };
+    }
+
+    if (cp === "openai") {
+      return {
+        provider: "openai",
+        model: customModel || "gpt-4o-mini",
+        source: "explicit CLI override",
+        isLocal: false,
+        apiKey: key,
+        endpoint: "https://api.openai.com/v1/chat/completions",
+      };
+    }
+
+    throw new Error(`Unsupported provider '${customProvider}'. Supported: gemini, groq, nvidia, openai, ollama, lmstudio`);
   }
 
   // 2. Probe Local Engines First (Zero Cost, Zero Data Leaving Machine)
@@ -90,10 +131,49 @@ export async function resolveActiveEngine(
     };
   }
 
-  // 3. Check Cloud Providers with Ambient Environment Keys / Keystore
+  // 3. Check if user configured a preferred default_extractor and its key is present
+  const preferredProvider = config.default_extractor?.provider;
+  if (preferredProvider && preferredProvider !== "gemini") {
+    const prefKey = getApiKey(preferredProvider as any, rootDir);
+    if (prefKey) {
+      const preferredModel = config.default_extractor?.model;
+      if (preferredProvider === "groq") {
+        return {
+          provider: "groq",
+          model: preferredModel || "llama-3.3-70b-versatile",
+          source: "configured default extractor (.vee/config.json)",
+          isLocal: false,
+          apiKey: prefKey,
+          endpoint: "https://api.groq.com/openai/v1/chat/completions",
+        };
+      }
+      if (preferredProvider === "nvidia") {
+        return {
+          provider: "nvidia",
+          model: preferredModel || "meta/llama-3.1-70b-instruct",
+          source: "configured default extractor (.vee/config.json)",
+          isLocal: false,
+          apiKey: prefKey,
+          endpoint: "https://integrate.api.nvidia.com/v1/chat/completions",
+        };
+      }
+      if (preferredProvider === "openai") {
+        return {
+          provider: "openai",
+          model: preferredModel || "gpt-4o-mini",
+          source: "configured default extractor (.vee/config.json)",
+          isLocal: false,
+          apiKey: prefKey,
+          endpoint: "https://api.openai.com/v1/chat/completions",
+        };
+      }
+    }
+  }
+
+  // 4. Check Cloud Providers with Ambient Environment Keys / Keystore (Gemini -> Groq -> NVIDIA -> OpenAI)
   const geminiKey = getApiKey("gemini", rootDir);
   if (geminiKey) {
-    const defaultModel = config.default_extractor?.model && config.default_extractor.model !== "gemini-2.5-flash"
+    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "gemini"
       ? config.default_extractor.model
       : "gemini-2.0-flash";
     const envSource = process.env["GEMINI_API_KEY"] ? "environment ($GEMINI_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
@@ -103,6 +183,38 @@ export async function resolveActiveEngine(
       source: envSource,
       isLocal: false,
       apiKey: geminiKey,
+    };
+  }
+
+  const groqKey = getApiKey("groq", rootDir);
+  if (groqKey) {
+    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "groq"
+      ? config.default_extractor.model
+      : "llama-3.3-70b-versatile";
+    const envSource = process.env["GROQ_API_KEY"] ? "environment ($GROQ_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
+    return {
+      provider: "groq",
+      model: defaultModel,
+      source: envSource,
+      isLocal: false,
+      apiKey: groqKey,
+      endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    };
+  }
+
+  const nvidiaKey = getApiKey("nvidia", rootDir);
+  if (nvidiaKey) {
+    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "nvidia"
+      ? config.default_extractor.model
+      : "meta/llama-3.1-70b-instruct";
+    const envSource = process.env["NVIDIA_API_KEY"] ? "environment ($NVIDIA_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
+    return {
+      provider: "nvidia",
+      model: defaultModel,
+      source: envSource,
+      isLocal: false,
+      apiKey: nvidiaKey,
+      endpoint: "https://integrate.api.nvidia.com/v1/chat/completions",
     };
   }
 
@@ -118,28 +230,14 @@ export async function resolveActiveEngine(
       source: envSource,
       isLocal: false,
       apiKey: openaiKey,
+      endpoint: "https://api.openai.com/v1/chat/completions",
     };
   }
 
-  const anthropicKey = getApiKey("anthropic", rootDir);
-  if (anthropicKey) {
-    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "anthropic"
-      ? config.default_extractor.model
-      : "claude-3-5-haiku";
-    const envSource = process.env["ANTHROPIC_API_KEY"] ? "environment ($ANTHROPIC_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
-    return {
-      provider: "anthropic",
-      model: defaultModel,
-      source: envSource,
-      isLocal: false,
-      apiKey: anthropicKey,
-    };
-  }
-
-  // 4. No active model engine found -> informative error
+  // 5. No active model engine found -> informative error
   throw new Error(
     "No active AI engine or API key detected.\n" +
       "  -> To use local models (free): Start Ollama (http://127.0.0.1:11434) or LM Studio.\n" +
-      "  -> To use cloud models: Run 'vee keys set gemini <KEY>' or export GEMINI_API_KEY."
+      "  -> To use cloud models: Run 'vee keys set <provider> <KEY>' (gemini, groq, nvidia, openai)."
   );
 }

@@ -46,6 +46,7 @@ const docSections: DocSection[] = [
     short: "Commands",
     subItems: [
       { label: "vee init", href: "/docs/commands/init" },
+      { label: "vee doctor", href: "/docs/commands/doctor" },
       { label: "vee watch", href: "/docs/commands/watch" },
       { label: "vee status", href: "/docs/commands/status" },
       { label: "vee context", href: "/docs/commands/context" },
@@ -179,7 +180,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             </nav>
 
             <div className="pt-6 border-t border-[#edece7] px-1 space-y-2 text-xs text-[#898683]">
-              <div>Veeshree 0.3.0</div>
+              <div>Veeshree 0.3.1</div>
               <a
                 href="https://www.npmjs.com/package/veeshree"
                 target="_blank"

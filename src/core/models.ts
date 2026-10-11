@@ -101,22 +101,31 @@ export async function detectAvailableModels(rootDir: string = process.cwd()): Pr
     models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
   });
 
-  // 4. OpenAI Cloud Provider
+  // 4. Groq Cloud LPU Provider
+  const groqKey = getApiKey("groq", rootDir);
+  runtimes.push({
+    name: "Groq Cloud LPU",
+    provider: "groq",
+    status: groqKey ? "available" : "missing_key",
+    models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+  });
+
+  // 5. NVIDIA NIM Provider
+  const nvidiaKey = getApiKey("nvidia", rootDir);
+  runtimes.push({
+    name: "NVIDIA NIM Cloud",
+    provider: "nvidia",
+    status: nvidiaKey ? "available" : "missing_key",
+    models: ["meta/llama-3.1-70b-instruct", "meta/llama-3.1-8b-instruct"],
+  });
+
+  // 6. OpenAI Cloud Provider
   const openaiKey = getApiKey("openai", rootDir);
   runtimes.push({
     name: "OpenAI Cloud",
     provider: "openai",
     status: openaiKey ? "available" : "missing_key",
-    models: ["gpt-4o", "gpt-4o-mini", "o1-preview", "o3-mini"],
-  });
-
-  // 5. Anthropic Cloud Provider
-  const anthropicKey = getApiKey("anthropic", rootDir);
-  runtimes.push({
-    name: "Anthropic Claude Cloud",
-    provider: "anthropic",
-    status: anthropicKey ? "available" : "missing_key",
-    models: ["claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
+    models: ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1-preview"],
   });
 
   return runtimes;

@@ -27,7 +27,7 @@ const program = new Command();
 program
   .name("vee")
   .description("Veeshree: Local-first context persistence layer for multi-model AI software development")
-  .version("0.3.0");
+  .version("0.3.1");
 
 program
   .command("init")
@@ -58,7 +58,7 @@ program
   .command("watch")
   .description("Start ambient background watcher to auto-capture code diffs into memory with zero commands")
   .option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)")
-  .option("-p, --provider <provider>", "Specific model provider override (gemini, openai, anthropic, ollama, lmstudio)")
+  .option("-p, --provider <provider>", "Specific model provider override (gemini, groq, nvidia, openai, ollama, lmstudio)")
   .option("-m, --model <model>", "Specific model name override")
   .action((options) => {
     handleWatchCommand(options);
@@ -81,7 +81,6 @@ program
   });
 
 // Keys management
-// Keys management
 const keysCmd = program
   .command("keys")
   .description("Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)");
@@ -94,16 +93,16 @@ keysCmd
   });
 
 keysCmd
-  .command("set <provider> <key>")
-  .description("Store an API key for a provider (gemini, openai, anthropic). Saved in global keystore by default.")
+  .command("set [provider] [key]")
+  .description("Store an API key for a provider (gemini, groq, nvidia, openai). Saved in global keystore by default.")
   .option("-l, --local", "Store in project .vee/config.json instead of global keystore", false)
   .action((provider, key, options) => {
     handleKeysCommand("set", provider, key, options, process.cwd());
   });
 
 keysCmd
-  .command("update <provider> <key>")
-  .description("Update an existing API key for a provider")
+  .command("update [provider] [key]")
+  .description("Update an existing API key for a provider (gemini, groq, nvidia, openai)")
   .option("-l, --local", "Update in project .vee/config.json instead of global keystore", false)
   .action((provider, key, options) => {
     handleKeysCommand("update", provider, key, options, process.cwd());
@@ -168,7 +167,7 @@ program
   .command("capture")
   .description("Extract structured decisions and memory updates from conversation logs or diffs")
   .option("-f, --file <path>", "Path to conversation transcript, session log, or diff file")
-  .option("-p, --provider <provider>", "Extraction provider (gemini, openai, ollama)")
+  .option("-p, --provider <provider>", "Extraction provider (gemini, groq, nvidia, openai, ollama, lmstudio)")
   .option("-m, --model <model>", "Custom model name for extraction")
   .action(async (options) => {
     try {

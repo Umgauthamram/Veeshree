@@ -43,7 +43,8 @@ export function initializeVeeshree(targetDir: string = process.cwd(), options: I
   logger.log("");
   logger.info(logger.bold("Next Steps:"));
   logger.log(`  1. ${logger.bold("Configure Background AI Extractor")}:`);
-  logger.log(`     ${logger.cyan("vee keys set gemini <YOUR_API_KEY>")}`);
+  logger.log(`     ${logger.cyan("vee keys set <provider> <YOUR_API_KEY>")}`);
+  logger.log(`     ${logger.dim("Providers: gemini | groq | nvidia | openai")}`);
   logger.log(`     ${logger.dim("(Stored in ~/.veeshree/credentials.json — never exposed to GitHub/Git)")}`);
   logger.log(`     ${logger.dim("Or run local Ollama on port 11434 for 100% free offline extraction.")}`);
   logger.log(`  2. ${logger.bold("Start Ambient Memory Watcher")} (runs in secondary terminal tab):`);

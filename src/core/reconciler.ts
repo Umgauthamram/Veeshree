@@ -4,6 +4,7 @@ import type { ExtractionDelta } from "../types/index.js";
 import { buildIndex } from "./indexer.js";
 import {
   DECISIONS_DIR_REL,
+  ARCHIVE_DECISIONS_DIR_REL,
   CURRENT_STATE_FILE_REL,
   TASKS_FILE_REL,
   CONSTRAINTS_FILE_REL,
@@ -77,9 +78,27 @@ ${
 }
 `;
 
-      fs.writeFileSync(filePath, frontmatter, "utf-8");
-      newDecisions.push(`docs/memory/decisions/${filename}`);
-      updatedFiles.push(`docs/memory/decisions/${filename}`);
+      if (dec.status === "superseded") {
+        const archiveDecisionsDir = path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL);
+        if (!fs.existsSync(archiveDecisionsDir)) {
+          fs.mkdirSync(archiveDecisionsDir, { recursive: true });
+        }
+        const archiveFilePath = path.join(archiveDecisionsDir, filename);
+        fs.writeFileSync(archiveFilePath, frontmatter, "utf-8");
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch {
+            // ignore
+          }
+        }
+        newDecisions.push(`docs/memory/archive/decisions/${filename}`);
+        updatedFiles.push(`docs/memory/archive/decisions/${filename}`);
+      } else {
+        fs.writeFileSync(filePath, frontmatter, "utf-8");
+        newDecisions.push(`docs/memory/decisions/${filename}`);
+        updatedFiles.push(`docs/memory/decisions/${filename}`);
+      }
     }
   }
 

@@ -76,7 +76,19 @@ Scaffolds `docs/memory/` with pre-populated templates, protects local config in 
 ### 2. Configure your AI model credentials
 ```bash
 # Store securely in global machine keystore (~/.veeshree/credentials.json)
-vee keys set gemini YOUR_GEMINI_API_KEY
+vee keys set <provider> <YOUR_API_KEY>
+
+# Supported providers:
+# - gemini : Google Gemini (gemini-2.0-flash, gemini-1.5-flash)
+# - groq   : Groq LPU Cloud (llama-3.3-70b-versatile, ultra-fast)
+# - nvidia : NVIDIA NIM (meta/llama-3.1-70b-instruct)
+# - openai : OpenAI (gpt-4o-mini, gpt-4o)
+
+# Examples:
+vee keys set gemini AIzaSy...
+vee keys set groq gsk_...
+vee keys set nvidia nvapi-...
+vee keys set openai sk-...
 ```
 Keys are stored in your user profile directory by default, ensuring they are accessible across all local projects without ever being checked into Git or exposed to GitHub.
 
@@ -110,7 +122,7 @@ Veeshree employs a multi-tiered security hierarchy to eliminate API key exposure
    `vee init` automatically verifies and appends `/.vee/config.json` and `/.vee/index.json` to `.gitignore`.
 3. **Environment & Local `.env` Support**:
    Veeshree resolves keys in the following priority:
-   - System environment (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+   - System environment (`GEMINI_API_KEY`, `GROQ_API_KEY`, `NVIDIA_API_KEY`, `OPENAI_API_KEY`)
    - Project `.env` file
    - Local `.vee/config.json` (project-specific override if set with `--local`)
    - Global keystore (`~/.veeshree/credentials.json`)
@@ -252,7 +264,7 @@ To reconcile: run 'vee capture --diff' or 'vee sync'
 
 ## Supported Model Providers & Engines
 
-- **Cloud APIs**: Google Gemini (`gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-1.5-pro`), OpenAI (`gpt-4o`, `gpt-4o-mini`), Anthropic (`claude-3-5-sonnet`, `claude-3-5-haiku`).
+- **Cloud APIs**: Google Gemini (`gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-1.5-pro`), Groq (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`), NVIDIA (`meta/llama-3.1-70b-instruct`, `meta/llama-3.1-8b-instruct`), OpenAI (`gpt-4o-mini`, `gpt-4o`, `o3-mini`).
 - **Local Zero-Cost Engines**: Ollama (`http://localhost:11434`, e.g. `llama3.2`, `qwen2.5-coder`), LM Studio (`http://localhost:1234`).
 
 ---

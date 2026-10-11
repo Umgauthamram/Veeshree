@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { loadConfig, saveConfig } from "./config.js";
 
-export type KeyProvider = "openai" | "anthropic" | "gemini";
+export type KeyProvider = "gemini" | "groq" | "nvidia" | "openai";
 
 export function maskKey(key: string): string {
   if (!key) return "(not set)";
@@ -83,7 +83,7 @@ export function setApiKey(
   // Local repository config (.vee/config.json)
   const config = loadConfig(rootDir);
   if (!config.keys) {
-    config.keys = { openai: "", anthropic: "", gemini: "" };
+    config.keys = { openai: "", gemini: "", groq: "", nvidia: "" };
   }
   config.keys[provider] = trimmed;
   saveConfig(config, rootDir);
@@ -148,7 +148,7 @@ export function listApiKeys(
   const config = loadConfig(rootDir);
   const globalCreds = loadGlobalCredentials();
   const localEnv = parseEnvFile(path.join(rootDir, ".env"));
-  const providers: KeyProvider[] = ["gemini", "openai", "anthropic"];
+  const providers: KeyProvider[] = ["gemini", "groq", "nvidia", "openai"];
   const result: Record<string, { configured: boolean; masked: string; source: string; isGlobal: boolean }> = {};
 
   for (const p of providers) {

@@ -4,7 +4,7 @@ export const VeeshreeConfigSchema = z.object({
   version: z.string().default("0.1.0"),
   default_extractor: z
     .object({
-      provider: z.enum(["openai", "anthropic", "gemini", "ollama"]).default("gemini"),
+      provider: z.enum(["openai", "gemini", "ollama", "groq", "nvidia", "lmstudio"]).default("gemini"),
       model: z.string().default("gemini-2.0-flash"),
     })
     .default({
@@ -14,8 +14,9 @@ export const VeeshreeConfigSchema = z.object({
   keys: z
     .object({
       openai: z.string().optional().default(""),
-      anthropic: z.string().optional().default(""),
       gemini: z.string().optional().default(""),
+      groq: z.string().optional().default(""),
+      nvidia: z.string().optional().default(""),
     })
     .default({}),
   local_engine: z
@@ -148,7 +149,7 @@ export type ExtractionDelta = z.infer<typeof ExtractionDeltaSchema>;
 
 export interface ModelRuntimeInfo {
   name: string;
-  provider: "ollama" | "lmstudio" | "gemini" | "openai" | "anthropic";
+  provider: "ollama" | "lmstudio" | "gemini" | "openai" | "groq" | "nvidia";
   status: "available" | "unavailable" | "missing_key";
   endpoint?: string;
   models: string[];

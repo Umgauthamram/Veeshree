@@ -147,4 +147,34 @@ Discarded in favor of relational model.
     expect(mongoArchivedResults.length).toBeGreaterThan(0);
     expect(mongoArchivedResults[0].title).toBe("MongoDB Strategy");
   });
+
+  it("archives completed tasks (- [x]) from tasks.md to archive/completed-tasks.md", () => {
+    const tasksPath = path.join(tempDir, "docs", "memory", "tasks.md");
+    const testTasksContent = `# Project Tasks & Milestones
+
+## Active Tasks
+- [x] Implement OAuth2 login with GitHub
+- [ ] Add Redis cache layer
+- [x] Configure production logging
+- [ ] Write integration test suite
+`;
+    fs.writeFileSync(tasksPath, testTasksContent, "utf-8");
+
+    const gcResult = runGarbageCollection(tempDir);
+    expect(gcResult.archivedTasksCount).toBe(2);
+
+    // Verify tasks.md no longer has the completed tasks
+    const updatedTasks = fs.readFileSync(tasksPath, "utf-8");
+    expect(updatedTasks).not.toContain("Implement OAuth2 login with GitHub");
+    expect(updatedTasks).not.toContain("Configure production logging");
+    expect(updatedTasks).toContain("- [ ] Add Redis cache layer");
+    expect(updatedTasks).toContain("- [ ] Write integration test suite");
+
+    // Verify completed tasks exist in docs/memory/archive/completed-tasks.md
+    const archivePath = path.join(tempDir, "docs", "memory", "archive", "completed-tasks.md");
+    expect(fs.existsSync(archivePath)).toBe(true);
+    const archiveContent = fs.readFileSync(archivePath, "utf-8");
+    expect(archiveContent).toContain("- [x] Implement OAuth2 login with GitHub");
+    expect(archiveContent).toContain("- [x] Configure production logging");
+  });
 });

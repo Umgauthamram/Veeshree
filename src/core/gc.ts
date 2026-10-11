@@ -5,6 +5,7 @@ import { buildIndex } from "./indexer.js";
 import {
   CURRENT_STATE_FILE_REL,
   COMPLETED_TASKS_FILE_REL,
+  TASKS_FILE_REL,
   DECISIONS_DIR_REL,
   ARCHIVE_DECISIONS_DIR_REL,
   ARCHIVE_DIR_REL,
@@ -17,10 +18,11 @@ export interface GCResult {
 }
 
 /**
- * Runs State Garbage Collection:
- * 1. Caches rolling progress items in current-state.md to max 5 items, archiving excess to archive/completed-tasks.md
- * 2. Moves decisions with status: "superseded" to archive/decisions/
- * 3. Re-indexes memory so index.json reflects the clean state
+ * Runs State Garbage Collection & Archival:
+ * 1. Archives excess rolling progress items in current-state.md (>5 items) to archive/completed-tasks.md
+ * 2. Archives completed tasks (- [x]) from tasks.md to archive/completed-tasks.md, keeping tasks.md clean
+ * 3. Moves decisions with status: "superseded" from decisions/ to archive/decisions/
+ * 4. Re-indexes memory so index.json reflects the clean state
  */
 export function runGarbageCollection(rootDir: string = process.cwd()): GCResult {
   let archivedTasksCount = 0;
@@ -31,6 +33,17 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
   const archiveDecisionsDir = path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL);
   if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
   if (!fs.existsSync(archiveDecisionsDir)) fs.mkdirSync(archiveDecisionsDir, { recursive: true });
+
+  const completedTasksPath = path.join(rootDir, COMPLETED_TASKS_FILE_REL);
+  const ensureArchiveHeader = () => {
+    if (!fs.existsSync(completedTasksPath)) {
+      fs.writeFileSync(
+        completedTasksPath,
+        "# Completed & Archived Tasks\n\nHistorical record of finished milestones and completed tasks archived from active memory.\n",
+        "utf-8"
+      );
+    }
+  };
 
   // 1. Process Rolling Snapshot in current-state.md
   const currentStatePath = path.join(rootDir, CURRENT_STATE_FILE_REL);
@@ -50,16 +63,16 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
         .filter((l) => l.startsWith("-") || l.startsWith("*"));
 
       if (lines.length > 5) {
-        // Keep the 5 most recent items (at the top/bottom depending on style, latest 5)
+        // Keep the 5 most recent items
         const keepItems = lines.slice(0, 5);
         const excessItems = lines.slice(5);
 
-        archivedTasksCount = excessItems.length;
+        archivedTasksCount += excessItems.length;
 
         // Append excess items to archive/completed-tasks.md
-        const completedTasksPath = path.join(rootDir, COMPLETED_TASKS_FILE_REL);
+        ensureArchiveHeader();
         const timestamp = new Date().toISOString().split("T")[0];
-        const archiveEntry = `\n### Archived Tasks (${timestamp})\n${excessItems.join("\n")}\n`;
+        const archiveEntry = `\n### Archived Progress Snapshot (${timestamp})\n${excessItems.join("\n")}\n`;
         fs.appendFileSync(completedTasksPath, archiveEntry, "utf-8");
 
         // Rewrite current-state.md with capped items
@@ -70,7 +83,33 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
     }
   }
 
-  // 2. Relocate Superseded Decisions
+  // 2. Process Completed Tasks (- [x]) from tasks.md
+  const tasksPath = path.join(rootDir, TASKS_FILE_REL);
+  if (fs.existsSync(tasksPath)) {
+    const tasksContent = fs.readFileSync(tasksPath, "utf-8");
+    const lines = tasksContent.split("\n");
+    const completedTasks: string[] = [];
+    const remainingLines: string[] = [];
+
+    for (const line of lines) {
+      if (/^\s*-\s*\[[xX]\]/.test(line)) {
+        completedTasks.push(line.trim());
+      } else {
+        remainingLines.push(line);
+      }
+    }
+
+    if (completedTasks.length > 0) {
+      archivedTasksCount += completedTasks.length;
+      ensureArchiveHeader();
+      const timestamp = new Date().toISOString().split("T")[0];
+      const archiveEntry = `\n### Completed Tasks (${timestamp})\n${completedTasks.join("\n")}\n`;
+      fs.appendFileSync(completedTasksPath, archiveEntry, "utf-8");
+      fs.writeFileSync(tasksPath, remainingLines.join("\n"), "utf-8");
+    }
+  }
+
+  // 3. Relocate Superseded Decisions to archive/decisions/
   const decisionsDir = path.join(rootDir, DECISIONS_DIR_REL);
   if (fs.existsSync(decisionsDir)) {
     const files = fs.readdirSync(decisionsDir).filter((f) => f.endsWith(".md"));
@@ -92,7 +131,7 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
     }
   }
 
-  // 3. Re-index repository memory
+  // 4. Re-index repository memory
   buildIndex(rootDir);
 
   return {

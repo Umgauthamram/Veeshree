@@ -17,7 +17,7 @@ import {
   reconcileExtraction,
   resolveActiveEngine,
   syncVeeshree
-} from "./chunk-XFIIFRS7.js";
+} from "./chunk-SUBHIX4S.js";
 
 // src/cli.ts
 import { Command } from "commander";
@@ -150,7 +150,7 @@ if (majorVersion < 18) {
   process.exit(1);
 }
 var program = new Command();
-program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version("0.3.0");
+program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version("0.3.1");
 program.command("init").description("Bootstrap Veeshree project memory, heuristic scanner, and Git hooks").option("-f, --force", "Overwrite existing memory scaffolds and hooks", false).action((options) => {
   try {
     initializeVeeshree(process.cwd(), { force: options.force });
@@ -167,7 +167,7 @@ program.command("sync").description("Re-scan /docs/memory/, update /.vee/index.j
     process.exit(1);
   }
 });
-program.command("watch").description("Start ambient background watcher to auto-capture code diffs into memory with zero commands").option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)").option("-p, --provider <provider>", "Specific model provider override (gemini, openai, anthropic, ollama, lmstudio)").option("-m, --model <model>", "Specific model name override").action((options) => {
+program.command("watch").description("Start ambient background watcher to auto-capture code diffs into memory with zero commands").option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)").option("-p, --provider <provider>", "Specific model provider override (gemini, groq, nvidia, openai, ollama, lmstudio)").option("-m, --model <model>", "Specific model name override").action((options) => {
   handleWatchCommand(options);
 });
 program.command("context [request]").description("Generate token-budgeted system prompt context payload from active memory").option("-m, --max-tokens <tokens>", "Maximum total context tokens budget (default: 2000)").option("-t, --tasks", "Include project tasks list in context", false).option("-j, --json", "Output structured JSON metadata instead of raw prompt", false).option("-r, --raw", "Output pure prompt text without stderr notices", false).action((request, options) => {
@@ -182,10 +182,10 @@ var keysCmd = program.command("keys").description("Manage AI provider API keys s
 keysCmd.command("list").description("List configured AI model providers with masked keys and sources").action(() => {
   handleKeysCommand("list", void 0, void 0, {}, process.cwd());
 });
-keysCmd.command("set <provider> <key>").description("Store an API key for a provider (gemini, openai, anthropic). Saved in global keystore by default.").option("-l, --local", "Store in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
+keysCmd.command("set [provider] [key]").description("Store an API key for a provider (gemini, groq, nvidia, openai). Saved in global keystore by default.").option("-l, --local", "Store in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
   handleKeysCommand("set", provider, key, options, process.cwd());
 });
-keysCmd.command("update <provider> <key>").description("Update an existing API key for a provider").option("-l, --local", "Update in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
+keysCmd.command("update [provider] [key]").description("Update an existing API key for a provider (gemini, groq, nvidia, openai)").option("-l, --local", "Update in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
   handleKeysCommand("update", provider, key, options, process.cwd());
 });
 keysCmd.command("remove <provider>").description("Remove stored API key for a provider").option("-l, --local", "Remove from local .vee/config.json only", false).option("-g, --global", "Remove from global keystore only", false).action((provider, options) => {
@@ -218,7 +218,7 @@ program.command("doctor").description("Run comprehensive repository health, secu
     process.exit(1);
   }
 });
-program.command("capture").description("Extract structured decisions and memory updates from conversation logs or diffs").option("-f, --file <path>", "Path to conversation transcript, session log, or diff file").option("-p, --provider <provider>", "Extraction provider (gemini, openai, ollama)").option("-m, --model <model>", "Custom model name for extraction").action(async (options) => {
+program.command("capture").description("Extract structured decisions and memory updates from conversation logs or diffs").option("-f, --file <path>", "Path to conversation transcript, session log, or diff file").option("-p, --provider <provider>", "Extraction provider (gemini, groq, nvidia, openai, ollama, lmstudio)").option("-m, --model <model>", "Custom model name for extraction").action(async (options) => {
   try {
     await handleCaptureCommand(options, process.cwd());
   } catch (err) {

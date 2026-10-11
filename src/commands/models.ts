@@ -32,7 +32,7 @@ export async function handleModelsCommand(rootDir: string = process.cwd()): Prom
 }
 
 export function handleModelsUseCommand(provider: string, model: string, rootDir: string = process.cwd()): void {
-  const validProviders = ["gemini", "openai", "anthropic", "ollama", "lmstudio"];
+  const validProviders = ["gemini", "groq", "nvidia", "openai", "ollama", "lmstudio"];
   const p = provider.toLowerCase();
 
   if (!validProviders.includes(p)) {

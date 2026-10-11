@@ -19,25 +19,62 @@ export const commandsData: CommandDoc[] = [
     cmd: "vee init",
     name: "Init",
     badge: "Scaffolding & IDE Rules",
-    summary: "Scaffolds docs/memory/ and configures IDE rules without spending any LLM tokens.",
+    summary: "Scaffolds docs/memory/, protects .gitignore, and configures IDE rules without spending any LLM tokens.",
     explanation:
-      "Analyzes your project structure, primary language, frameworks, database, and git history without spending any LLM tokens. Scaffolds the docs/memory/ directory with pre-populated templates (constraints.md, current-state.md, tasks.md, discoveries.md, rejected.md) and automatically injects IDE instructions (GEMINI.md, .agents/rules/veeshree.md, .cursorrules, CLAUDE.md) so any AI coding assistant immediately adheres to your repository memory.",
+      "Analyzes your project structure, primary language, frameworks, database, and git history without spending any LLM tokens. Scaffolds the docs/memory/ directory with pre-populated templates (constraints.md, current-state.md, tasks.md, discoveries.md, rejected.md), automatically injects IDE instructions (GEMINI.md, .agents/rules/veeshree.md, .cursorrules, CLAUDE.md), and protects local config in .gitignore so your secrets are never tracked by Git.",
     howUsed:
-      "In a new or existing repository, run 'vee init'. It scans the project, creates memory templates, and writes IDE rules so Antigravity, Claude, Cursor, and Copilot can immediately read and write memory without further setup.",
+      "In a new or existing repository, run 'vee init'. It scans the project, creates memory templates, protects your .gitignore, and writes IDE rules so Antigravity, Claude, Cursor, and Copilot can immediately read and write memory without further setup.",
     flags: "-f, --force : Overwrite existing memory files and reset configuration.",
     example: "vee init\nvee init --force",
-    outputExample: `Scanning repository...
-Detected: TypeScript, Next.js, TailwindCSS, Node.js
-Created docs/memory/constraints.md
-Created docs/memory/current-state.md
-Created docs/memory/tasks.md
-Created docs/memory/discoveries.md
-Created docs/memory/rejected.md
-Created .agents/rules/veeshree.md
-Created GEMINI.md
-Created .cursorrules
-Veeshree initialized successfully (0 tokens consumed).`,
+    outputExample: `=== Initializing Veeshree Context Memory Layer ===
+[INFO] Analyzing project architecture and IDE environment...
+[INFO] Detected active project.
+[INFO] Languages: TypeScript
+[INFO] Frameworks: Next.js, TailwindCSS
+[OK] Seeded docs/memory/current-state.md
+[OK] Seeded docs/memory/tasks.md
+[OK] Seeded docs/memory/constraints.md
+[OK] Seeded docs/memory/rejected.md
+[OK] Seeded docs/memory/discoveries.md
+[INFO] Injected IDE context instructions: .cursorrules, CLAUDE.md, GEMINI.md, .agents/rules/veeshree.md
+[OK] Protected local secrets: added /.vee/config.json and /.vee/index.json to .gitignore
+
+[OK] Veeshree initialized successfully! Version-controlled memory is active at /docs/memory/
+
+Next Steps:
+  1. Configure Background AI Extractor:
+     vee keys set gemini <YOUR_API_KEY>
+     (Stored in ~/.veeshree/credentials.json — never exposed to GitHub/Git)
+  2. Start Ambient Memory Watcher:
+     vee watch
+  3. Run Diagnostics Anytime:
+     vee doctor`,
     prev: { title: "Comparison Matrix", href: "/docs/saving-data/comparison-matrix" },
+    next: { title: "vee doctor", href: "/docs/commands/doctor" },
+  },
+  {
+    id: "doctor",
+    cmd: "vee doctor",
+    name: "Doctor",
+    badge: "System & Security Diagnostics",
+    summary: "Runs comprehensive diagnostics on memory scaffolding, Git secret protection, and AI engine connectivity.",
+    explanation:
+      "Validates end-to-end repository readiness. Inspects docs/memory/ for core templates, verifies that .vee/config.json is protected in .gitignore and NOT tracked in Git history, tests connection to active AI extraction engines (Ollama, LM Studio, Gemini, OpenAI, Claude), and detects stale SHA-256 hash drift across linked source files.",
+    howUsed:
+      "Run 'vee doctor' anytime you set up a new repository, add an API key, or before committing to verify that your memory layer is intact and no local secrets are staged for Git.",
+    flags: "None",
+    example: "vee doctor",
+    outputExample: `=== Veeshree System Diagnostics & Health Check ===
+
+[PASS] Memory Scaffold      | docs/memory/                 : All 5 core memory files present
+[PASS] Git Security         | .vee/config.json in .gitignore : Protected from Git tracking
+[PASS] Git Security         | Git Tracking Status          : .vee/config.json is not tracked by Git
+[PASS] AI Extraction Engine | Active Engine                : gemini (gemini-2.0-flash) via keystore (~/.veeshree/credentials.json)
+[PASS] Search & Code Hashes | Code Integrity               : 6 memory records in sync with codebase
+
+----------------------------------------------------------------------
+[OK] All checks passed! Veeshree is completely healthy, secure, and ready.`,
+    prev: { title: "vee init", href: "/docs/commands/init" },
     next: { title: "vee watch", href: "/docs/commands/watch" },
   },
   {
@@ -51,15 +88,16 @@ Veeshree initialized successfully (0 tokens consumed).`,
     howUsed:
       "Leave 'vee watch' running in a secondary terminal tab or background daemon. While building features, you never have to touch the CLI. After each pause in typing, vee watch captures the diff and updates the tasks list automatically.",
     flags:
-      "-d, --debounce <seconds> : Settle window in seconds (default: 5).\n-p, --provider <name> : Force specific model provider.",
-    example: "vee watch\nvee watch --debounce 10",
-    outputExample: `[vee watch] Ambient engine active. Monitoring ./src and ./app...
-Debounce window: 5s
-Extractor model: Local Ollama / Gemini 2.5 Flash
-[10:14:02] Change detected in src/auth/session.ts
-[10:14:07] Debounce settled. Extracting diff...
-[10:14:09] Updated docs/memory/current-state.md (+1 task completed)`,
-    prev: { title: "vee init", href: "/docs/commands/init" },
+      "-d, --debounce <seconds> : Settle window in seconds (default: 5).\n-p, --provider <name> : Force specific model provider (gemini, groq, nvidia, openai, ollama, lmstudio).\n-m, --model <name> : Specific model name override (e.g. gemini-2.0-flash).",
+    example: "vee watch\nvee watch --debounce 10\nvee watch --provider gemini --model gemini-2.0-flash",
+    outputExample: `=== Veeshree Ambient Memory Watcher ===
+[INFO] Active Extraction Engine: gemini (gemini-2.0-flash) via keystore (~/.veeshree/credentials.json)
+[INFO] Watching workspace for code modifications (settle debounce: 5s)...
+[INFO] Press Ctrl+C to stop.
+
+[AMBIENT] Detected settled code changes (48 diff lines). Extracting memory...
+[AMBIENT] Auto-updated memory: +1 new decisions, 2 updated files.`,
+    prev: { title: "vee doctor", href: "/docs/commands/doctor" },
     next: { title: "vee status", href: "/docs/commands/status" },
   },
   {
@@ -75,11 +113,11 @@ Extractor model: Local Ollama / Gemini 2.5 Flash
     flags: "-c, --check : Exits with a non-zero exit code if any decision is stale (ideal for CI/CD checks).",
     example: "vee status\nvee status --check",
     outputExample: `=== Veeshree Project Status ===
-Project: veeshree (v0.3.0)
+Project: veeshree (v0.3.1)
 Current Focus: Production Documentation & Multi-Page Routing
 Milestone Progress: [||||||||||||||||||||] 100% (6/6 tasks)
 Active ADRs: 4 (0 drifted)
-Active Extractor Model: Local / Ollama (llama3.2:3b)
+Active Extractor Model: gemini (gemini-2.0-flash) via keystore
 Health: All SHA-256 hashes synchronized`,
     prev: { title: "vee watch", href: "/docs/commands/watch" },
     next: { title: "vee context", href: "/docs/commands/context" },
@@ -124,11 +162,10 @@ Health: All SHA-256 hashes synchronized`,
       "Run after manually editing markdown memory files, pulling changes from git, or switching git branches to refresh indexes instantly.",
     flags: "None",
     example: "vee sync",
-    outputExample: `Synchronizing memory index...
-Indexed 6 memory documents
-Recalculated SHA-256 hashes for 14 linked source files
-Rebuilt BM25 vocabulary (412 terms)
-Index saved to .vee/index.json in 14ms`,
+    outputExample: `=== Synchronizing Veeshree Memory & Code Hashes ===
+[INFO] Indexed 6 memory documents.
+[OK] All memory records are in sync with codebase hashes.
+[OK] Saved updated index to .vee/index.json`,
     prev: { title: "vee context", href: "/docs/commands/context" },
     next: { title: "vee capture", href: "/docs/commands/capture" },
   },
@@ -143,13 +180,15 @@ Index saved to .vee/index.json in 14ms`,
     howUsed:
       "After completing a manual coding session, pipe git diff into Veeshree: 'git diff | vee capture'. The engine recognizes newly added functions, creates decision records, and updates tasks.",
     flags:
-      "-d, --diff : Automatically capture current git diff.\n-t, --transcript <text> : Pass raw conversation string.\n-f, --file <path> : Read transcript from file.",
-    example: "vee capture --diff\ngit diff | vee capture",
-    outputExample: `Analyzing git diff (3 files changed, +142 lines, -18 lines)...
-Identified: Architectural Decision on JWT Refresh Mechanism
-Created: docs/memory/decisions/jwt-rotation.md
-Updated: docs/memory/tasks.md [x] Implement token refresh handler
-Memory synchronized with code changes.`,
+      "-f, --file <path> : Path to diff or transcript file.\n-p, --provider <name> : Extraction provider (gemini, groq, nvidia, openai, ollama, lmstudio).\n-m, --model <name> : Custom model name.",
+    example: "git diff HEAD | vee capture\nvee capture --file ./session.log",
+    outputExample: `=== Capturing & Extracting Architectural Memory ===
+[INFO] Extracting structural memory delta via background LLM...
+[OK] Structured extraction completed successfully.
+[INFO] Reconciling changes with /docs/memory/ files...
+[OK] Created new ADR: Database Architecture
+[INFO] Updated memory files: docs/memory/current-state.md, docs/memory/tasks.md
+[OK] Veeshree memory synchronized with codebase!`,
     prev: { title: "vee sync", href: "/docs/commands/sync" },
     next: { title: "vee models", href: "/docs/commands/models" },
   },
@@ -157,21 +196,30 @@ Memory synchronized with code changes.`,
     id: "models",
     cmd: "vee models",
     name: "Models",
-    badge: "Model Runtime Discovery",
-    summary: "Probes local Ollama / LM Studio ports and cloud APIs for active extraction engines.",
+    badge: "Model Discovery & Version Control",
+    summary: "Probes local and cloud LLM engines, switches extractor models, and pulls local weights via Ollama.",
     explanation:
-      "Probes local ports (Ollama on 11434, LM Studio on 1234) and checks configured cloud API keys (Gemini, OpenAI, Anthropic) to report all active and usable model engines. Dynamically chooses the fastest and most cost-effective model available.",
+      "Probes local ports (Ollama on 11434, LM Studio on 1234) and cloud API keys (Gemini, Groq, NVIDIA, OpenAI) to report available LLM runtimes. Supports switching the active extraction model with 'vee models use <provider> <model>' and pulling new weights with 'vee models pull <model>'.",
     howUsed:
-      "Run 'vee models' to check if your local Ollama instance or cloud Gemini key is recognized and ready for background extractions.",
-    flags: "None",
-    example: "vee models",
-    outputExample: `=== Detected Model Engines ===
-Local Ollama (http://localhost:11434)  : ONLINE [qwen2.5-coder:7b, llama3.2:3b]
-LM Studio (http://localhost:1234)      : OFFLINE
-Gemini API Key                         : CONFIGURED (gemini-2.5-flash)
-OpenAI API Key                         : NOT CONFIGURED
-Anthropic API Key                      : NOT CONFIGURED
-Active Extractor Strategy              : Local Ollama (fallback: Gemini)`,
+      "Use 'vee models' to view active LLM runtimes. Switch models anytime with 'vee models use gemini gemini-2.0-flash' or download local weights with 'vee models pull llama3.2'.",
+    flags:
+      "Subcommands:\nmodels : List active runtimes and latency.\nmodels use <provider> <model> : Set active extractor model version.\nmodels pull <model> : Pull local model weights via Ollama.",
+    example: "vee models\nvee models use gemini gemini-2.0-flash\nvee models pull llama3.2",
+    outputExample: `=== Veeshree Model Runtimes & Providers ===
+[INFO] Probing local LLM engines and cloud credentials...
+
+Ollama (Local Engine)        [READY (14ms)]
+  Endpoint: http://127.0.0.1:11434
+  Models:   llama3.2, qwen2.5-coder
+
+LM Studio (Local Engine)     [Engine Offline]
+
+Google Gemini Cloud          [READY]
+  Models:   gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro
+
+Groq Cloud LPU               [Missing API Key (run: vee keys set)]
+NVIDIA NIM Cloud             [Missing API Key (run: vee keys set)]
+OpenAI Cloud                 [Missing API Key (run: vee keys set)]`,
     prev: { title: "vee capture", href: "/docs/commands/capture" },
     next: { title: "vee keys", href: "/docs/commands/keys" },
   },
@@ -179,19 +227,23 @@ Active Extractor Strategy              : Local Ollama (fallback: Gemini)`,
     id: "keys",
     cmd: "vee keys",
     name: "Keys",
-    badge: "Local Credentials Management",
-    summary: "Securely stores and masks API keys in .vee/config.json with zero cloud leaks.",
+    badge: "Global Keystore & Security",
+    summary: "Securely stores API keys in machine keystore (~/.veeshree/credentials.json) with zero Git leakage.",
     explanation:
-      "Securely manages API keys locally in .vee/config.json with masking so keys are never accidentally logged, displayed in plaintext, or committed to version control. Keys remain strictly on your local machine.",
+      "Manages AI provider API credentials. By default, keys are stored in your machine's user directory (~/.veeshree/credentials.json) rather than inside project repositories. This guarantees that your keys are never accidentally committed to GitHub or exposed to team members. Also supports project-level overrides with --local and reads from local .env files.",
     howUsed:
-      "Set your API key with 'vee keys set gemini AIzaSy...' and verify with 'vee keys list'.",
-    flags: "Subcommands: list, set <provider> <key>, remove <provider>",
-    example: "vee keys list\nvee keys set gemini <your-key>\nvee keys remove gemini",
-    outputExample: `Configured API Keys:
-- gemini    : AIzaSy**************************** (Active)
-- openai    : (Not set)
-- anthropic : (Not set)
-Stored locally in .vee/config.json (Git-ignored).`,
+      "Set your key once with 'vee keys set gemini AIzaSy...' and verify with 'vee keys list'. Update anytime with 'vee keys update gemini <NEW_KEY>'.",
+    flags:
+      "Subcommands:\nkeys list : List configured providers and credential sources with masking.\nkeys set <provider> <key> [--local] : Store key in global keystore (or local project).\nkeys update <provider> <key> [--local] : Update existing key.\nkeys remove <provider> [--local|--global] : Remove key.",
+    example: "vee keys set gemini <your-key>\nvee keys update gemini <new-key>\nvee keys list\nvee keys remove gemini",
+    outputExample: `=== Configured AI Provider API Keys ===
+
+- GEMINI    : AIza...3456 [Configured via global keystore (~/.veeshree/credentials.json)]
+- GROQ      : (not set)   [Not Configured]
+- NVIDIA    : (not set)   [Not Configured]
+- OPENAI    : (not set)   [Not Configured]
+
+[INFO] Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure.`,
     prev: { title: "vee models", href: "/docs/commands/models" },
     next: { title: "vee search", href: "/docs/commands/search" },
   },
@@ -205,7 +257,7 @@ Stored locally in .vee/config.json (Git-ignored).`,
       "Performs BM25-ranked keyword and phrase search across all memory files including decisions, tasks, constraints, and discoveries. Returns snippets, matching lines, and file references with relevance ranking scores.",
     howUsed:
       "When reviewing why a specific library or architecture was chosen, run 'vee search \"auth library\"' to instantly view the relevant decision record.",
-    flags: "-a, --archived : Include historical archived documents in the search.",
+    flags: "-a, --archived : Include historical archived documents in the search.\n-j, --json : Output structured JSON.",
     example: "vee search \"database\"\nvee search \"jwt\" --archived",
     outputExample: `Search results for "database" (Found 3 matches):
 1. docs/memory/decisions/database.md (Score: 1.48)
@@ -254,8 +306,8 @@ Stored locally in .vee/config.json (Git-ignored).`,
       "Keeps memory files compact to prevent token bloat. Moves completed tasks from current-state.md into docs/memory/archive/completed-tasks.md and archives superseded decisions into docs/memory/archive/decisions/.",
     howUsed:
       "After completing a milestone, run 'vee gc' to archive completed tasks, keeping prompt context lightweight and fast.",
-    flags: "-d, --dry-run : Preview pruning actions without altering files.",
-    example: "vee gc\nvee gc --dry-run",
+    flags: "None",
+    example: "vee gc",
     outputExample: `Running Veeshree Garbage Collection...
 Archived 8 completed tasks -> docs/memory/archive/completed-tasks.md
 Archived 1 superseded decision -> docs/memory/archive/decisions/auth-v1.md

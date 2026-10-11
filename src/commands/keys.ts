@@ -13,7 +13,7 @@ export function handleKeysCommand(
   options: KeysCommandOptions = {},
   rootDir: string = process.cwd()
 ): void {
-  const validProviders: KeyProvider[] = ["openai", "anthropic", "gemini"];
+  const validProviders: KeyProvider[] = ["gemini", "groq", "nvidia", "openai"];
 
   if (action === "list") {
     logger.title("Configured AI Provider API Keys");
@@ -30,11 +30,21 @@ export function handleKeysCommand(
   if (action === "set" || action === "update") {
     if (!provider || !key) {
       logger.error(`Usage: vee keys ${action} <provider> <key> [--local]`);
+      console.log("");
+      logger.info(logger.bold("Available Providers:"));
+      console.log(`  - ${logger.bold("gemini")}    : Google Gemini (gemini-2.0-flash, gemini-1.5-flash)`);
+      console.log(`  - ${logger.bold("groq")}      : Groq LPU (llama-3.3-70b-versatile, ultra-fast)`);
+      console.log(`  - ${logger.bold("nvidia")}    : NVIDIA NIM (meta/llama-3.1-70b-instruct)`);
+      console.log(`  - ${logger.bold("openai")}    : OpenAI (gpt-4o-mini, gpt-4o)`);
+      console.log("");
+      console.log(`Example: vee keys ${action} gemini <KEY>`);
+      console.log(`Example: vee keys ${action} groq <KEY>`);
       process.exit(1);
     }
     const p = provider.toLowerCase() as KeyProvider;
     if (!validProviders.includes(p)) {
-      logger.error(`Invalid provider: ${provider}. Supported: ${validProviders.join(", ")}`);
+      logger.error(`Invalid provider '${provider}'.`);
+      logger.info(`Supported providers: ${validProviders.join(", ")}`);
       process.exit(1);
     }
 
