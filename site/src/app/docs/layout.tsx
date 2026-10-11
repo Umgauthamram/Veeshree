@@ -64,6 +64,7 @@ const docSections: DocSection[] = [
     title: "Architecture",
     short: "Architecture",
     subItems: [
+      { label: "Shared Memory Layer", href: "/docs/architecture/shared-memory" },
       { label: "Directory Layout", href: "/docs/architecture/directory-structure" },
       { label: "Token Budget Engine", href: "/docs/architecture/token-budget" },
       { label: "SHA-256 Drift Guard", href: "/docs/architecture/drift-guard" },

@@ -39,7 +39,7 @@ export default function Home() {
             <div className="absolute inset-0 flex flex-col items-center justify-end pb-8 sm:pb-12 px-6 text-center z-10">
               {/* Compressed GT America Display Headline */}
               <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[76px] font-normal tracking-[-0.06em] leading-[1.02] text-[#1b0624] max-w-4xl">
-                Local memory for AI software engineering.
+                The shared memory layer for AI software engineering.
               </h1>
             </div>
           </div>
@@ -48,7 +48,7 @@ export default function Home() {
         {/* Hero Copy & Pill CTAs */}
         <div className="w-full max-w-3xl mx-auto px-6 mt-8 sm:mt-10 text-center space-y-6">
           <p className="text-base sm:text-lg text-[#444444] leading-relaxed font-normal">
-            Decouple architectural decisions, hard constraints, and task progress from temporary chat sessions. Stored as version-controlled Markdown in <code className="text-[#1b0624] bg-[#edece7] px-2 py-0.5 rounded font-mono text-sm">docs/memory/</code>.
+            Unified, persistent shared memory across Cursor, Claude Code, Copilot, and Gemini. Decouple architectural decisions, hard constraints, and task progress from temporary chat sessions into version-controlled Markdown in <code className="text-[#1b0624] bg-[#edece7] px-2 py-0.5 rounded font-mono text-sm">docs/memory/</code>.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 pt-2">
@@ -135,6 +135,80 @@ export default function Home() {
               Zero opaque database lock-in. Project memory resides in <code>docs/memory/</code> and is reviewed via standard Git Pull Requests.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Shared Memory for Multi-Agent AI Development (SEO Focus Section) */}
+      <section id="shared-memory" className="w-full py-20 px-6 sm:px-10 lg:px-16 max-w-[1200px] mx-auto border-t border-[#edece7]">
+        <div className="space-y-4 mb-12">
+          <div className="text-xs font-mono uppercase tracking-wider text-[#898683]">
+            Cross-Agent Shared Memory Layer
+          </div>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-normal tracking-[-0.05em] text-[#1b0624]">
+            Shared memory across every AI tool in your stack.
+          </h2>
+          <p className="text-sm sm:text-base text-[#444444] max-w-3xl leading-relaxed">
+            Software engineering teams don&apos;t use just one model. You prototype in Cursor, refactor with Claude Code, review in Gemini, and autocomplete with Copilot. Without shared memory, every agent lives in an isolated chat silo with complete amnesia. Veeshree unites them with a single, persistent shared memory layer.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-8 rounded-[24px] bg-white border border-[#edece7] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.03)] space-y-4">
+            <div className="w-9 h-9 rounded-full bg-[#160f0c] text-white flex items-center justify-center font-mono text-sm">
+              01
+            </div>
+            <h3 className="text-xl font-normal text-[#1b0624] tracking-tight">
+              One Shared Memory Brain
+            </h3>
+            <p className="text-xs text-[#444444] leading-relaxed">
+              When Cursor decides an architectural pattern, Claude Code immediately respects it in the terminal. No copy-pasting chat history. No contradictory model advice.
+            </p>
+            <div className="pt-2 text-[11px] font-mono text-[#898683]">
+              Synchronized via <code className="bg-[#f7f7f5] px-1 py-0.5 rounded">docs/memory/</code>
+            </div>
+          </div>
+
+          <div className="p-8 rounded-[24px] bg-white border border-[#edece7] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.03)] space-y-4">
+            <div className="w-9 h-9 rounded-full bg-[#160f0c] text-white flex items-center justify-center font-mono text-sm">
+              02
+            </div>
+            <h3 className="text-xl font-normal text-[#1b0624] tracking-tight">
+              Compaction-Proof Persistence
+            </h3>
+            <p className="text-xs text-[#444444] leading-relaxed">
+              Chat context windows suffer from context compaction and needle-in-a-haystack decay. Veeshree preserves hard architectural constraints and living tasks across months of development.
+            </p>
+            <div className="pt-2 text-[11px] font-mono text-[#898683]">
+              Immutable <code className="bg-[#f7f7f5] px-1 py-0.5 rounded">constraints.md</code>
+            </div>
+          </div>
+
+          <div className="p-8 rounded-[24px] bg-white border border-[#edece7] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.03)] space-y-4">
+            <div className="w-9 h-9 rounded-full bg-[#160f0c] text-white flex items-center justify-center font-mono text-sm">
+              03
+            </div>
+            <h3 className="text-xl font-normal text-[#1b0624] tracking-tight">
+              Cryptographic Drift Guard
+            </h3>
+            <p className="text-xs text-[#444444] leading-relaxed">
+              Shared memory is checked against live code SHA-256 checksums. If source code changes out-of-band, Veeshree alerts both the developer and the AI before hallucinations occur.
+            </p>
+            <div className="pt-2 text-[11px] font-mono text-[#898683]">
+              Cryptographic SHA-256 sentinel
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex items-center justify-between p-6 rounded-2xl bg-white border border-[#edece7]">
+          <div className="text-sm text-[#1b0624] font-medium">
+            Learn how Veeshree implements Git-native shared memory without vector databases.
+          </div>
+          <Link
+            href="/docs/architecture/shared-memory"
+            className="px-5 py-2.5 rounded-full bg-[#160f0c] hover:bg-[#292421] text-white text-xs sm:text-sm font-medium transition whitespace-nowrap"
+          >
+            Explore Shared Memory Architecture →
+          </Link>
         </div>
       </section>
 

@@ -13,6 +13,45 @@ export interface ArchitectureTopic {
 
 export const architectureTopics: ArchitectureTopic[] = [
   {
+    id: "shared-memory",
+    slug: "shared-memory",
+    title: "Shared Memory Layer",
+    badge: "Cross-Agent Shared State",
+    summary:
+      "A unified shared memory layer that synchronizes architectural decisions, constraints, and tasks across Cursor, Claude Code, Copilot, and Gemini with zero context silos.",
+    content:
+      "Modern software engineering teams do not rely on a single AI model or IDE. Developers move fluidly between Cursor for feature prototyping, Claude Code for complex terminal refactoring, Gemini CLI for architectural review, and GitHub Copilot for fast tab completions. Without a shared memory layer, each of these tools operates in total blindness. When a chat window compacts or closes, architectural context vanishes. If Cursor decides to adopt BullMQ for queue processing, Claude Code has no knowledge of that decision and might suggest Kafka an hour later. Veeshree acts as the universal shared memory substrate for AI coding agents. By establishing a Git-native shared memory layer in docs/memory/, every AI model—regardless of vendor or IDE—reads from and writes to the exact same persistent context. This eliminates repetitive prompt engineering, prevents architectural contradictions, and provides true multi-agent synergy.",
+    diagramOrCode: `[ Cursor IDE ]      [ Claude Code ]      [ Gemini / Antigravity ]      [ Copilot ]
+       \\                   |                     |                    /
+        \\                  |                     |                   /
+         ▼                 ▼                     ▼                  ▼
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │                VEESHREE SHARED MEMORY LAYER                         │
+   │                      (/docs/memory/)                                │
+   ├─────────────────────────────────────────────────────────────────────┤
+   │  • decisions/       : Architectural decisions & trade-offs (ADRs)   │
+   │  • current-state.md : Active milestone focus & progress buffer      │
+   │  • tasks.md         : Living checklist & dependency roadmap         │
+   │  • constraints.md   : Constitutional safety rules (hard & soft)     │
+   │  • discoveries.md   : Empirical behaviors & codebase patterns       │
+   │  • rejected.md      : Discarded technologies & known dead-ends      │
+   │  • archive/         : Completed milestones & superseded records     │
+   └─────────────────────────────────────────────────────────────────────┘
+                                   ▲
+                                   │ SHA-256 Hash Guard
+                                   ▼
+                    [ Your Project Source Code ]`,
+    howItWorks: [
+      "Unified Ground Truth: Every coding assistant references the same Markdown files in docs/memory/ instead of isolated chat context.",
+      "Cross-Agent Synchronization: When one agent records an architectural choice, all other agents immediately see it in subsequent prompts via vee context or native IDE rule files.",
+      "Token-Budgeted Retrieval: Memory is dynamically ranked using BM25 and injected into agent prompts within an uncompromising ~2,000 token envelope.",
+      "Cryptographic Drift Detection: Linked source files are verified against SHA-256 hashes to guarantee shared memory never diverges from live code.",
+      "Zero Vendor Lock-In: 100% Git-native Markdown. No external vector databases, no binary formats, and zero proprietary cloud dependencies.",
+    ],
+    prev: { title: "vee gc", href: "/docs/commands/gc" },
+    next: { title: "Directory Structure", href: "/docs/architecture/directory-structure" },
+  },
+  {
     id: "directory-structure",
     slug: "directory-structure",
     title: "Directory Structure",
@@ -45,7 +84,7 @@ export const architectureTopics: ArchitectureTopic[] = [
       "The .vee/ directory is strictly local and added to .gitignore, storing fast BM25 tokens and hashed file cache.",
       "Historical decisions and archived tasks are safely preserved in docs/memory/archive/ without cluttering active agent context.",
     ],
-    prev: { title: "vee gc", href: "/docs/commands/gc" },
+    prev: { title: "Shared Memory Layer", href: "/docs/architecture/shared-memory" },
     next: { title: "Token Budget Engine", href: "/docs/architecture/token-budget" },
   },
   {
