@@ -1,28 +1,28 @@
-import { searchMemory } from "../core/search.js";
+import { searchMemory, type SearchResultItem } from "../core/search.js";
 import { logger } from "../utils/logger.js";
+import { VeeError } from "../utils/errors.js";
 
 export function handleSearchCommand(
   query: string,
   options: { archived?: boolean; json?: boolean } = {},
   rootDir: string = process.cwd()
-): void {
+): SearchResultItem[] {
   if (!query || !query.trim()) {
-    logger.error("Search query required. Usage: vee search \"<query>\"");
-    process.exit(1);
+    throw new VeeError("Search query required. Usage: vee search \"<query>\"", "ERR_INVALID_ARGS");
   }
 
   const results = searchMemory(query, { includeArchived: options.archived }, rootDir);
 
   if (options.json) {
     console.log(JSON.stringify(results, null, 2));
-    return;
+    return results;
   }
 
   logger.title(`Search Results for: "${query}"`);
 
   if (results.length === 0) {
     logger.info("No matching memory documents found.");
-    return;
+    return [];
   }
 
   for (const item of results) {
@@ -35,4 +35,6 @@ export function handleSearchCommand(
     console.log(`  ${item.snippet}`);
     console.log("");
   }
+
+  return results;
 }

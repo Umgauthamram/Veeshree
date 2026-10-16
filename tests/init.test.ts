@@ -73,7 +73,7 @@ describe("Phase 1: Scanner and Init Engine", () => {
 
     // Validate config content
     const config = loadConfig(tempDir);
-    expect(config.version).toBe("0.1.0");
+    expect(config.version).toBe("1.0.0");
     expect(config.default_extractor.provider).toBe("gemini");
     expect(config.settings.max_context_tokens).toBe(2000);
 

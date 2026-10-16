@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import { parseDecisionFrontmatter } from "./memory/frontmatter.js";
+import { writeAtomic } from "./memory/atomic.js";
 import { buildIndex } from "./indexer.js";
+import { loadConfig } from "./config.js";
 import {
   CURRENT_STATE_FILE_REL,
   COMPLETED_TASKS_FILE_REL,
@@ -9,12 +11,17 @@ import {
   DECISIONS_DIR_REL,
   ARCHIVE_DECISIONS_DIR_REL,
   ARCHIVE_DIR_REL,
+  DEFAULT_GC_MAX_PROGRESS,
 } from "../utils/constants.js";
 
 export interface GCResult {
   archivedTasksCount: number;
   supersededDecisionsCount: number;
   relocatedDecisions: string[];
+}
+
+export interface GCOptions {
+  dryRun?: boolean;
 }
 
 /**
@@ -24,23 +31,27 @@ export interface GCResult {
  * 3. Moves decisions with status: "superseded" from decisions/ to archive/decisions/
  * 4. Re-indexes memory so index.json reflects the clean state
  */
-export function runGarbageCollection(rootDir: string = process.cwd()): GCResult {
+export function runGarbageCollection(rootDir: string = process.cwd(), options: GCOptions = {}): GCResult {
+  const config = loadConfig(rootDir);
+  const maxProgress = config.gc?.max_progress || DEFAULT_GC_MAX_PROGRESS;
+
   let archivedTasksCount = 0;
   let supersededDecisionsCount = 0;
   const relocatedDecisions: string[] = [];
 
   const archiveDir = path.join(rootDir, ARCHIVE_DIR_REL);
   const archiveDecisionsDir = path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL);
-  if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
-  if (!fs.existsSync(archiveDecisionsDir)) fs.mkdirSync(archiveDecisionsDir, { recursive: true });
+  if (!options.dryRun) {
+    if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
+    if (!fs.existsSync(archiveDecisionsDir)) fs.mkdirSync(archiveDecisionsDir, { recursive: true });
+  }
 
   const completedTasksPath = path.join(rootDir, COMPLETED_TASKS_FILE_REL);
   const ensureArchiveHeader = () => {
-    if (!fs.existsSync(completedTasksPath)) {
-      fs.writeFileSync(
+    if (!options.dryRun && !fs.existsSync(completedTasksPath)) {
+      writeAtomic(
         completedTasksPath,
-        "# Completed & Archived Tasks\n\nHistorical record of finished milestones and completed tasks archived from active memory.\n",
-        "utf-8"
+        "# Completed & Archived Tasks\n\nHistorical record of finished milestones and completed tasks archived from active memory.\n"
       );
     }
   };
@@ -53,32 +64,31 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
     const match = content.match(progressRegex);
 
     if (match) {
-      const header = match[1];
-      const progressSection = match[2].trim();
-      const trailing = match[3];
+      const header = match[1] || "";
+      const progressSection = (match[2] || "").trim();
+      const trailing = match[3] || "";
 
       const lines = progressSection
         .split("\n")
         .map((l) => l.trim())
         .filter((l) => l.startsWith("-") || l.startsWith("*"));
 
-      if (lines.length > 5) {
-        // Keep the 5 most recent items
-        const keepItems = lines.slice(0, 5);
-        const excessItems = lines.slice(5);
+      if (lines.length > maxProgress) {
+        const keepItems = lines.slice(0, maxProgress);
+        const excessItems = lines.slice(maxProgress);
 
         archivedTasksCount += excessItems.length;
 
-        // Append excess items to archive/completed-tasks.md
-        ensureArchiveHeader();
-        const timestamp = new Date().toISOString().split("T")[0];
-        const archiveEntry = `\n### Archived Progress Snapshot (${timestamp})\n${excessItems.join("\n")}\n`;
-        fs.appendFileSync(completedTasksPath, archiveEntry, "utf-8");
+        if (!options.dryRun) {
+          ensureArchiveHeader();
+          const timestamp = new Date().toISOString().split("T")[0];
+          const archiveEntry = `\n### Archived Progress Snapshot (${timestamp})\n${excessItems.join("\n")}\n`;
+          fs.appendFileSync(completedTasksPath, archiveEntry, "utf-8");
 
-        // Rewrite current-state.md with capped items
-        const newProgressBlock = `${header}${keepItems.join("\n")}\n\n${trailing}`;
-        const updatedContent = content.replace(progressRegex, newProgressBlock);
-        fs.writeFileSync(currentStatePath, updatedContent, "utf-8");
+          const newProgressBlock = `${header}${keepItems.join("\n")}\n\n${trailing}`;
+          const updatedContent = content.replace(progressRegex, newProgressBlock);
+          writeAtomic(currentStatePath, updatedContent);
+        }
       }
     }
   }
@@ -101,11 +111,13 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
 
     if (completedTasks.length > 0) {
       archivedTasksCount += completedTasks.length;
-      ensureArchiveHeader();
-      const timestamp = new Date().toISOString().split("T")[0];
-      const archiveEntry = `\n### Completed Tasks (${timestamp})\n${completedTasks.join("\n")}\n`;
-      fs.appendFileSync(completedTasksPath, archiveEntry, "utf-8");
-      fs.writeFileSync(tasksPath, remainingLines.join("\n"), "utf-8");
+      if (!options.dryRun) {
+        ensureArchiveHeader();
+        const timestamp = new Date().toISOString().split("T")[0];
+        const archiveEntry = `\n### Completed Tasks (${timestamp})\n${completedTasks.join("\n")}\n`;
+        fs.appendFileSync(completedTasksPath, archiveEntry, "utf-8");
+        writeAtomic(tasksPath, remainingLines.join("\n"));
+      }
     }
   }
 
@@ -118,21 +130,24 @@ export function runGarbageCollection(rootDir: string = process.cwd()): GCResult 
       const filePath = path.join(decisionsDir, file);
       const raw = fs.readFileSync(filePath, "utf-8");
       try {
-        const parsed = matter(raw);
+        const parsed = parseDecisionFrontmatter(raw);
         if (parsed.data && parsed.data.status === "superseded") {
           const targetPath = path.join(archiveDecisionsDir, file);
-          fs.renameSync(filePath, targetPath);
+          if (!options.dryRun) {
+            fs.renameSync(filePath, targetPath);
+          }
           supersededDecisionsCount++;
           relocatedDecisions.push(file);
         }
       } catch {
-        // ignore parse error
+        // ignore
       }
     }
   }
 
-  // 4. Re-index repository memory
-  buildIndex(rootDir);
+  if (!options.dryRun) {
+    buildIndex(rootDir);
+  }
 
   return {
     archivedTasksCount,

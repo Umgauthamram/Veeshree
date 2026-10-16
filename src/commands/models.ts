@@ -1,11 +1,11 @@
-import { execSync } from "node:child_process";
 import { detectAvailableModels } from "../core/models.js";
 import { loadConfig, saveConfig } from "../core/config.js";
 import { logger } from "../utils/logger.js";
+import { validateModelName, runCommandInteractive } from "../utils/process.js";
+import { VeeError } from "../utils/errors.js";
 
 export async function handleModelsCommand(rootDir: string = process.cwd()): Promise<void> {
   logger.title("Veeshree Model Runtimes & Providers");
-
   logger.info("Probing local LLM engines and cloud credentials...\n");
   const runtimes = await detectAvailableModels(rootDir);
 
@@ -32,42 +32,48 @@ export async function handleModelsCommand(rootDir: string = process.cwd()): Prom
 }
 
 export function handleModelsUseCommand(provider: string, model: string, rootDir: string = process.cwd()): void {
-  const validProviders = ["gemini", "groq", "nvidia", "openai", "ollama", "lmstudio"];
+  const validProviders = ["gemini", "openai", "anthropic", "groq", "nvidia", "ollama", "lmstudio"];
   const p = provider.toLowerCase();
 
   if (!validProviders.includes(p)) {
-    logger.error(`Invalid provider '${provider}'. Supported: ${validProviders.join(", ")}`);
-    process.exit(1);
+    throw new VeeError(`Invalid provider '${provider}'. Supported: ${validProviders.join(", ")}`, "ERR_INVALID_ARGS");
   }
 
+  const safeModel = validateModelName(model);
   const config = loadConfig(rootDir);
+  if (!config.extractor) {
+    config.extractor = { provider: p as any, model: safeModel };
+  } else {
+    config.extractor.provider = p as any;
+    config.extractor.model = safeModel;
+  }
+
+  // Backward compatibility
   config.default_extractor = {
-    provider: p as any,
-    model: model.trim(),
+    provider: p,
+    model: safeModel,
   };
+
   saveConfig(config, rootDir);
 
-  logger.success(`Default extraction model updated: ${logger.bold(p)} (${logger.bold(model)})`);
+  logger.success(`Default extraction model updated: ${logger.bold(p)} (${logger.bold(safeModel)})`);
   logger.info("Ambient watcher ('vee watch') and manual capture will now use this model.");
 }
 
 export function handleModelsPullCommand(modelName: string): void {
   if (!modelName || !modelName.trim()) {
-    logger.error("Usage: vee models pull <model> (e.g. vee models pull llama3.2)");
-    process.exit(1);
+    throw new VeeError("Usage: vee models pull <model> (e.g. vee models pull llama3.2)", "ERR_INVALID_ARGS");
   }
 
-  logger.title(`Pulling Model via Ollama: ${modelName}`);
+  // SEC-4: Validate against shell injection
+  const safeModel = validateModelName(modelName);
+
+  logger.title(`Pulling Model via Ollama: ${safeModel}`);
   logger.info("Connecting to local Ollama runtime to download/update model weights...");
 
-  try {
-    execSync(`ollama pull ${modelName.trim()}`, {
-      stdio: "inherit",
-    });
-    logger.success(`Successfully pulled model '${modelName}' into local Ollama runtime!`);
-    logger.info(`To activate: run 'vee models use ollama ${modelName}'`);
-  } catch (err: any) {
-    logger.error(`Failed to pull model via Ollama. Make sure Ollama is installed and running: ${err?.message || err}`);
-    process.exit(1);
-  }
+  // SEC-4: Safe execution with argument array, no shell interpolation
+  runCommandInteractive("ollama", ["pull", safeModel]);
+
+  logger.success(`Successfully pulled model '${safeModel}' into local Ollama runtime!`);
+  logger.info(`To activate: run 'vee models use ollama ${safeModel}'`);
 }

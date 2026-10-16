@@ -8,6 +8,14 @@ export const ARCHIVE_DECISIONS_DIR_REL = path.join("docs", "memory", "archive", 
 export const VEE_DIR_REL = ".vee";
 export const CONFIG_FILE_REL = path.join(".vee", "config.json");
 export const INDEX_FILE_REL = path.join(".vee", "index.json");
+export const PROPOSALS_DIR_REL = path.join(".vee", "proposals");
+export const SNAPSHOTS_DIR_REL = path.join(".vee", "snapshots");
+export const LOGS_DIR_REL = path.join(".vee", "logs");
+export const WATCH_LOG_FILE_REL = path.join(".vee", "logs", "watch.log");
+export const WATCH_PID_FILE_REL = path.join(".vee", "watch.pid");
+export const WATCH_STATE_FILE_REL = path.join(".vee", "watch-state.json");
+export const LOCK_FILE_REL = path.join(".vee", "lock");
+export const BACKUP_03X_DIR_REL = path.join(".vee", "backup-0.3.x");
 
 export const CURRENT_STATE_FILE_REL = path.join("docs", "memory", "current-state.md");
 export const TASKS_FILE_REL = path.join("docs", "memory", "tasks.md");
@@ -15,3 +23,23 @@ export const CONSTRAINTS_FILE_REL = path.join("docs", "memory", "constraints.md"
 export const REJECTED_FILE_REL = path.join("docs", "memory", "rejected.md");
 export const DISCOVERIES_FILE_REL = path.join("docs", "memory", "discoveries.md");
 export const COMPLETED_TASKS_FILE_REL = path.join("docs", "memory", "archive", "completed-tasks.md");
+
+export const DEFAULT_MODELS = {
+  gemini: "gemini-2.0-flash",
+  openai: "gpt-4o-mini",
+  anthropic: "claude-3-5-sonnet-latest",
+  groq: "llama-3.3-70b-versatile",
+  nvidia: "meta/llama-3.1-70b-instruct",
+  ollama: "llama3.2",
+  lmstudio: "default",
+} as const;
+
+export const DEFAULT_MAX_PAYLOAD_BYTES = 24576;
+export const DEFAULT_MAX_CONTEXT_TOKENS = 2000;
+export const DEFAULT_CONSTRAINTS_CAP = 400;
+export const DEFAULT_STATE_CAP = 450;
+export const DEFAULT_DECISIONS_CAP = 800;
+export const DEFAULT_TASKS_CAP = 250;
+export const DEFAULT_GC_MAX_PROGRESS = 5;
+export const DEFAULT_GC_MAX_COMPLETED_TASKS = 20;
+export const LOCK_STALE_MS = 60000; // 60 seconds

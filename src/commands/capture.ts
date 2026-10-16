@@ -1,54 +1,90 @@
 import fs from "node:fs";
 import { extractMemoryFromContent } from "../core/extractor.js";
-import { reconcileExtraction } from "../core/reconciler.js";
+import { createProposal, acceptProposal } from "../core/proposals/queue.js";
+import { redactContent, capDiffPayload } from "../core/redact/redactor.js";
+import { runCommandSafe } from "../utils/process.js";
+import { loadConfig } from "../core/config.js";
 import { logger } from "../utils/logger.js";
+import { VeeError } from "../utils/errors.js";
+import type { Proposal } from "../schemas/proposal.schema.js";
 
 export interface CaptureOptions {
   file?: string;
+  diff?: boolean;
   provider?: string;
   model?: string;
+  auto?: boolean;
+  dryRun?: boolean;
+  showPayload?: boolean;
 }
 
-export async function handleCaptureCommand(options: CaptureOptions, rootDir: string = process.cwd()): Promise<void> {
-  logger.title("Capturing & Extracting Architectural Memory");
+export async function handleCaptureCommand(
+  options: CaptureOptions,
+  rootDir: string = process.cwd()
+): Promise<{ proposal?: Proposal; payload?: string; autoApplied?: boolean }> {
+  logger.title("Capturing Architectural Memory");
 
   let content = "";
-  if (options.file) {
+  if (options.diff) {
+    try {
+      content = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
+    } catch (err: any) {
+      throw new VeeError(`Failed to read git diff: ${err.message}`, "ERR_PROVIDER_FAILURE");
+    }
+  } else if (options.file) {
     if (!fs.existsSync(options.file)) {
-      logger.error(`File not found: ${options.file}`);
-      process.exit(1);
+      throw new VeeError(`File not found: ${options.file}`, "ERR_FILE_NOT_FOUND");
     }
     content = fs.readFileSync(options.file, "utf-8");
   } else {
-    // Read from standard input if piped
     content = await readStdin();
   }
 
   if (!content.trim()) {
-    logger.error("No conversation log or diff content provided. Pass via --file or standard input.");
-    process.exit(1);
+    throw new VeeError(
+      "No content provided. Pass a file with --file, run with --diff, or pipe through standard input.",
+      "ERR_INVALID_ARGS"
+    );
+  }
+
+  // Redaction and capping (SEC-2)
+  const config = loadConfig(rootDir);
+  const maxPayload = config.privacy?.max_payload_bytes || 24576;
+  const redacted = redactContent(content);
+  const capped = capDiffPayload(redacted, maxPayload);
+
+  if (options.showPayload) {
+    console.log(capped);
+    return { payload: capped };
+  }
+
+  if (options.dryRun) {
+    logger.info(`[DRY-RUN] Would send ${capped.length} bytes of redacted content to extraction engine.`);
+    return { payload: capped };
   }
 
   logger.info("Extracting structural memory delta via background LLM...");
-  try {
-    const delta = await extractMemoryFromContent(content, rootDir, options.provider, options.model);
-    logger.success("Structured extraction completed successfully.");
+  const delta = await extractMemoryFromContent(capped, rootDir, options.provider, options.model);
 
-    logger.info("Reconciling changes with /docs/memory/ files...");
-    const result = reconcileExtraction(delta, rootDir);
+  // Proposal queue (SEC-1)
+  const proposal = createProposal("capture", delta, "cli_capture", rootDir);
+  logger.success(`Extracted memory proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
 
-    if (result.newDecisions.length > 0) {
-      for (const dec of result.newDecisions) {
-        logger.success(`Created new ADR: ${logger.bold(dec)}`);
-      }
-    }
-
-    logger.info(`Updated memory files: ${result.updatedFiles.join(", ")}`);
-    logger.success("Veeshree memory synchronized with codebase!");
-  } catch (err: any) {
-    logger.error(`Capture extraction failed: ${err?.message || err}`);
-    process.exit(1);
+  const shouldAutoApply = options.auto || config.proposals?.auto_apply_low_risk;
+  if (shouldAutoApply && proposal.risk === "low") {
+    const { reconcileResult } = await acceptProposal(proposal.id, "auto_capture", rootDir);
+    logger.success(`[AUTO] Proposal accepted and applied (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
+    return { proposal, autoApplied: true };
   }
+
+  if (proposal.risk === "high") {
+    logger.warn(`Proposal flagged as HIGH RISK (${proposal.flags.join(", ")}). Human review required.`);
+    logger.info(`Run 'vee review' or 'vee accept ${proposal.id}' to inspect and apply.`);
+  } else {
+    logger.info(`Proposal queued for review. Run 'vee accept ${proposal.id}' to apply.`);
+  }
+
+  return { proposal, autoApplied: false };
 }
 
 async function readStdin(): Promise<string> {

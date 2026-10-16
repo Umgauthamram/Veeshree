@@ -93,7 +93,8 @@ describe("Phase 3: AI Extraction & Background Processing", () => {
     expect(reconcileResult.newDecisions[0]).toContain("message-queue-architecture.md");
 
     // 1. Verify ADR was created
-    const adrPath = path.join(tempDir, "docs", "memory", "decisions", "message-queue-architecture.md");
+    const adrFilename = path.basename(reconcileResult.newDecisions[0]!);
+    const adrPath = path.join(tempDir, "docs", "memory", "decisions", adrFilename);
     expect(fs.existsSync(adrPath)).toBe(true);
     const adrContent = fs.readFileSync(adrPath, "utf-8");
     expect(adrContent).toContain("BullMQ with Redis");

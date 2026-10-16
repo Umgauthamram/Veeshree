@@ -1,31 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
-import matter from "gray-matter";
 import MiniSearch from "minisearch";
-import type { IndexDocument, VeeshreeIndexData, DecisionFrontmatter } from "../types/index.js";
+import type { IndexDocument, VeeshreeIndexData } from "../types/index.js";
+import { parseDecisionFrontmatter } from "./memory/frontmatter.js";
+import { calculateNormalizedFileHash } from "./drift/hasher.js";
+import { sanitizeRelativePath, normalizePosix } from "../utils/paths.js";
+import { writeAtomic } from "./memory/atomic.js";
 import {
   MEMORY_DIR_REL,
-  DECISIONS_DIR_REL,
-  ARCHIVE_DIR_REL,
-  ARCHIVE_DECISIONS_DIR_REL,
   INDEX_FILE_REL,
   VEE_DIR_REL,
 } from "../utils/constants.js";
 
 /**
- * Calculates SHA-256 hash of a file on disk
+ * Calculates normalized SHA-256 hash of a file on disk
  */
 export function calculateFileHash(filePath: string): string | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-  try {
-    const fileBuffer = fs.readFileSync(filePath);
-    return crypto.createHash("sha256").update(fileBuffer).digest("hex");
-  } catch {
-    return null;
-  }
+  return calculateNormalizedFileHash(filePath);
 }
 
 /**
@@ -48,22 +39,18 @@ export function findMarkdownFiles(dir: string): string[] {
 }
 
 /**
- * Parses a markdown memory file into an IndexDocument
+ * Parses a markdown memory file into an IndexDocument using safe YAML frontmatter
  */
-export function parseMemoryFile(filePath: string, rootDir: string): IndexDocument {
-  const relPath = path.relative(rootDir, filePath).replace(/\\/g, "/");
+export function parseMemoryFile(
+  filePath: string,
+  rootDir: string,
+  previousIndex?: VeeshreeIndexData
+): IndexDocument {
+  const relPath = normalizePosix(path.relative(rootDir, filePath));
   const rawContent = fs.readFileSync(filePath, "utf-8");
   const stats = fs.statSync(filePath);
 
-  let parsed: matter.GrayMatterFile<string>;
-  try {
-    parsed = matter(rawContent);
-  } catch {
-    parsed = { data: {}, content: rawContent } as any;
-  }
-
-  const data = (parsed.data || {}) as DecisionFrontmatter;
-  const content = parsed.content.trim();
+  const { data, content } = parseDecisionFrontmatter(rawContent);
 
   // Determine document type
   let docType: IndexDocument["type"] = "other";
@@ -87,24 +74,53 @@ export function parseMemoryFile(filePath: string, rootDir: string): IndexDocumen
   let title = data.title;
   if (!title) {
     const firstH1 = content.match(/^#\s+(.+)$/m);
-    title = firstH1 ? firstH1[1].trim() : path.basename(filePath, ".md");
+    title = firstH1 && firstH1[1] ? firstH1[1].trim() : path.basename(filePath, ".md");
   }
 
-  // ID derivation
-  const id = data.id || `doc-${relPath.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const id = data.id || path.basename(filePath, ".md");
 
   // Check linked files and calculate hashes & drift
-  const linkedFiles: string[] = Array.isArray(data.linked_files) ? data.linked_files : [];
+  const linked = Array.isArray(data.linked_files) ? data.linked_files : [];
+  const linkedFiles: string[] = [];
   const linkedHashes: Record<string, string> = {};
   let isStale = false;
 
-  for (const linkedRel of linkedFiles) {
-    const absoluteLinkedPath = path.isAbsolute(linkedRel) ? linkedRel : path.join(rootDir, linkedRel);
-    const hash = calculateFileHash(absoluteLinkedPath);
-    if (hash) {
-      linkedHashes[linkedRel] = hash;
+  const prevDoc = previousIndex?.documents.find(
+    (d) => d.id === id || d.path === relPath || d.title === title
+  );
+
+  for (const entry of linked) {
+    let entryPath: string;
+    let baselineHash: string | undefined;
+
+    if (typeof entry === "string") {
+      entryPath = entry;
     } else {
-      // Linked file does not exist or was deleted -> flag as stale
+      entryPath = entry.path;
+      baselineHash = entry.sha256;
+    }
+
+    try {
+      const safeRel = sanitizeRelativePath(entryPath);
+      linkedFiles.push(safeRel);
+      const absoluteLinked = path.join(rootDir, safeRel);
+      const hash = calculateNormalizedFileHash(absoluteLinked);
+
+      if (hash) {
+        linkedHashes[safeRel] = hash;
+        if (baselineHash) {
+          if (baselineHash !== hash) {
+            isStale = true;
+          }
+        } else if (prevDoc?.linked_hashes?.[safeRel]) {
+          if (prevDoc.linked_hashes[safeRel] !== hash) {
+            isStale = true;
+          }
+        }
+      } else {
+        isStale = true;
+      }
+    } catch {
       isStale = true;
     }
   }
@@ -125,48 +141,26 @@ export function parseMemoryFile(filePath: string, rootDir: string): IndexDocumen
 }
 
 /**
- * Builds and updates the index for the workspace
+ * Builds and updates the index cache for the workspace
  */
 export function buildIndex(rootDir: string = process.cwd()): VeeshreeIndexData {
   const memoryDir = path.join(rootDir, MEMORY_DIR_REL);
   const mdFiles = findMarkdownFiles(memoryDir);
 
-  // Load existing index if available to check previous hashes
   const indexPath = path.join(rootDir, INDEX_FILE_REL);
-  let oldDocsMap: Record<string, IndexDocument> = {};
+  let previousIndex: VeeshreeIndexData | undefined;
   if (fs.existsSync(indexPath)) {
     try {
-      const oldIndex: VeeshreeIndexData = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-      for (const doc of oldIndex.documents) {
-        oldDocsMap[doc.path] = doc;
-      }
+      previousIndex = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
     } catch {
-      // ignore
+      // Ignore corrupted index cache
     }
   }
 
   const documents: IndexDocument[] = [];
 
   for (const file of mdFiles) {
-    const doc = parseMemoryFile(file, rootDir);
-    const oldDoc = oldDocsMap[doc.path];
-
-    if (oldDoc && oldDoc.linked_hashes) {
-      // Compare current hashes with previous stored hashes
-      for (const [linkedFile, currentHash] of Object.entries(doc.linked_hashes)) {
-        const previousHash = oldDoc.linked_hashes[linkedFile];
-        if (previousHash && previousHash !== currentHash) {
-          // Code changed without memory update!
-          doc.stale = true;
-          // Keep the original baseline hash so subsequent calls also identify drift until memory is reconciled
-          doc.linked_hashes[linkedFile] = previousHash;
-        }
-      }
-      if (oldDoc.stale) {
-        doc.stale = true;
-      }
-    }
-
+    const doc = parseMemoryFile(file, rootDir, previousIndex);
     documents.push(doc);
   }
 
@@ -175,12 +169,11 @@ export function buildIndex(rootDir: string = process.cwd()): VeeshreeIndexData {
     documents,
   };
 
-  // Save index to .vee/index.json
   const veeDir = path.join(rootDir, VEE_DIR_REL);
   if (!fs.existsSync(veeDir)) {
     fs.mkdirSync(veeDir, { recursive: true });
   }
-  fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), "utf-8");
+  writeAtomic(indexPath, JSON.stringify(indexData, null, 2));
 
   return indexData;
 }
@@ -204,7 +197,7 @@ export function createSearchEngine(documents: IndexDocument[]): MiniSearch<Index
 }
 
 /**
- * Loads index from disk or rebuilds if missing
+ * Loads index cache from disk or rebuilds if missing
  */
 export function loadOrBuildIndex(rootDir: string = process.cwd()): VeeshreeIndexData {
   const indexPath = path.join(rootDir, INDEX_FILE_REL);

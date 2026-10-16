@@ -1,11 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
 import { logger } from "../utils/logger.js";
-import { resolveActiveEngine } from "../core/engine-resolver.js";
-import { loadOrBuildIndex } from "../core/indexer.js";
-import { listApiKeys } from "../core/auth.js";
-import type { IndexDocument } from "../types/index.js";
+import { resolveEngine } from "../providers/resolver.js";
+import { checkWorkspaceDrift } from "../core/drift/status.js";
+import { listApiKeys, getGlobalCredentialsPath, loadGlobalCredentials } from "../core/auth.js";
+import { runCommandSafe } from "../utils/process.js";
+import { ensureGitIgnoreProtection } from "../core/moderator.js";
+import { installGitHooks, getHooksStatus } from "../core/hooks/manager.js";
+import { installAgentRules } from "../core/rules/manager.js";
+import { estimateTokens } from "../core/context/estimator.js";
+import { CONSTRAINTS_FILE_REL, DEFAULT_CONSTRAINTS_CAP } from "../utils/constants.js";
 
 export interface DoctorCheckItem {
   category: string;
@@ -13,12 +17,24 @@ export interface DoctorCheckItem {
   status: "ok" | "warn" | "fail";
   message: string;
   remedy?: string;
+  fixed?: boolean;
 }
 
-export async function handleDoctorCommand(rootDir: string = process.cwd()): Promise<void> {
+export interface DoctorResult {
+  checks: DoctorCheckItem[];
+  hasFailures: boolean;
+  hasWarnings: boolean;
+  fixedCount: number;
+}
+
+export async function handleDoctorCommand(
+  options: { fix?: boolean } = {},
+  rootDir: string = process.cwd()
+): Promise<DoctorResult> {
   logger.title("Veeshree System Diagnostics & Health Check");
 
   const checks: DoctorCheckItem[] = [];
+  let fixedCount = 0;
 
   // 1. Check Memory Scaffolding
   const memoryDir = path.join(rootDir, "docs", "memory");
@@ -31,13 +47,26 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
   ];
 
   if (!fs.existsSync(memoryDir)) {
-    checks.push({
-      category: "Memory Scaffold",
-      name: "docs/memory/",
-      status: "fail",
-      message: "Directory does not exist",
-      remedy: "Run 'vee init' to scaffold memory layers.",
-    });
+    if (options.fix) {
+      fs.mkdirSync(path.join(memoryDir, "decisions"), { recursive: true });
+      fs.mkdirSync(path.join(memoryDir, "archive", "decisions"), { recursive: true });
+      checks.push({
+        category: "Memory Scaffold",
+        name: "docs/memory/",
+        status: "ok",
+        message: "Repaired missing memory directory structure",
+        fixed: true,
+      });
+      fixedCount++;
+    } else {
+      checks.push({
+        category: "Memory Scaffold",
+        name: "docs/memory/",
+        status: "fail",
+        message: "Directory does not exist",
+        remedy: "Run 'vee init' or 'vee doctor --fix' to scaffold memory layers.",
+      });
+    }
   } else {
     const missing = coreFiles.filter((f) => !fs.existsSync(path.join(memoryDir, f)));
     if (missing.length === 0) {
@@ -48,26 +77,75 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
         message: "All 5 core memory files present",
       });
     } else {
+      if (options.fix) {
+        for (const f of missing) {
+          fs.writeFileSync(path.join(memoryDir, f), `# ${f.replace(".md", "").toUpperCase()}\n`, "utf-8");
+        }
+        checks.push({
+          category: "Memory Scaffold",
+          name: "Core Memory Files",
+          status: "ok",
+          message: `Repaired missing files: ${missing.join(", ")}`,
+          fixed: true,
+        });
+        fixedCount++;
+      } else {
+        checks.push({
+          category: "Memory Scaffold",
+          name: "Core Memory Files",
+          status: "warn",
+          message: `Missing files: ${missing.join(", ")}`,
+          remedy: "Run 'vee init --force' or 'vee doctor --fix' to re-seed missing memory files.",
+        });
+      }
+    }
+  }
+
+  // 2. Check Constraints Token Cap Overflow (BUG-7)
+  const constraintsPath = path.join(rootDir, CONSTRAINTS_FILE_REL);
+  if (fs.existsSync(constraintsPath)) {
+    const rawConstraints = fs.readFileSync(constraintsPath, "utf-8");
+    const tokenCount = estimateTokens(rawConstraints);
+    if (tokenCount > DEFAULT_CONSTRAINTS_CAP) {
       checks.push({
-        category: "Memory Scaffold",
-        name: "Core Memory Files",
+        category: "Context Budget",
+        name: "Constraints Token Cap",
         status: "warn",
-        message: `Missing files: ${missing.join(", ")}`,
-        remedy: "Run 'vee init --force' to re-seed missing memory files.",
+        message: `Constraints file uses ~${tokenCount} tokens (default cap is ${DEFAULT_CONSTRAINTS_CAP}). Overflow rules will be dropped unless marked [pin].`,
+        remedy: "Run 'vee gc' or mark essential rules with '[pin]'.",
+      });
+    } else {
+      checks.push({
+        category: "Context Budget",
+        name: "Constraints Token Cap",
+        status: "ok",
+        message: `Constraints file uses ~${tokenCount} tokens (within ${DEFAULT_CONSTRAINTS_CAP} cap)`,
       });
     }
   }
 
-  // 2. Check Git Security & Key Exposure
+  // 3. Check Git Security & Key Protection
   const gitignorePath = path.join(rootDir, ".gitignore");
   if (!fs.existsSync(gitignorePath)) {
-    checks.push({
-      category: "Git Security",
-      name: ".gitignore",
-      status: "warn",
-      message: "No .gitignore found in repository root",
-      remedy: "Run 'vee init' to generate a protected .gitignore.",
-    });
+    if (options.fix) {
+      ensureGitIgnoreProtection(rootDir);
+      checks.push({
+        category: "Git Security",
+        name: ".gitignore",
+        status: "ok",
+        message: "Created protected .gitignore file",
+        fixed: true,
+      });
+      fixedCount++;
+    } else {
+      checks.push({
+        category: "Git Security",
+        name: ".gitignore",
+        status: "warn",
+        message: "No .gitignore found in repository root",
+        remedy: "Run 'vee doctor --fix' to generate a protected .gitignore.",
+      });
+    }
   } else {
     const gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
     const hasConfigIgnored = gitignoreContent.includes(".vee/config.json") || gitignoreContent.includes(".vee/");
@@ -79,31 +157,38 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
         message: "Protected from Git tracking",
       });
     } else {
-      checks.push({
-        category: "Git Security",
-        name: ".vee/config.json in .gitignore",
-        status: "fail",
-        message: "Not ignored! Risk of exposing local configurations to GitHub.",
-        remedy: "Add '/.vee/config.json' to your .gitignore immediately.",
-      });
+      if (options.fix) {
+        ensureGitIgnoreProtection(rootDir);
+        checks.push({
+          category: "Git Security",
+          name: ".vee/config.json in .gitignore",
+          status: "ok",
+          message: "Added .vee/config.json to .gitignore",
+          fixed: true,
+        });
+        fixedCount++;
+      } else {
+        checks.push({
+          category: "Git Security",
+          name: ".vee/config.json in .gitignore",
+          status: "fail",
+          message: "Not ignored! Risk of exposing local configurations to GitHub.",
+          remedy: "Run 'vee doctor --fix' or add '/.vee/config.json' to .gitignore.",
+        });
+      }
     }
   }
 
-  // Check if .vee/config.json is currently tracked by git
+  // Check if .vee/config.json is currently staged or committed (using safe runCommandSafe)
   try {
-    const gitTracked = execSync("git ls-files .vee/config.json", {
-      cwd: rootDir,
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "ignore"],
-    }).trim();
-
+    const gitTracked = runCommandSafe("git", ["ls-files", ".vee/config.json"], { cwd: rootDir });
     if (gitTracked) {
       checks.push({
         category: "Git Security",
         name: "Git Tracking Status",
         status: "fail",
         message: ".vee/config.json is staged or committed in Git!",
-        remedy: "Run 'git rm --cached .vee/config.json' to stop tracking without deleting local file.",
+        remedy: "Run 'git rm --cached .vee/config.json' to stop tracking.",
       });
     } else {
       checks.push({
@@ -114,20 +199,68 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
       });
     }
   } catch {
-    // Not a git repo, ignore git command error
+    // not a git repo
   }
 
-  // 3. Check AI Extractor Connectivity
-  const keys = listApiKeys(rootDir);
-  const anyKeyConfigured = Object.values(keys).some((k) => k.configured);
+  // 4. Check Credentials Permissions (SEC-3)
+  const credsPath = getGlobalCredentialsPath();
+  if (fs.existsSync(credsPath)) {
+    loadGlobalCredentials(); // repairs permissions automatically
+    checks.push({
+      category: "Keystore Security",
+      name: "Global Credentials Mode",
+      status: "ok",
+      message: "Credentials permissions verified (0600)",
+    });
+  }
 
+  // 5. Check Git Hooks
+  const hooksStatus = getHooksStatus(rootDir);
+  if (hooksStatus.isGitRepo) {
+    if (hooksStatus.installed) {
+      checks.push({
+        category: "Git Automation",
+        name: "Git Hooks",
+        status: "ok",
+        message: "Veeshree hooks active (pre-commit, post-checkout, post-merge)",
+      });
+    } else {
+      if (options.fix) {
+        installGitHooks(rootDir);
+        checks.push({
+          category: "Git Automation",
+          name: "Git Hooks",
+          status: "ok",
+          message: "Installed Veeshree Git hooks",
+          fixed: true,
+        });
+        fixedCount++;
+      } else {
+        checks.push({
+          category: "Git Automation",
+          name: "Git Hooks",
+          status: "warn",
+          message: "Git hooks not yet installed",
+          remedy: "Run 'vee hooks install' or 'vee doctor --fix'.",
+        });
+      }
+    }
+  }
+
+  // 6. Check Agent Rules
+  if (options.fix) {
+    installAgentRules(rootDir);
+    fixedCount++;
+  }
+
+  // 7. Check AI Engine Connectivity
   try {
-    const engine = await resolveActiveEngine(rootDir);
+    const engine = await resolveEngine(rootDir);
     checks.push({
       category: "AI Extraction Engine",
       name: "Active Engine",
       status: "ok",
-      message: `${engine.provider} (${engine.model}) via ${engine.source}`,
+      message: `${engine.provider} (${engine.model})`,
     });
   } catch (err: any) {
     checks.push({
@@ -135,52 +268,30 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
       name: "Active Engine",
       status: "warn",
       message: "No active model engine connected (indexing-only mode)",
-      remedy: "Set a key with 'vee keys set gemini <KEY>' (saved in ~/.veeshree/credentials.json) or start Ollama.",
+      remedy: "Set a key with 'vee keys set gemini <KEY>' or run local Ollama.",
     });
   }
 
-  // 4. Check Index & Hash Drift
-  const indexFile = path.join(rootDir, ".vee", "index.json");
-  if (!fs.existsSync(indexFile)) {
+  // 8. Check Code Drift
+  const driftReport = checkWorkspaceDrift(rootDir);
+  if (!driftReport.hasDrift) {
     checks.push({
-      category: "Search & Code Hashes",
-      name: "Index Cache",
-      status: "warn",
-      message: "No search index (.vee/index.json) found",
-      remedy: "Run 'vee sync' to build initial code hashes and search index.",
+      category: "Code Integrity",
+      name: "Live Hash Drift",
+      status: "ok",
+      message: `${driftReport.totalRecords} records in sync with codebase`,
     });
   } else {
-    try {
-      const indexData = loadOrBuildIndex(rootDir);
-      const staleDocs = indexData.documents.filter((d: IndexDocument) => d.stale);
-      if (staleDocs.length === 0) {
-        checks.push({
-          category: "Search & Code Hashes",
-          name: "Code Integrity",
-          status: "ok",
-          message: `${indexData.documents.length} memory records in sync with codebase`,
-        });
-      } else {
-        checks.push({
-          category: "Search & Code Hashes",
-          name: "Code Drift",
-          status: "warn",
-          message: `${staleDocs.length} record(s) have drifted from linked code SHA-256 hashes`,
-          remedy: "Run 'vee sync' or 'vee capture' to reconcile architectural decisions with changed code.",
-        });
-      }
-    } catch {
-      checks.push({
-        category: "Search & Code Hashes",
-        name: "Index Cache",
-        status: "warn",
-        message: "Could not read .vee/index.json",
-        remedy: "Run 'vee sync' to rebuild search index.",
-      });
-    }
+    checks.push({
+      category: "Code Integrity",
+      name: "Live Hash Drift",
+      status: "warn",
+      message: `${driftReport.driftedRecordsCount} record(s) drifted from committed baselines`,
+      remedy: "Run 'vee sync --accept --all' or 'vee capture' to reconcile.",
+    });
   }
 
-  // Render Diagnostics Report
+  // Print summary
   console.log("");
   let hasFailures = false;
   let hasWarnings = false;
@@ -198,12 +309,16 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
     }
 
     console.log(`${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`);
-    if (item.remedy) {
+    if (item.remedy && !item.fixed) {
       console.log(`       ${logger.cyan("-> Remedy: " + item.remedy)}`);
     }
   }
 
   console.log("\n" + "-".repeat(70));
+  if (options.fix && fixedCount > 0) {
+    logger.success(`Doctor successfully repaired ${fixedCount} issue(s)!`);
+  }
+
   if (hasFailures) {
     logger.error("Veeshree Doctor detected critical issues that need attention.");
   } else if (hasWarnings) {
@@ -211,4 +326,11 @@ export async function handleDoctorCommand(rootDir: string = process.cwd()): Prom
   } else {
     logger.success("All checks passed! Veeshree is completely healthy, secure, and ready.");
   }
+
+  return {
+    checks,
+    hasFailures,
+    hasWarnings,
+    fixedCount,
+  };
 }

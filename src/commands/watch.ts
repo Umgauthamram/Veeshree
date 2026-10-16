@@ -1,16 +1,53 @@
-import { startMemoryWatcher, type WatcherOptions } from "../core/watcher.js";
+import { startMemoryWatcher, type WatcherOptions } from "../core/watch/watcher.js";
+import { startDaemon, stopDaemon, getDaemonStatus } from "../core/watch/daemon.js";
 import { logger } from "../utils/logger.js";
 
-export async function handleWatchCommand(options: { debounce?: string; provider?: string; model?: string }) {
-  try {
-    const debounceMs = options.debounce ? parseInt(options.debounce, 10) * 1000 : 5000;
-    await startMemoryWatcher(process.cwd(), {
-      debounceMs,
-      provider: options.provider,
-      model: options.model,
-    });
-  } catch (err: any) {
-    logger.error(`Failed to start memory watcher: ${err?.message || err}`);
-    process.exit(1);
+export interface WatchCommandOptions {
+  debounce?: string;
+  provider?: string;
+  model?: string;
+  auto?: boolean;
+  daemon?: boolean;
+  subcommand?: "status" | "stop";
+}
+
+export async function handleWatchCommand(
+  options: WatchCommandOptions = {},
+  rootDir: string = process.cwd()
+): Promise<void> {
+  if (options.subcommand === "status") {
+    const status = getDaemonStatus(rootDir);
+    if (status.running) {
+      logger.success(`Watcher daemon is RUNNING (PID: ${status.pid}). Log: ${status.logPath}`);
+    } else {
+      logger.info("Watcher daemon is NOT running.");
+    }
+    return;
   }
+
+  if (options.subcommand === "stop") {
+    const result = stopDaemon(rootDir);
+    if (result.stopped) {
+      logger.success(`Stopped watcher daemon (PID: ${result.pid}).`);
+    } else {
+      logger.info("No active watcher daemon found to stop.");
+    }
+    return;
+  }
+
+  if (options.daemon) {
+    const { pid, logPath } = startDaemon(rootDir, options);
+    logger.success(`Watcher daemon spawned in background (PID: ${pid}).`);
+    logger.info(`Output logging to: ${logPath}`);
+    logger.info(`Check status anytime with 'vee watch status' or stop with 'vee watch stop'.`);
+    return;
+  }
+
+  const debounceSeconds = options.debounce ? parseInt(options.debounce, 10) : undefined;
+  await startMemoryWatcher(rootDir, {
+    debounceSeconds,
+    provider: options.provider,
+    model: options.model,
+    auto: options.auto,
+  });
 }

@@ -2,6 +2,18 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ExtractionDelta } from "../types/index.js";
 import { buildIndex } from "./indexer.js";
+import { writeAtomic } from "./memory/atomic.js";
+import {
+  parseSections,
+  slugifyTitle,
+  getNextAdrNumber,
+  updateSectionBody,
+  normalizeTaskName,
+  safeLiteralReplace,
+} from "./memory/section-editor.js";
+import { stringifyMarkdownFrontmatter, parseDecisionFrontmatter } from "./memory/frontmatter.js";
+import { calculateNormalizedFileHash } from "./drift/hasher.js";
+import { sanitizeRelativePath } from "../utils/paths.js";
 import {
   DECISIONS_DIR_REL,
   ARCHIVE_DECISIONS_DIR_REL,
@@ -12,20 +24,17 @@ import {
   DISCOVERIES_FILE_REL,
 } from "../utils/constants.js";
 
-/**
- * Normalizes title into a kebab-case file name
- */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
-}
+export { reconcileExtractionSafe } from "./reconcile/reconciler.js";
 
 /**
- * Reconciles an extracted delta into the /docs/memory/ markdown files
+ * Reconciles an extracted delta into the /docs/memory/ markdown files.
+ * Synchronous API for backwards compatibility.
  */
-export function reconcileExtraction(delta: ExtractionDelta, rootDir: string = process.cwd()): {
+export function reconcileExtraction(
+  delta: ExtractionDelta,
+  rootDir: string = process.cwd(),
+  options: { source?: string; acceptedBy?: string } = {}
+): {
   newDecisions: string[];
   updatedFiles: string[];
 } {
@@ -40,19 +49,46 @@ export function reconcileExtraction(delta: ExtractionDelta, rootDir: string = pr
     }
 
     for (const dec of delta.decisions) {
-      const slug = slugify(dec.title || "architectural-decision");
-      const filename = `${slug}.md`;
+      const nextNum = getNextAdrNumber(rootDir);
+      const slug = slugifyTitle(dec.title || "decision");
+      const filename = `${nextNum}-${slug}.md`;
       const filePath = path.join(decisionsDir, filename);
 
-      const frontmatter = `---
-title: "${dec.title.replace(/"/g, '\\"')}"
-status: "${dec.status || "active"}"
-date: "${new Date().toISOString().split("T")[0]}"
-tags: ${JSON.stringify(dec.tags && dec.tags.length > 0 ? dec.tags : ["architecture"])}
-linked_files: ${JSON.stringify(dec.linked_files || [])}
----
+      const linkedEntries = (dec.linked_files || []).map((rel) => {
+        try {
+          const safeRel = sanitizeRelativePath(rel);
+          const hash = calculateNormalizedFileHash(path.join(rootDir, safeRel));
+          return { path: safeRel, sha256: hash || undefined };
+        } catch {
+          return { path: rel, sha256: undefined };
+        }
+      });
 
-# ${dec.title}
+      const frontmatterData: Record<string, unknown> = {
+        id: `${nextNum}-${slug}`,
+        title: dec.title,
+        status: dec.status || "active",
+        date: new Date().toISOString().split("T")[0],
+        tags: dec.tags && dec.tags.length > 0 ? dec.tags : ["architecture"],
+        linked_files: linkedEntries,
+        generated_by: "veeshree",
+      };
+
+      if (dec.supersedes) {
+        frontmatterData.supersedes = dec.supersedes;
+      }
+
+      const alternatives =
+        dec.alternatives_considered && dec.alternatives_considered.length > 0
+          ? dec.alternatives_considered.map((a) => `- ${a}`).join("\n")
+          : "- None explicitly recorded.";
+
+      const linkedFilesBlock =
+        linkedEntries.length > 0
+          ? linkedEntries.map((f) => `- \`${f.path}\``).join("\n")
+          : "- None specified.";
+
+      const bodyMarkdown = `# ${dec.title}
 
 ## Context & Problem Statement
 ${dec.reason || "Architectural decision recorded from AI coding session."}
@@ -64,19 +100,13 @@ ${dec.decision}
 ${dec.reason}
 
 ## Alternatives Considered
-${
-  dec.alternatives_considered && dec.alternatives_considered.length > 0
-    ? dec.alternatives_considered.map((a) => `- ${a}`).join("\n")
-    : "- None explicitly recorded."
-}
+${alternatives}
 
 ## Linked Files
-${
-  dec.linked_files && dec.linked_files.length > 0
-    ? dec.linked_files.map((f) => `- \`${f}\``).join("\n")
-    : "- None specified."
-}
+${linkedFilesBlock}
 `;
+
+      const fullContent = stringifyMarkdownFrontmatter(frontmatterData, bodyMarkdown);
 
       if (dec.status === "superseded") {
         const archiveDecisionsDir = path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL);
@@ -84,18 +114,11 @@ ${
           fs.mkdirSync(archiveDecisionsDir, { recursive: true });
         }
         const archiveFilePath = path.join(archiveDecisionsDir, filename);
-        fs.writeFileSync(archiveFilePath, frontmatter, "utf-8");
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-          } catch {
-            // ignore
-          }
-        }
+        writeAtomic(archiveFilePath, fullContent);
         newDecisions.push(`docs/memory/archive/decisions/${filename}`);
         updatedFiles.push(`docs/memory/archive/decisions/${filename}`);
       } else {
-        fs.writeFileSync(filePath, frontmatter, "utf-8");
+        writeAtomic(filePath, fullContent);
         newDecisions.push(`docs/memory/decisions/${filename}`);
         updatedFiles.push(`docs/memory/decisions/${filename}`);
       }
@@ -106,33 +129,44 @@ ${
   if (delta.current_state) {
     const currentStatePath = path.join(rootDir, CURRENT_STATE_FILE_REL);
     if (fs.existsSync(currentStatePath)) {
-      let stateContent = fs.readFileSync(currentStatePath, "utf-8");
+      let content = fs.readFileSync(currentStatePath, "utf-8");
 
       if (delta.current_state.current_feature) {
-        stateContent = stateContent.replace(
+        content = safeLiteralReplace(
+          content,
           /(- \*\*Current Focus\*\*: ).+/m,
-          `$1${delta.current_state.current_feature}`
+          `- **Current Focus**: ${delta.current_state.current_feature}`
         );
       }
 
       if (delta.current_state.completed_in_session && delta.current_state.completed_in_session.length > 0) {
-        const completedLines = delta.current_state.completed_in_session.map((c) => `- ${c}`).join("\n");
-        // Append to recent progress section
-        stateContent = stateContent.replace(
-          /(## 3\. Recent Progress[^\n]*\n)([\s\S]*?)(## 4\.|$)/,
-          `$1${completedLines}\n\n$3`
+        const newProgress = delta.current_state.completed_in_session
+          .map((c) => `- ${c}`)
+          .join("\n");
+
+        content = updateSectionBody(
+          content,
+          (hText) => /Recent Progress/i.test(hText),
+          (body) => {
+            const existingLines = body.split("\n").filter((l) => l.trim().length > 0);
+            return `${newProgress}\n${existingLines.join("\n")}`.trim();
+          }
         );
       }
 
       if (delta.current_state.next_immediate_steps && delta.current_state.next_immediate_steps.length > 0) {
-        const nextSteps = delta.current_state.next_immediate_steps.map((s) => `- [ ] ${s}`).join("\n");
-        stateContent = stateContent.replace(
-          /(## 4\. Next Immediate Steps[^\n]*\n)([\s\S]*)/,
-          `$1${nextSteps}\n`
+        const nextStepsList = delta.current_state.next_immediate_steps
+          .map((s) => `- [ ] ${s}`)
+          .join("\n");
+
+        content = updateSectionBody(
+          content,
+          (hText) => /Next Immediate Steps/i.test(hText),
+          () => nextStepsList
         );
       }
 
-      fs.writeFileSync(currentStatePath, stateContent, "utf-8");
+      writeAtomic(currentStatePath, content);
       updatedFiles.push(CURRENT_STATE_FILE_REL);
     }
   }
@@ -144,28 +178,53 @@ ${
       let tasksContent = fs.readFileSync(tasksPath, "utf-8");
 
       for (const t of delta.tasks) {
-        if (t.action === "complete") {
-          // Check off if exists
-          const escaped = t.task_name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const taskRegex = new RegExp(`- \\[ \\] (${escaped})`, "i");
-          if (taskRegex.test(tasksContent)) {
-            tasksContent = tasksContent.replace(taskRegex, `- [x] $1`);
-          } else {
-            // Append as completed
-            tasksContent = tasksContent.replace(
-              /(## Active Tasks[^\n]*\n)/,
-              `$1- [x] ${t.task_name}\n`
+        const targetNorm = normalizeTaskName(t.task_name);
+
+        if (t.action === "remove") {
+          const lines = tasksContent.split("\n");
+          const filtered = lines.filter((line) => {
+            if (line.trim().startsWith("- [") && normalizeTaskName(line) === targetNorm) {
+              return false;
+            }
+            return true;
+          });
+          tasksContent = filtered.join("\n");
+        } else if (t.action === "complete") {
+          const lines = tasksContent.split("\n");
+          let found = false;
+          const updatedLines = lines.map((line) => {
+            if (line.trim().startsWith("- [") && normalizeTaskName(line) === targetNorm) {
+              found = true;
+              return `- [x] ${t.task_name}`;
+            }
+            return line;
+          });
+
+          if (!found) {
+            tasksContent = updateSectionBody(
+              tasksContent,
+              (hText) => /Active Tasks/i.test(hText),
+              (body) => `${body.trim()}\n- [x] ${t.task_name}`.trim()
             );
+          } else {
+            tasksContent = updatedLines.join("\n");
           }
         } else if (t.action === "add") {
-          tasksContent = tasksContent.replace(
-            /(## Active Tasks[^\n]*\n)/,
-            `$1- [ ] ${t.task_name}\n`
+          const lines = tasksContent.split("\n");
+          const exists = lines.some(
+            (line) => line.trim().startsWith("- [") && normalizeTaskName(line) === targetNorm
           );
+          if (!exists) {
+            tasksContent = updateSectionBody(
+              tasksContent,
+              (hText) => /Active Tasks/i.test(hText),
+              (body) => `${body.trim()}\n- [ ] ${t.task_name}`.trim()
+            );
+          }
         }
       }
 
-      fs.writeFileSync(tasksPath, tasksContent, "utf-8");
+      writeAtomic(tasksPath, tasksContent);
       updatedFiles.push(TASKS_FILE_REL);
     }
   }
@@ -177,23 +236,24 @@ ${
       let constraintsContent = fs.readFileSync(constraintsPath, "utf-8");
 
       for (const c of delta.constraints) {
-        const formatted = `- **${c.type === "hard" ? "Rule" : "Guideline"}**: ${c.rule}`;
-        if (!constraintsContent.includes(c.rule)) {
-          if (c.type === "hard") {
-            constraintsContent = constraintsContent.replace(
-              /(## Hard Constraints[^\n]*\n)/,
-              `$1${formatted}\n`
-            );
-          } else {
-            constraintsContent = constraintsContent.replace(
-              /(## Soft Guidelines[^\n]*\n)/,
-              `$1${formatted}\n`
-            );
-          }
+        const sourceMeta = c.source ? ` (source: ${c.source})` : "";
+        const acceptedMeta = c.accepted_by || options.acceptedBy ? ` [accepted_by: ${c.accepted_by || options.acceptedBy}]` : "";
+        const formatted = `- **${c.type === "hard" ? "Rule" : "Guideline"}**: ${c.rule}${sourceMeta}${acceptedMeta}`;
+
+        const ruleLower = c.rule.trim().toLowerCase();
+        const alreadyExists = constraintsContent.toLowerCase().includes(ruleLower);
+
+        if (!alreadyExists) {
+          const targetSection = c.type === "hard" ? /Hard Constraints/i : /Soft Guidelines/i;
+          constraintsContent = updateSectionBody(
+            constraintsContent,
+            (hText) => targetSection.test(hText),
+            (body) => `${body.trim()}\n${formatted}`.trim()
+          );
         }
       }
 
-      fs.writeFileSync(constraintsPath, constraintsContent, "utf-8");
+      writeAtomic(constraintsPath, constraintsContent);
       updatedFiles.push(CONSTRAINTS_FILE_REL);
     }
   }
@@ -205,13 +265,14 @@ ${
       let rejectedContent = fs.readFileSync(rejectedPath, "utf-8");
 
       for (const r of delta.rejected_approaches) {
-        const block = `\n### ${r.approach}\n- **Reason Rejected**: ${r.reason}\n`;
-        if (!rejectedContent.includes(r.approach)) {
-          rejectedContent += block;
+        const approachNorm = r.approach.trim().toLowerCase();
+        if (!rejectedContent.toLowerCase().includes(approachNorm)) {
+          const block = `\n### ${r.approach}\n- **Reason Rejected**: ${r.reason}\n`;
+          rejectedContent = rejectedContent.trim() + "\n" + block;
         }
       }
 
-      fs.writeFileSync(rejectedPath, rejectedContent, "utf-8");
+      writeAtomic(rejectedPath, rejectedContent);
       updatedFiles.push(REJECTED_FILE_REL);
     }
   }
@@ -223,18 +284,18 @@ ${
       let discoveriesContent = fs.readFileSync(discoveriesPath, "utf-8");
 
       for (const d of delta.discoveries) {
-        const item = `- ${d}\n`;
-        if (!discoveriesContent.includes(d)) {
-          discoveriesContent += item;
+        const discNorm = d.trim().toLowerCase();
+        if (!discoveriesContent.toLowerCase().includes(discNorm)) {
+          discoveriesContent = discoveriesContent.trim() + `\n- ${d}\n`;
         }
       }
 
-      fs.writeFileSync(discoveriesPath, discoveriesContent, "utf-8");
+      writeAtomic(discoveriesPath, discoveriesContent);
       updatedFiles.push(DISCOVERIES_FILE_REL);
     }
   }
 
-  // 7. Trigger memory sync to update index & hashes
+  // 7. Update index
   buildIndex(rootDir);
 
   return {

@@ -1,41 +1,51 @@
-import { assembleContext } from "../core/context.js";
+import { buildContext, explainContextBudget, type ContextBuildResult } from "../core/context/index.js";
 import { logger } from "../utils/logger.js";
 
 export interface ContextCommandOptions {
-  maxTokens?: string;
+  maxTokens?: string | number;
   tasks?: boolean;
   json?: boolean;
   raw?: boolean;
+  explain?: boolean;
+  format?: "markdown" | "json" | "xml";
 }
 
 export function generateContext(
   request?: string,
   options: ContextCommandOptions = {},
   rootDir: string = process.cwd()
-): void {
-  const maxTokens = options.maxTokens ? parseInt(options.maxTokens, 10) : undefined;
-  const result = assembleContext(rootDir, {
+): ContextBuildResult {
+  const maxTokens = options.maxTokens ? parseInt(String(options.maxTokens), 10) : undefined;
+  const format = options.json ? "json" : options.format || "markdown";
+
+  const result = buildContext(rootDir, {
     request,
     maxTokens,
     includeTasks: options.tasks,
+    format,
   });
 
-  if (options.json) {
-    console.log(JSON.stringify(result, null, 2));
-    return;
+  if (options.explain) {
+    console.log(explainContextBudget(result));
+    return result;
   }
 
-  if (options.raw) {
-    // Print directly for agent prompt pipelines
-    console.log(result.prompt);
-    return;
+  if (options.raw || options.json || options.format === "xml") {
+    process.stdout.write(result.content + "\n");
+    return result;
   }
 
-  // Standard output
-  console.log(result.prompt);
+  if (result.overflowNotice) {
+    logger.warn(result.overflowNotice);
+  }
 
-  // If there are stale warnings, write to stderr for visibility without corrupting stdout
   if (result.staleWarnings.length > 0) {
-    console.error("\n" + logger.dim(`[Veeshree Notice: ${result.staleWarnings.length} record(s) flagged as stale]`));
+    logger.warn(`Stale Drift Detected: ${result.staleWarnings.length} decision(s) reference drifted code:`);
+    for (const w of result.staleWarnings) {
+      console.error(logger.dim(`  * ${w}`));
+    }
   }
+
+  process.stdout.write(result.content + "\n");
+  return result;
 }

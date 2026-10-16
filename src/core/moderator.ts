@@ -9,7 +9,7 @@ import {
   generateDiscoveriesTemplate,
   generateDecisionStubTemplate,
 } from "./templates.js";
-import { installIdeRules } from "./ide.js";
+import { installAgentRules } from "./rules/manager.js";
 import { saveConfig, loadConfig } from "./config.js";
 import { buildIndex } from "./indexer.js";
 
@@ -46,7 +46,7 @@ export function ensureGitIgnoreProtection(rootDir: string): boolean {
 
 export function moderateAndBootstrap(
   rootDir: string = process.cwd(),
-  options: { force?: boolean } = {}
+  options: { force?: boolean; selectedAgents?: string[]; dryRun?: boolean } = {}
 ): ModeratorReport {
   const memoryDir = path.join(rootDir, "docs", "memory");
   const decisionsDir = path.join(memoryDir, "decisions");
@@ -54,11 +54,13 @@ export function moderateAndBootstrap(
   const archiveDecisionsDir = path.join(archiveDir, "decisions");
   const veeDir = path.join(rootDir, ".vee");
 
-  fs.mkdirSync(memoryDir, { recursive: true });
-  fs.mkdirSync(decisionsDir, { recursive: true });
-  fs.mkdirSync(archiveDir, { recursive: true });
-  fs.mkdirSync(archiveDecisionsDir, { recursive: true });
-  fs.mkdirSync(veeDir, { recursive: true });
+  if (!options.dryRun) {
+    fs.mkdirSync(memoryDir, { recursive: true });
+    fs.mkdirSync(decisionsDir, { recursive: true });
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.mkdirSync(archiveDecisionsDir, { recursive: true });
+    fs.mkdirSync(veeDir, { recursive: true });
+  }
 
   // 1. Scan the repository deeply
   const scan = scanRepository(rootDir);
@@ -78,37 +80,39 @@ export function moderateAndBootstrap(
   const seededFiles: string[] = [];
 
   // 3. Seed Config
-  const config = loadConfig(rootDir);
-  saveConfig(config, rootDir);
+  if (!options.dryRun) {
+    const config = loadConfig(rootDir);
+    saveConfig(config, rootDir);
+  }
 
   // 4. Seed Memory Files
   const stateFile = path.join(memoryDir, "current-state.md");
   if (options.force || !fs.existsSync(stateFile)) {
-    fs.writeFileSync(stateFile, generateCurrentStateTemplate(scan), "utf-8");
+    if (!options.dryRun) fs.writeFileSync(stateFile, generateCurrentStateTemplate(scan), "utf-8");
     seededFiles.push("docs/memory/current-state.md");
   }
 
   const tasksFile = path.join(memoryDir, "tasks.md");
   if (options.force || !fs.existsSync(tasksFile)) {
-    fs.writeFileSync(tasksFile, generateTasksTemplate(), "utf-8");
+    if (!options.dryRun) fs.writeFileSync(tasksFile, generateTasksTemplate(), "utf-8");
     seededFiles.push("docs/memory/tasks.md");
   }
 
   const constraintsFile = path.join(memoryDir, "constraints.md");
   if (options.force || !fs.existsSync(constraintsFile)) {
-    fs.writeFileSync(constraintsFile, generateConstraintsTemplate(), "utf-8");
+    if (!options.dryRun) fs.writeFileSync(constraintsFile, generateConstraintsTemplate(), "utf-8");
     seededFiles.push("docs/memory/constraints.md");
   }
 
   const rejectedFile = path.join(memoryDir, "rejected.md");
   if (options.force || !fs.existsSync(rejectedFile)) {
-    fs.writeFileSync(rejectedFile, generateRejectedTemplate(), "utf-8");
+    if (!options.dryRun) fs.writeFileSync(rejectedFile, generateRejectedTemplate(), "utf-8");
     seededFiles.push("docs/memory/rejected.md");
   }
 
   const discoveriesFile = path.join(memoryDir, "discoveries.md");
   if (options.force || !fs.existsSync(discoveriesFile)) {
-    fs.writeFileSync(discoveriesFile, generateDiscoveriesTemplate(), "utf-8");
+    if (!options.dryRun) fs.writeFileSync(discoveriesFile, generateDiscoveriesTemplate(), "utf-8");
     seededFiles.push("docs/memory/discoveries.md");
   }
 
@@ -116,11 +120,13 @@ export function moderateAndBootstrap(
   if (scan.databases.length > 0) {
     const dbAdrPath = path.join(decisionsDir, "database.md");
     if (options.force || !fs.existsSync(dbAdrPath)) {
-      fs.writeFileSync(
-        dbAdrPath,
-        generateDecisionStubTemplate("Database Architecture", "Database", scan.databases.join(", ")),
-        "utf-8"
-      );
+      if (!options.dryRun) {
+        fs.writeFileSync(
+          dbAdrPath,
+          generateDecisionStubTemplate("Database Architecture", "Database", scan.databases.join(", ")),
+          "utf-8"
+        );
+      }
       seededFiles.push("docs/memory/decisions/database.md");
     }
   }
@@ -128,23 +134,29 @@ export function moderateAndBootstrap(
   if (scan.frameworks.length > 0) {
     const frameworkAdrPath = path.join(decisionsDir, "framework.md");
     if (options.force || !fs.existsSync(frameworkAdrPath)) {
-      fs.writeFileSync(
-        frameworkAdrPath,
-        generateDecisionStubTemplate("Application Framework", "Framework", scan.frameworks.join(", ")),
-        "utf-8"
-      );
+      if (!options.dryRun) {
+        fs.writeFileSync(
+          frameworkAdrPath,
+          generateDecisionStubTemplate("Application Framework", "Framework", scan.frameworks.join(", ")),
+          "utf-8"
+        );
+      }
       seededFiles.push("docs/memory/decisions/framework.md");
     }
   }
 
-  // 6. Automatically inject IDE Rules (Zero-Human setup for Cursor, Claude, Antigravity, Copilot)
-  const installedRules = installIdeRules(rootDir);
+  // 6. Automatically inject IDE Rules
+  let installedRules: string[] = [];
+  if (!options.dryRun) {
+    installedRules = installAgentRules(rootDir, options.selectedAgents);
+  }
 
   // 7. Protect local config & index from Git exposure
-  const gitIgnoreUpdated = ensureGitIgnoreProtection(rootDir);
-
-  // 8. Initial Sync & Hash Calculation
-  buildIndex(rootDir);
+  let gitIgnoreUpdated = false;
+  if (!options.dryRun) {
+    gitIgnoreUpdated = ensureGitIgnoreProtection(rootDir);
+    buildIndex(rootDir);
+  }
 
   return {
     isExistingProject,

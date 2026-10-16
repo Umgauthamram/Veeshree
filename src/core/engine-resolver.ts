@@ -109,7 +109,7 @@ export async function resolveActiveEngine(
   const availableRuntimes = await detectAvailableModels(rootDir);
   const ollama = availableRuntimes.find((r) => r.provider === "ollama" && r.status === "available");
   if (ollama && ollama.models.length > 0) {
-    const selectedModel = ollama.models[0];
+    const selectedModel = ollama.models[0] || "llama3";
     return {
       provider: "ollama",
       model: selectedModel,
@@ -121,7 +121,7 @@ export async function resolveActiveEngine(
 
   const lmstudio = availableRuntimes.find((r) => r.provider === "lmstudio" && r.status === "available");
   if (lmstudio && lmstudio.models.length > 0) {
-    const selectedModel = lmstudio.models[0];
+    const selectedModel = lmstudio.models[0] || "default";
     return {
       provider: "lmstudio",
       model: selectedModel,

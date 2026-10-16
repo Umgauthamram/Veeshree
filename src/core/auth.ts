@@ -2,8 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { loadConfig, saveConfig } from "./config.js";
+import { writeAtomic } from "./memory/atomic.js";
+import { logger } from "../utils/logger.js";
 
-export type KeyProvider = "gemini" | "groq" | "nvidia" | "openai";
+export type KeyProvider = "gemini" | "groq" | "nvidia" | "openai" | "anthropic";
+
+export const SUPPORTED_KEY_PROVIDERS: KeyProvider[] = ["gemini", "openai", "anthropic", "groq", "nvidia"];
 
 export function maskKey(key: string): string {
   if (!key) return "(not set)";
@@ -19,11 +23,27 @@ export function getGlobalCredentialsPath(): string {
   return path.join(getGlobalCredentialsDir(), "credentials.json");
 }
 
+/**
+ * Loads credentials, repairing permissions to 0600 (SEC-3)
+ */
 export function loadGlobalCredentials(): Record<string, string> {
   const filePath = getGlobalCredentialsPath();
+  const dir = getGlobalCredentialsDir();
+
   if (!fs.existsSync(filePath)) {
     return {};
   }
+
+  // Verify and repair permissions (0600 on file, 0700 on dir)
+  try {
+    if (process.platform !== "win32") {
+      fs.chmodSync(dir, 0o700);
+      fs.chmodSync(filePath, 0o600);
+    }
+  } catch {
+    // ignore
+  }
+
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
     return JSON.parse(raw);
@@ -32,13 +52,25 @@ export function loadGlobalCredentials(): Record<string, string> {
   }
 }
 
+/**
+ * Saves credentials with mode 0600 in mode 0700 directory atomically (SEC-3)
+ */
 export function saveGlobalCredentials(credentials: Record<string, string>): void {
   const dir = getGlobalCredentialsDir();
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
+
+  try {
+    if (process.platform !== "win32") {
+      fs.chmodSync(dir, 0o700);
+    }
+  } catch {
+    // ignore
+  }
+
   const filePath = getGlobalCredentialsPath();
-  fs.writeFileSync(filePath, JSON.stringify(credentials, null, 2), "utf-8");
+  writeAtomic(filePath, JSON.stringify(credentials, null, 2), { mode: 0o600 });
 }
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -81,9 +113,10 @@ export function setApiKey(
   }
 
   // Local repository config (.vee/config.json)
+  logger.warn("Project-local key storage detected. For better security, consider using global keystore or environment variables.");
   const config = loadConfig(rootDir);
   if (!config.keys) {
-    config.keys = { openai: "", gemini: "", groq: "", nvidia: "" };
+    config.keys = {};
   }
   config.keys[provider] = trimmed;
   saveConfig(config, rootDir);
@@ -94,7 +127,6 @@ export function removeApiKey(
   rootDir: string = process.cwd(),
   isGlobal?: boolean
 ): void {
-  // If explicitly global or unspecified, clean from global
   if (isGlobal === true || isGlobal === undefined) {
     const globalCreds = loadGlobalCredentials();
     if (globalCreds[provider]) {
@@ -103,11 +135,10 @@ export function removeApiKey(
     }
   }
 
-  // If explicitly local or unspecified, clean from local
   if (isGlobal === false || isGlobal === undefined) {
     const config = loadConfig(rootDir);
     if (config.keys && config.keys[provider]) {
-      config.keys[provider] = "";
+      delete config.keys[provider];
       saveConfig(config, rootDir);
     }
   }
@@ -116,7 +147,7 @@ export function removeApiKey(
 export function getApiKey(provider: KeyProvider, rootDir: string = process.cwd()): string | undefined {
   const envVarName = `${provider.toUpperCase()}_API_KEY`;
 
-  // 1. Check process.env first (runtime / CI / shell)
+  // 1. Check process.env first
   if (process.env[envVarName]) {
     return process.env[envVarName];
   }
@@ -127,7 +158,7 @@ export function getApiKey(provider: KeyProvider, rootDir: string = process.cwd()
     return localEnv[envVarName];
   }
 
-  // 3. Check local .vee/config.json (project-specific override)
+  // 3. Check local .vee/config.json
   const config = loadConfig(rootDir);
   if (config.keys && config.keys[provider]) {
     return config.keys[provider];
@@ -142,16 +173,21 @@ export function getApiKey(provider: KeyProvider, rootDir: string = process.cwd()
   return undefined;
 }
 
-export function listApiKeys(
-  rootDir: string = process.cwd()
-): Record<string, { configured: boolean; masked: string; source: string; isGlobal: boolean }> {
+export interface KeyInfo {
+  configured: boolean;
+  masked: string;
+  source: string;
+  isGlobal: boolean;
+  insecureWarning?: string;
+}
+
+export function listApiKeys(rootDir: string = process.cwd()): Record<string, KeyInfo> {
   const config = loadConfig(rootDir);
   const globalCreds = loadGlobalCredentials();
   const localEnv = parseEnvFile(path.join(rootDir, ".env"));
-  const providers: KeyProvider[] = ["gemini", "groq", "nvidia", "openai"];
-  const result: Record<string, { configured: boolean; masked: string; source: string; isGlobal: boolean }> = {};
+  const result: Record<string, KeyInfo> = {};
 
-  for (const p of providers) {
+  for (const p of SUPPORTED_KEY_PROVIDERS) {
     const envVar = `${p.toUpperCase()}_API_KEY`;
     if (process.env[envVar]) {
       result[p] = {
@@ -166,6 +202,7 @@ export function listApiKeys(
         masked: maskKey(localEnv[envVar]!),
         source: `local .env ($${envVar})`,
         isGlobal: false,
+        insecureWarning: "Plaintext file in working directory",
       };
     } else if (config.keys && config.keys[p]) {
       result[p] = {
@@ -173,6 +210,7 @@ export function listApiKeys(
         masked: maskKey(config.keys[p]!),
         source: "local config (.vee/config.json)",
         isGlobal: false,
+        insecureWarning: "Local config is less secure than global keystore",
       };
     } else if (globalCreds[p]) {
       result[p] = {
