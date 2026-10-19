@@ -42,7 +42,7 @@ class Logger {
     if (this.config.quiet) return;
     if (this.config.level !== "debug") return;
     if (this.config.json) {
-      console.log(JSON.stringify({ level: "debug", message: msg, meta }));
+      console.error(JSON.stringify({ level: "debug", message: msg, meta }));
     } else {
       console.log(pc.dim("[DEBUG] ") + msg);
     }
@@ -51,7 +51,7 @@ class Logger {
   public info(msg: string, meta?: unknown): void {
     if (this.config.quiet) return;
     if (this.config.json) {
-      console.log(JSON.stringify({ level: "info", message: msg, meta }));
+      console.error(JSON.stringify({ level: "info", message: msg, meta }));
     } else {
       console.log(pc.cyan("[INFO] ") + msg);
     }
@@ -60,7 +60,7 @@ class Logger {
   public success(msg: string, meta?: unknown): void {
     if (this.config.quiet) return;
     if (this.config.json) {
-      console.log(JSON.stringify({ level: "success", message: msg, meta }));
+      console.error(JSON.stringify({ level: "success", message: msg, meta }));
     } else {
       console.log(pc.green("[OK] ") + pc.bold(msg));
     }

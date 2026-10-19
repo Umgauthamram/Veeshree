@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { BACKUP_03X_DIR_REL, MEMORY_DIR_REL, DECISIONS_DIR_REL, CONFIG_FILE_REL, INDEX_FILE_REL } from "../utils/constants.js";
+import { BACKUP_03X_DIR_REL, MEMORY_DIR_REL, DECISIONS_DIR_REL, CONFIG_FILE_REL, INDEX_FILE_REL, VEESHREE_VERSION } from "../utils/constants.js";
 import { parseDecisionFrontmatter, stringifyMarkdownFrontmatter } from "../core/memory/frontmatter.js";
 import { writeAtomic } from "../core/memory/atomic.js";
 import { slugifyTitle, getNextAdrNumber } from "../core/memory/section-editor.js";
@@ -158,7 +158,7 @@ export async function handleMigrateCommand(
   // 5. Upgrade config schema
   const config = loadConfig(rootDir);
   config.schema_version = 1;
-  config.version = "1.0.0";
+  config.version = VEESHREE_VERSION;
   saveConfig(config, rootDir);
   logger.success("5. Upgraded .vee/config.json to schema_version 1.");
 

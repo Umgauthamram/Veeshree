@@ -43,16 +43,35 @@ export function resolveGitHooksDir(rootDir: string = process.cwd()): string | nu
   return path.join(gitDir, "hooks");
 }
 
-function generatePreCommitScript(blockOnDrift: boolean): string {
+export function generatePreCommitScript(blockOnDrift: boolean): string {
   const blockVal = blockOnDrift ? "1" : "0";
   return `${HOOK_START_MARKER}
 if [ "$VEE_SKIP_HOOKS" = "1" ]; then
   exit 0
 fi
 
-npx --no-install veeshree status --check --quiet
+# 1. Resolve vee binary: local node_modules first, then PATH
+VEE_BIN=""
+if [ -f "./node_modules/.bin/vee" ]; then
+  VEE_BIN="./node_modules/.bin/vee"
+elif [ -f "./node_modules/.bin/veeshree" ]; then
+  VEE_BIN="./node_modules/.bin/veeshree"
+elif command -v vee >/dev/null 2>&1; then
+  VEE_BIN="vee"
+elif command -v veeshree >/dev/null 2>&1; then
+  VEE_BIN="veeshree"
+fi
+
+if [ -z "$VEE_BIN" ]; then
+  # Veeshree not available; skip silently without false drift warning
+  exit 0
+fi
+
+$VEE_BIN status --check --quiet
 EXIT_CODE=$?
-if [ $EXIT_CODE -ne 0 ]; then
+
+# Exit code 1 indicates code drift detected by 'status --check'
+if [ $EXIT_CODE -eq 1 ]; then
   if [ "$VEE_BLOCK_ON_DRIFT" = "1" ] || [ "${blockVal}" = "1" ]; then
     echo "[ERROR] Veeshree: Code drift detected. Commit blocked."
     exit 1
@@ -69,7 +88,20 @@ if [ "$VEE_SKIP_HOOKS" = "1" ]; then
   exit 0
 fi
 
-npx --no-install veeshree sync --quiet 2>/dev/null || true
+VEE_BIN=""
+if [ -f "./node_modules/.bin/vee" ]; then
+  VEE_BIN="./node_modules/.bin/vee"
+elif [ -f "./node_modules/.bin/veeshree" ]; then
+  VEE_BIN="./node_modules/.bin/veeshree"
+elif command -v vee >/dev/null 2>&1; then
+  VEE_BIN="vee"
+elif command -v veeshree >/dev/null 2>&1; then
+  VEE_BIN="veeshree"
+fi
+
+if [ -n "$VEE_BIN" ]; then
+  $VEE_BIN sync --quiet 2>/dev/null || true
+fi
 ${HOOK_END_MARKER}`;
 }
 

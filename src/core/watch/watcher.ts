@@ -2,11 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { logger } from "../../utils/logger.js";
 import { runCommandSafe } from "../../utils/process.js";
-import { isDenylistedFile } from "../redact/denylist.js";
+import { isDenylistedFile, filterDiffByDenylist } from "../redact/denylist.js";
 import { redactContent, capDiffPayload } from "../redact/redactor.js";
 import { extractMemoryFromContent } from "../extractor.js";
 import { createProposal, acceptProposal } from "../proposals/queue.js";
-import { loadWatchState, saveWatchState, computeDiffFingerprint, canMakeWatchCall } from "./diff-state.js";
+import {
+  loadWatchState,
+  saveWatchState,
+  computeDiffFingerprint,
+  canMakeWatchCall,
+  filterOutProcessedHunks,
+} from "./diff-state.js";
 import { loadConfig } from "../config.js";
 import { WATCH_LOG_FILE_REL, LOGS_DIR_REL } from "../../utils/constants.js";
 
@@ -49,8 +55,10 @@ export async function startMemoryWatcher(
   const isAuto = options.auto !== undefined ? options.auto : (config.watch?.auto || false);
 
   let debounceTimer: NodeJS.Timeout | null = null;
+  let pollingInterval: NodeJS.Timeout | null = null;
   let isProcessing = false;
   let backoffAttempts = 0;
+  let nextAllowedTime = 0;
 
   writeWatchLog(rootDir, "info", `Watcher started (debounce: ${debounceTimeMs / 1000}s, auto: ${isAuto})`);
   logger.title("Veeshree Ambient Memory Watcher");
@@ -60,17 +68,27 @@ export async function startMemoryWatcher(
 
   async function processCodeModifications() {
     if (isProcessing) return;
+    if (Date.now() < nextAllowedTime) {
+      writeWatchLog(rootDir, "debug", "Backoff active. Skipping extraction cycle.");
+      return;
+    }
     isProcessing = true;
 
     try {
       const state = loadWatchState(rootDir);
 
-      // 1. Collect tracked git diff
+      // 1. Collect tracked git diff filtered by denylist
       let diff = "";
       try {
-        diff = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
+        let rawTracked = "";
+        try {
+          rawTracked = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
+        } catch {
+          rawTracked = runCommandSafe("git", ["diff"], { cwd: rootDir });
+        }
+        diff = filterDiffByDenylist(rawTracked, rootDir);
       } catch (err: any) {
-        writeWatchLog(rootDir, "debug", `git diff HEAD error: ${err?.message || err}`);
+        writeWatchLog(rootDir, "debug", `git diff error: ${err?.message || err}`);
       }
 
       // 2. Collect untracked files respecting denylist
@@ -93,7 +111,7 @@ export async function startMemoryWatcher(
         // ignore
       }
 
-      if (!diff || diff.trim().length < 30) {
+      if (!diff || diff.trim().length < 20) {
         return;
       }
 
@@ -111,28 +129,34 @@ export async function startMemoryWatcher(
         return;
       }
 
-      // 5. Redaction and size cap
+      // 5. Incremental diff: send only new hunks since last processed state (Phase 1.9)
+      const { filteredDiff: newHunksDiff, newHashes } = filterOutProcessedHunks(diff, state.processedHunkHashes);
+      const diffToSend = newHunksDiff.trim() ? newHunksDiff : diff;
+
+      // 6. Redaction and size cap
       const maxPayload = config.privacy?.max_payload_bytes || 24576;
-      const redactedDiff = redactContent(diff);
+      const redactedDiff = redactContent(diffToSend);
       const cappedDiff = capDiffPayload(redactedDiff, maxPayload);
 
-      writeWatchLog(rootDir, "info", `Extracting memory for changed code (${diff.split("\n").length} lines)...`);
-      logger.info(`[WATCH] Detected code changes (${diff.split("\n").length} diff lines). Extracting memory...`);
+      writeWatchLog(rootDir, "info", `Extracting memory for changed code (${diffToSend.split("\n").length} lines)...`);
+      logger.info(`[WATCH] Detected code changes (${diffToSend.split("\n").length} diff lines). Extracting memory...`);
 
-      // 6. Extraction
+      // 7. Extraction
       const delta = await extractMemoryFromContent(cappedDiff, rootDir, options.provider, options.model);
 
-      // Increment call count
+      // Increment call count & update processed hunks
       state.callsThisHour++;
       state.lastDiffFingerprint = fingerprint;
+      state.processedHunkHashes = Array.from(new Set([...(state.processedHunkHashes || []), ...newHashes]));
       state.lastProcessedAt = new Date().toISOString();
       saveWatchState(state, rootDir);
 
-      // 7. Create Proposal (SEC-1)
+      // 8. Create Proposal (SEC-1)
       const proposal = createProposal("watch", delta, "watch_daemon", rootDir);
       writeWatchLog(rootDir, "info", `Created proposal ${proposal.id} (risk: ${proposal.risk})`);
 
-      if (isAuto && proposal.risk === "low") {
+      const hasDecisions = Array.isArray(delta.decisions) && delta.decisions.length > 0;
+      if (isAuto && proposal.risk === "low" && !hasDecisions) {
         const { reconcileResult } = await acceptProposal(proposal.id, "watch_auto", rootDir);
         const total = reconcileResult.newDecisions.length + reconcileResult.updatedFiles.length;
         logger.success(`[WATCH] Auto-applied low-risk proposal ${proposal.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
@@ -146,11 +170,13 @@ export async function startMemoryWatcher(
       }
 
       backoffAttempts = 0;
+      nextAllowedTime = 0;
     } catch (err: any) {
       backoffAttempts++;
       const backoffSec = Math.min(60, Math.pow(2, backoffAttempts));
+      nextAllowedTime = Date.now() + backoffSec * 1000;
       writeWatchLog(rootDir, "error", `Watch extraction failure: ${err?.message || err} (backing off ${backoffSec}s)`);
-      logger.warn(`[WATCH] Extraction failed: ${err?.message || err}`);
+      logger.warn(`[WATCH] Extraction failed: ${err?.message || err} (retrying in ${backoffSec}s)`);
     } finally {
       isProcessing = false;
     }
@@ -166,15 +192,10 @@ export async function startMemoryWatcher(
         if (!filename) return;
         const normalized = filename.replace(/\\/g, "/");
 
-        // Immediately filter out memory files, .vee, and denylisted files
-        if (
-          normalized.startsWith("docs/memory") ||
-          normalized.startsWith(".vee") ||
-          normalized.includes("node_modules") ||
-          normalized.includes(".git") ||
-          normalized.includes("dist") ||
-          normalized.includes(".next")
-        ) {
+        // Segment-based path matching (Phase 2.5)
+        const segments = normalized.split("/");
+        const ignoredDirs = new Set([".git", "node_modules", "dist", ".next", ".vee"]);
+        if (segments.some((s) => ignoredDirs.has(s)) || normalized.startsWith("docs/memory")) {
           return;
         }
 
@@ -184,16 +205,24 @@ export async function startMemoryWatcher(
         }, debounceTimeMs);
       }
     );
+
+    watcher.on("error", (err: any) => {
+      writeWatchLog(rootDir, "error", `fs.watch error event: ${err?.message || err}. Falling back to polling.`);
+      if (!pollingInterval) {
+        pollingInterval = setInterval(() => {
+          processCodeModifications();
+        }, 3000);
+      }
+    });
   } catch (watchErr: any) {
     writeWatchLog(rootDir, "error", `Recursive fs.watch failed, falling back to polling: ${watchErr.message}`);
-    // Polling fallback every 2 seconds
-    const interval = setInterval(() => {
+    pollingInterval = setInterval(() => {
       processCodeModifications();
     }, 2000);
 
     return {
       stop: () => {
-        clearInterval(interval);
+        if (pollingInterval) clearInterval(pollingInterval);
       },
     };
   }
@@ -201,6 +230,7 @@ export async function startMemoryWatcher(
   return {
     stop: () => {
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (pollingInterval) clearInterval(pollingInterval);
       if (watcher) watcher.close();
       writeWatchLog(rootDir, "info", "Watcher stopped.");
     },

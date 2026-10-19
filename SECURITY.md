@@ -24,8 +24,9 @@ Veeshree operates as a persistence layer for multi-model AI software engineering
 LLM extractions never write directly to architectural constraints or supersede existing decisions without explicit human review. Any extraction containing sensitive keywords, instructions to disable safety checks, or rule updates is automatically assigned high-risk status and staged in `.vee/proposals/`.
 
 ### 2. Secret Redaction & Data Privacy
-- **Automatic Pattern Redaction**: Diff payloads and context prompts pass through a pattern-matching filter covering OpenAI, Google Gemini, Anthropic, AWS, GitHub, Slack tokens, private keys, and JWTs.
-- **Sensitive File Denylist**: Files matching `.env*`, `*.pem`, `*.key`, `id_rsa*`, lockfiles, and binaries are barred from being processed or transmitted.
+- **Automatic Pattern Redaction**: Diff payloads and context prompts pass through a pattern-matching filter covering OpenAI, Google Gemini, Anthropic, AWS, GCP, Stripe, GitHub, Slack tokens, private keys, bearer authorization headers, and JWTs.
+- **Redaction Limits & Best-Effort Nature**: Automatic secret redaction operates as a defense-in-depth heuristic safety guardrail. It is best-effort and does **not** guarantee detection of arbitrary, bespoke, or custom-formatted secret strings. Developers and teams must never commit raw production credentials to version control.
+- **Sensitive File Denylist**: Files matching `.env*`, `*.pem`, `*.key`, `id_rsa*`, lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`), `.veeignore`, and binaries are excluded from diffs and memory processing.
 - **Size Capping**: Outgoing diff payloads are capped at 24KB by default to prevent inadvertent data exposure and token budget exhaustion.
 - **Explicit Cloud Consent**: External cloud AI requests are disabled by default (`privacy.allow_cloud: false`). When run in a terminal without cloud consent, Veeshree prompts interactively; in non-interactive CI environments, it blocks execution until explicitly opted in or configured for local offline models (Ollama / LM Studio).
 

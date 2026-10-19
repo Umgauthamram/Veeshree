@@ -1,4 +1,26 @@
 import path from "node:path";
+import { createRequire } from "node:module";
+
+declare const __VERSION__: string | undefined;
+
+function getResolvedVersion(): string {
+  if (typeof __VERSION__ !== "undefined") {
+    return __VERSION__;
+  }
+  try {
+    const require = createRequire(import.meta.url);
+    return require("../../package.json").version || "1.0.0";
+  } catch {
+    try {
+      const require = createRequire(import.meta.url);
+      return require("../package.json").version || "1.0.0";
+    } catch {
+      return "1.0.0";
+    }
+  }
+}
+
+export const VEESHREE_VERSION: string = getResolvedVersion();
 
 export const MEMORY_DIR_REL = path.join("docs", "memory");
 export const DECISIONS_DIR_REL = path.join("docs", "memory", "decisions");

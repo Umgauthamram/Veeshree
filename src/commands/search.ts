@@ -7,6 +7,8 @@ export function handleSearchCommand(
   options: { archived?: boolean; json?: boolean } = {},
   rootDir: string = process.cwd()
 ): SearchResultItem[] {
+  if (options.json) logger.setJson(true);
+
   if (!query || !query.trim()) {
     throw new VeeError("Search query required. Usage: vee search \"<query>\"", "ERR_INVALID_ARGS");
   }

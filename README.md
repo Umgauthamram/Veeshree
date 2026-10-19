@@ -128,12 +128,12 @@ vee doctor
 | `vee proposals` | Review | Lists all pending or reviewed proposals (`--json` supported) | 0 Tokens |
 | `vee status [--check]` | Status | Overview of milestones, tasks, drift, and proposals (exit 1 on drift with `--check`) | 0 Tokens |
 | `vee context [query]` | Context | Assembles token-budgeted prompt context (`--format json\|xml\|markdown`) | 0 Tokens |
-| `vee sync [--accept]` | Drift | Verifies drift against ADR frontmatter (`--accept` commits live hashes) | 0 Tokens |
+| `vee sync [--accept <id> \| --accept all \| --all]` | Drift | Verifies drift against ADR frontmatter (`--accept all` updates baselines) | 0 Tokens |
 | `vee undo [steps]` | Recovery | Restores `docs/memory/` to a previous state from pre-apply snapshots | 0 Tokens |
 | `vee export` | Portability | Exports full memory layer to JSON or Markdown bundle | 0 Tokens |
 | `vee import <file>` | Portability | Imports and verifies memory bundle into `docs/memory/` | 0 Tokens |
 | `vee mcp` | MCP | Runs the Model Context Protocol stdio server | 0 Tokens |
-| `vee mcp install` | MCP | Configures MCP server in Cursor, Claude Desktop, VS Code, or Gemini | 0 Tokens |
+| `vee mcp install` | MCP | Configures MCP server in Cursor, Claude Desktop, VS Code, Gemini, or Claude Code | 0 Tokens |
 | `vee hooks` | Automation | Manages Git hooks (`install`, `uninstall`, `status`) | 0 Tokens |
 | `vee rules` | Automation | Manages agent rule marker blocks (`update`, `uninstall`, `status`) | 0 Tokens |
 | `vee ci init` | CI/CD | Generates GitHub Action workflow (`.github/workflows/veeshree.yml`) | 0 Tokens |
@@ -142,6 +142,12 @@ vee doctor
 | `vee models` | Discovery | Probes local runtimes and configures extractor models (`use`, `pull`) | 0 Tokens |
 | `vee config` | Config | Gets or sets configuration properties (`list`, `get`, `set`) | 0 Tokens |
 | `vee gc` | Maintenance | Prunes completed tasks and archives progress snapshots | 0 Tokens |
+
+### CLI Output Modes & Git Integration
+
+- **Deterministic `--json` Mode**: Every command advertising `--json` outputs exactly one parseable JSON document on `stdout`. Diagnostic messages, warnings, and informational logs are redirected to `stderr`.
+- **Intelligent Git Hooks**: Pre-commit and post-merge hooks resolve project-local binaries (`./node_modules/.bin/vee`) before searching `PATH`. If Veeshree is absent from the host machine or container, hooks exit cleanly (`exit 0`) without false drift alerts or blocking commits.
+- **Redaction Guardrail**: Automated secret redaction and payload capping are local heuristic defenses. Redaction is best-effort and does not guarantee detection of arbitrary custom secret formats.
 
 ---
 

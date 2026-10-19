@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { PROPOSALS_DIR_REL, VEE_DIR_REL } from "../../utils/constants.js";
+import { PROPOSALS_DIR_REL, VEE_DIR_REL, DECISIONS_DIR_REL } from "../../utils/constants.js";
 import { ProposalSchema, type Proposal, type ProposalSource, type ProposalStatus } from "../../schemas/proposal.schema.js";
 import type { ExtractionDelta } from "../../schemas/extraction.schema.js";
 import { scoreProposalRisk } from "./risk.js";
@@ -9,6 +9,8 @@ import { writeAtomic } from "../memory/atomic.js";
 import { reconcileExtractionSafe, type ReconcileResult } from "../reconcile/reconciler.js";
 import { runGarbageCollection } from "../gc.js";
 import { buildIndex } from "../indexer.js";
+import { parseDecisionFrontmatter } from "../memory/frontmatter.js";
+import { slugifyTitle } from "../memory/section-editor.js";
 import { VeeError } from "../../utils/errors.js";
 
 /**
@@ -42,6 +44,59 @@ export function createProposal(
   const proposalsDir = path.join(rootDir, PROPOSALS_DIR_REL);
   if (!fs.existsSync(proposalsDir)) {
     fs.mkdirSync(proposalsDir, { recursive: true });
+  }
+
+  const pending = listProposals(rootDir, "pending");
+  if (pending.length >= 50) {
+    throw new VeeError(
+      "Pending proposal limit reached (maximum 50 pending proposals). Review and accept or reject existing proposals first.",
+      "ERR_PROPOSAL_LIMIT"
+    );
+  }
+
+  // Detect duplicate/same-title decisions and link as supersede (Phase 2.6)
+  if (Array.isArray(delta.decisions) && delta.decisions.length > 0) {
+    const decisionsDir = path.join(rootDir, DECISIONS_DIR_REL);
+    if (fs.existsSync(decisionsDir)) {
+      const existingFiles = fs.readdirSync(decisionsDir).filter((f) => f.endsWith(".md"));
+      for (const dec of delta.decisions) {
+        if (!dec.title) continue;
+        const decSlug = slugifyTitle(dec.title);
+
+        for (const file of existingFiles) {
+          try {
+            const raw = fs.readFileSync(path.join(decisionsDir, file), "utf-8");
+            const { data } = parseDecisionFrontmatter(raw);
+            const fileSlug = file.replace(/\.md$/, "");
+            const existingTitleSlug = data.title ? slugifyTitle(data.title) : "";
+
+            const isSameTitle =
+              (data.title && data.title.toLowerCase() === dec.title.toLowerCase()) ||
+              decSlug === fileSlug ||
+              decSlug === existingTitleSlug ||
+              fileSlug.endsWith(`-${decSlug}`);
+
+            const hasOverlappingFiles =
+              Array.isArray(dec.linked_files) &&
+              Array.isArray(data.linked_files) &&
+              dec.linked_files.length > 0 &&
+              dec.linked_files.some((lf) => {
+                const pathStr = typeof lf === "string" ? lf : (lf as any).path;
+                return data.linked_files?.some((ex) => (typeof ex === "string" ? ex : (ex as any).path) === pathStr);
+              });
+
+            if (isSameTitle || hasOverlappingFiles) {
+              const existingId = data.id || fileSlug;
+              if (data.status !== "superseded" && !dec.supersedes) {
+                dec.supersedes = existingId;
+              }
+            }
+          } catch {
+            // ignore unreadable file
+          }
+        }
+      }
+    }
   }
 
   const { risk, flags } = scoreProposalRisk(delta);

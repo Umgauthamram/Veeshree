@@ -27,12 +27,13 @@ import { handleConfigCommand } from "./commands/config.js";
 import { handleCompletionCommand } from "./commands/completion.js";
 import { logger } from "./utils/logger.js";
 import { VeeError } from "./utils/errors.js";
+import { VEESHREE_VERSION } from "./utils/constants.js";
 
 // Check Node.js version >= 20 (Section 3: Node 20 or later)
 const nodeVersion = process.versions.node.split(".");
 const majorVersion = parseInt(nodeVersion[0] || "0", 10);
 if (majorVersion < 20) {
-  logger.error(`Veeshree 1.0.0 requires Node.js v20.0.0 or higher. Current version: ${process.version}`);
+  logger.error(`Veeshree ${VEESHREE_VERSION} requires Node.js v20.0.0 or higher. Current version: ${process.version}`);
   process.exit(1);
 }
 
@@ -41,7 +42,7 @@ const program = new Command();
 program
   .name("vee")
   .description("Veeshree: Local-first context persistence layer for multi-model AI software development")
-  .version("1.0.0")
+  .version(VEESHREE_VERSION)
   .option("-q, --quiet", "Suppress non-essential console output")
   .option("--json", "Format supported output as structured JSON")
   .option("--no-color", "Disable terminal colors")
@@ -75,14 +76,25 @@ program
 program
   .command("sync")
   .description("Re-scan memory, verify SHA-256 code hashes, or explicitly accept drifted baselines")
-  .option("-a, --accept [target]", "Explicitly accept drifted baselines into ADR frontmatter (id or --all)")
+  .option("-a, --accept [target]", "Explicitly accept drifted baselines into ADR frontmatter (<id> or all)")
+  .option("--all", "Accept all drifted baselines (can be combined with --accept)", false)
   .option("-j, --json", "Output drift report in structured JSON format", false)
   .option("-q, --quiet", "Quiet output mode", false)
   .option("--dry-run", "Simulate baseline acceptance without writing files", false)
   .action((options) => {
     runSafe(() => {
+      let acceptTarget = options.accept;
+      if (options.all) {
+        acceptTarget = "all";
+      } else if (acceptTarget === true || acceptTarget === "") {
+        throw new VeeError(
+          "Usage: vee sync --accept <id> or vee sync --accept all (or vee sync --accept --all)",
+          "ERR_INVALID_ARGS"
+        );
+      }
       const result = syncVeeshree(process.cwd(), {
-        accept: options.accept,
+        accept: typeof acceptTarget === "string" ? acceptTarget : undefined,
+        all: options.all,
         json: options.json,
         quiet: options.quiet,
         dryRun: options.dryRun,
@@ -275,8 +287,9 @@ program
 program
   .command("import <file>")
   .description("Import memory bundle into docs/memory")
-  .action((file) => {
-    runSafe(() => handleImportCommand(file, process.cwd()));
+  .option("-y, --yes", "Apply import directly without creating review proposals", false)
+  .action((file, options) => {
+    runSafe(() => handleImportCommand(file, options, process.cwd()));
   });
 
 // 14. mcp
@@ -291,6 +304,8 @@ mcpCmd
   .command("install")
   .description("Install Veeshree MCP server into client configuration (claude, cursor, vscode, gemini)")
   .requiredOption("--client <client>", "Client type: claude, cursor, vscode, gemini")
+  .option("--root <dir>", "Project or workspace root directory")
+  .option("--no-install", "Use local binary instead of npx")
   .action(async (options) => {
     await runSafeAsync(() => handleMcpCommand("install", options, process.cwd()));
   });

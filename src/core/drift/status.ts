@@ -5,7 +5,7 @@ import { calculateNormalizedFileHash } from "./hasher.js";
 import { sanitizeRelativePath, normalizePosix } from "../../utils/paths.js";
 import { DECISIONS_DIR_REL, ARCHIVE_DECISIONS_DIR_REL } from "../../utils/constants.js";
 
-export type FileDriftStatus = "ok" | "drifted" | "missing";
+export type FileDriftStatus = "ok" | "drifted" | "missing" | "invalid_path";
 
 export interface LinkedFileDrift {
   path: string;
@@ -73,27 +73,37 @@ export function checkWorkspaceDrift(rootDir: string = process.cwd(), specificId?
           baselineHash = entry.sha256;
         }
 
-        // Sanitize path (rejects absolute or directory traversal)
-        const safeRel = sanitizeRelativePath(entryPath);
-        const absoluteLinked = path.join(rootDir, safeRel);
+        try {
+          // Sanitize path (rejects absolute or directory traversal)
+          const safeRel = sanitizeRelativePath(entryPath);
+          const absoluteLinked = path.join(rootDir, safeRel);
 
-        const currentHash = calculateNormalizedFileHash(absoluteLinked);
+          const currentHash = calculateNormalizedFileHash(absoluteLinked);
 
-        let status: FileDriftStatus = "ok";
-        if (currentHash === null) {
-          status = "missing";
+          let status: FileDriftStatus = "ok";
+          if (currentHash === null) {
+            status = "missing";
+            adrIsDrifted = true;
+          } else if (!baselineHash || baselineHash !== currentHash) {
+            status = "drifted";
+            adrIsDrifted = true;
+          }
+
+          fileStatuses.push({
+            path: safeRel,
+            baselineHash,
+            currentHash: currentHash || undefined,
+            status,
+          });
+        } catch {
+          // Bad or invalid path marked without crashing drift check (Phase 2.4)
           adrIsDrifted = true;
-        } else if (!baselineHash || baselineHash !== currentHash) {
-          status = "drifted";
-          adrIsDrifted = true;
+          fileStatuses.push({
+            path: entryPath,
+            baselineHash,
+            status: "invalid_path",
+          });
         }
-
-        fileStatuses.push({
-          path: safeRel,
-          baselineHash,
-          currentHash: currentHash || undefined,
-          status,
-        });
       }
 
       records.push({

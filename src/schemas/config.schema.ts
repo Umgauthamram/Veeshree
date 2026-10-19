@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VEESHREE_VERSION } from "../utils/constants.js";
 
 export const ExtractorProviderSchema = z.enum([
   "gemini",
@@ -14,7 +15,7 @@ export type ExtractorProvider = z.infer<typeof ExtractorProviderSchema>;
 
 export const VeeshreeConfigSchema = z.object({
   schema_version: z.number().default(1),
-  version: z.string().optional().default("1.0.0"),
+  version: z.string().optional().default(VEESHREE_VERSION),
   extractor: z
     .object({
       provider: ExtractorProviderSchema.default("gemini"),

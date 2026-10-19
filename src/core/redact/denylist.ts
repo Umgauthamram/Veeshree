@@ -70,9 +70,10 @@ export function parseIgnoreFile(filePath: string): string[] {
  * - .gitignore or .veeignore patterns
  */
 export function isDenylistedFile(filePath: string, rootDir: string = process.cwd()): boolean {
-  const base = path.basename(filePath);
-  const ext = path.extname(filePath).toLowerCase();
-  const relPath = normalizePosix(path.relative(rootDir, filePath));
+  const absPath = path.isAbsolute(filePath) ? filePath : path.resolve(rootDir, filePath);
+  const base = path.basename(absPath);
+  const ext = path.extname(absPath).toLowerCase();
+  const relPath = normalizePosix(path.relative(rootDir, absPath));
 
   // Denylisted secrets files
   if (base.startsWith(".env")) return true;
@@ -109,18 +110,87 @@ export function isDenylistedFile(filePath: string, rootDir: string = process.cwd
   return false;
 }
 
-function matchesSimpleGlob(filePath: string, pattern: string): boolean {
-  let cleanPattern = pattern.replace(/^\/+/, "").replace(/\/+$/, "");
-  if (!cleanPattern) return false;
+export function matchesSimpleGlob(filePath: string, pattern: string): boolean {
+  const cleanPattern = pattern.trim();
+  if (!cleanPattern || cleanPattern.startsWith("#")) return false;
 
-  if (cleanPattern.startsWith("*.")) {
-    const ext = cleanPattern.slice(1);
-    return filePath.endsWith(ext);
-  }
+  const normalized = normalizePosix(filePath).replace(/^\/+/, "");
+  const base = path.basename(normalized);
 
-  if (filePath === cleanPattern || filePath.startsWith(`${cleanPattern}/`) || filePath.endsWith(`/${cleanPattern}`)) {
+  const cleanNoSlash = cleanPattern.replace(/^\/+/, "").replace(/\/+$/, "");
+  if (normalized === cleanNoSlash || base === cleanNoSlash) {
     return true;
   }
 
+  if (normalized.startsWith(`${cleanNoSlash}/`)) {
+    return true;
+  }
+
+  try {
+    const isRootMatch = cleanPattern.startsWith("/");
+    const isDirOnly = cleanPattern.endsWith("/");
+    let regStr = cleanNoSlash
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*\*/g, "___GLOBSTAR___")
+      .replace(/\*/g, "[^/]*")
+      .replace(/\?/g, "[^/]")
+      .replace(/___GLOBSTAR___/g, ".*");
+
+    if (isRootMatch) {
+      regStr = `^${regStr}${isDirOnly ? "(?:/.*)?$" : "$"}`;
+    } else {
+      regStr = `(?:^|/)${regStr}${isDirOnly ? "(?:/.*)?$" : "$"}`;
+    }
+    const regex = new RegExp(regStr, "i");
+    if (regex.test(normalized) || regex.test(base)) {
+      return true;
+    }
+  } catch {
+    // fallback
+  }
+
   return false;
+}
+
+/**
+ * Filters a raw git diff, removing any file chunks whose target paths match the denylist or .veeignore
+ */
+export function filterDiffByDenylist(rawDiff: string, rootDir: string = process.cwd()): string {
+  if (!rawDiff || !rawDiff.trim()) return rawDiff;
+
+  const chunks = rawDiff.split(/(?=^diff --git )/m);
+  const keptChunks: string[] = [];
+
+  for (const chunk of chunks) {
+    if (!chunk.trim()) continue;
+    let shouldExclude = false;
+
+    // Check diff header: diff --git a/path b/path
+    const gitMatch = chunk.match(/^diff --git (?:a\/|"(?:a\/)?)(.+?)(?:"|\s) (?:b\/|"(?:b\/)?)(.+?)(?:"|\r?\n|$)/m);
+    if (gitMatch) {
+      const fileA = gitMatch[1]?.trim().replace(/^"|"$/g, "");
+      const fileB = gitMatch[2]?.trim().replace(/^"|"$/g, "");
+      if ((fileA && isDenylistedFile(fileA, rootDir)) || (fileB && isDenylistedFile(fileB, rootDir))) {
+        shouldExclude = true;
+      }
+    }
+
+    // Check --- a/file or +++ b/file
+    if (!shouldExclude) {
+      const headerAMatch = chunk.match(/^---\s+(?:a\/|"?)(.+?)"?(?:\t|\r?\n|$)/m);
+      const headerBMatch = chunk.match(/^\+\+\+\s+(?:b\/|"?)(.+?)"?(?:\t|\r?\n|$)/m);
+      const pathA = headerAMatch && headerAMatch[1] && headerAMatch[1] !== "/dev/null" ? headerAMatch[1].trim().replace(/^"|"$/g, "") : null;
+      const pathB = headerBMatch && headerBMatch[1] && headerBMatch[1] !== "/dev/null" ? headerBMatch[1].trim().replace(/^"|"$/g, "") : null;
+
+      if ((pathA && isDenylistedFile(pathA, rootDir)) || (pathB && isDenylistedFile(pathB, rootDir))) {
+        shouldExclude = true;
+      }
+    }
+
+    if (!shouldExclude) {
+      keptChunks.push(chunk);
+    }
+  }
+
+  return keptChunks.join("");
 }

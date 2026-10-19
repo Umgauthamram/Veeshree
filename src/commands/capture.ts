@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { extractMemoryFromContent } from "../core/extractor.js";
 import { createProposal, acceptProposal } from "../core/proposals/queue.js";
 import { redactContent, capDiffPayload } from "../core/redact/redactor.js";
+import { filterDiffByDenylist, isDenylistedFile } from "../core/redact/denylist.js";
 import { runCommandSafe } from "../utils/process.js";
 import { loadConfig } from "../core/config.js";
 import { logger } from "../utils/logger.js";
@@ -27,11 +28,20 @@ export async function handleCaptureCommand(
   let content = "";
   if (options.diff) {
     try {
-      content = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
+      let rawDiff = "";
+      try {
+        rawDiff = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
+      } catch {
+        rawDiff = runCommandSafe("git", ["diff"], { cwd: rootDir });
+      }
+      content = filterDiffByDenylist(rawDiff, rootDir);
     } catch (err: any) {
       throw new VeeError(`Failed to read git diff: ${err.message}`, "ERR_PROVIDER_FAILURE");
     }
   } else if (options.file) {
+    if (isDenylistedFile(options.file, rootDir)) {
+      throw new VeeError(`Cannot capture denylisted or ignored file: ${options.file}`, "ERR_SECURITY_VIOLATION");
+    }
     if (!fs.existsSync(options.file)) {
       throw new VeeError(`File not found: ${options.file}`, "ERR_FILE_NOT_FOUND");
     }
@@ -70,8 +80,9 @@ export async function handleCaptureCommand(
   const proposal = createProposal("capture", delta, "cli_capture", rootDir);
   logger.success(`Extracted memory proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
 
-  const shouldAutoApply = options.auto || config.proposals?.auto_apply_low_risk;
-  if (shouldAutoApply && proposal.risk === "low") {
+  const hasDecisions = Array.isArray(delta.decisions) && delta.decisions.length > 0;
+  const shouldAutoApply = (options.auto || config.proposals?.auto_apply_low_risk) && proposal.risk === "low" && !hasDecisions;
+  if (shouldAutoApply) {
     const { reconcileResult } = await acceptProposal(proposal.id, "auto_capture", rootDir);
     logger.success(`[AUTO] Proposal accepted and applied (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
     return { proposal, autoApplied: true };

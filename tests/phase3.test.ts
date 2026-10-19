@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { initializeVeeshree } from "../src/commands/init.js";
 import { setApiKey, getApiKey, removeApiKey, listApiKeys, maskKey } from "../src/core/auth.js";
-import { reconcileExtraction } from "../src/core/reconciler.js";
+import { reconcileExtraction } from "../src/core/reconcile/index.js";
 import { detectAvailableModels } from "../src/core/models.js";
 import type { ExtractionDelta } from "../src/types/index.js";
 
@@ -55,7 +55,7 @@ describe("Phase 3: AI Extraction & Background Processing", () => {
     expect(ollamaRuntime?.endpoint).toBe("http://127.0.0.1:11434");
   });
 
-  it("reconciles structured ExtractionDelta JSON into markdown memory", () => {
+  it("reconciles structured ExtractionDelta JSON into markdown memory", async () => {
     const mockDelta: ExtractionDelta = {
       decisions: [
         {
@@ -88,7 +88,7 @@ describe("Phase 3: AI Extraction & Background Processing", () => {
       ],
     };
 
-    const reconcileResult = reconcileExtraction(mockDelta, tempDir);
+    const reconcileResult = await reconcileExtraction(mockDelta, tempDir);
     expect(reconcileResult.newDecisions.length).toBe(1);
     expect(reconcileResult.newDecisions[0]).toContain("message-queue-architecture.md");
 

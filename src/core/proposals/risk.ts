@@ -3,22 +3,54 @@ import type { ProposalRisk } from "../../schemas/proposal.schema.js";
 
 const SUSPICIOUS_PATTERNS = [
   {
+    name: "eval_execution",
+    regex: /\beval\b/i,
+  },
+  {
+    name: "command_substitution",
+    regex: /\$\([^\)]+\)/i,
+  },
+  {
+    name: "bash_execution",
+    regex: /\b(?:bash|sh|zsh|powershell|pwsh|cmd)\s+-(?:c|command|\/c)\b/i,
+  },
+  {
+    name: "remote_fetch",
+    regex: /\b(?:curl|wget|fetch|Invoke-WebRequest|Invoke-RestMethod)\b/i,
+  },
+  {
     name: "shell_pipe",
     regex: /(?:curl|wget|fetch|powershell|bash|sh|cmd)\b[^\n|]*\|\s*(?:sh|bash|zsh|powershell|cmd)\b/i,
   },
   {
+    name: "base64_shell",
+    regex: /(?:base64\s+-(?:d|-decode)|atob|Buffer\.from\([^)]*base64)/i,
+  },
+  {
+    name: "privilege_elevation",
+    regex: /\b(?:sudo|chmod\s+\+?x|chmod\s+[0-7]{3,4}|chown)\b/i,
+  },
+  {
+    name: "destructive_command",
+    regex: /\b(?:rm\s+-[a-zA-Z]*r[a-zA-Z]*f|del\s+\/[a-zA-Z]*s|rmdir\s+\/[a-zA-Z]*s|format\s+[a-zA-Z]:)\b/i,
+  },
+  {
     name: "instruction_override",
-    regex: /(?:ignore\s+(?:all\s+)?previous\s+instructions|system\s+prompt\s+override|jailbreak|disregard\s+(?:prior|above|instructions))/i,
+    regex: /(?:ignore|disregard|forget|bypass|override|drop)\s+(?:all\s+)?(?:previous|prior|system|developer|safety|security)?\s*(?:instructions|rules|constraints|prompt|guidelines|guardrails)/i,
   },
   {
     name: "disable_security_checks",
     regex: /(?:disable\s+(?:verification|checks|security|auth|doctor|lint|lock|drift|rules|guardrails))/i,
   },
   {
-    name: "suspicious_url",
-    regex: /https?:\/\/(?:[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|bit\.ly|t\.co|tinyurl|raw\.githubusercontent\.com\/[^\s]+(?:\.sh|\.bash|\.exe|\.ps1))/i,
+    name: "url_link",
+    regex: /https?:\/\/[^\s"'>]+/i,
   },
 ];
+
+export interface RiskScoringOptions {
+  allowlist?: string[];
+}
 
 /**
  * Scans an extraction delta for security risks and compliance with Proposal Queue rules:
@@ -26,7 +58,10 @@ const SUSPICIOUS_PATTERNS = [
  * - Any ADR updating/superseding an existing ADR is scored high risk
  * - Any payload containing shell execution, command injection, instruction overrides or check disablement is scored high risk
  */
-export function scoreProposalRisk(delta: ExtractionDelta): { risk: ProposalRisk; flags: string[] } {
+export function scoreProposalRisk(
+  delta: ExtractionDelta,
+  options: RiskScoringOptions = {}
+): { risk: ProposalRisk; flags: string[] } {
   const flags: string[] = [];
 
   // 1. Any constraint is automatically high risk (SEC-1)
@@ -45,9 +80,15 @@ export function scoreProposalRisk(delta: ExtractionDelta): { risk: ProposalRisk;
 
   // 3. Scan all strings in delta for injection and override attempts
   const allText = extractAllText(delta);
+  const allowlistSet = new Set((options.allowlist || []).map((w) => w.toLowerCase()));
+
   for (const { name, regex } of SUSPICIOUS_PATTERNS) {
-    if (regex.test(allText)) {
-      flags.push(`suspicious_pattern:${name}`);
+    const match = regex.exec(allText);
+    if (match) {
+      const matchedWord = match[0].toLowerCase();
+      if (!allowlistSet.has(matchedWord)) {
+        flags.push(`suspicious_pattern:${name}`);
+      }
     }
   }
 

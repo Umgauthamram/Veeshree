@@ -57,7 +57,7 @@ describe("Doctor, Security & Keystore Protection", () => {
   });
 
   it("resolves active engine for gemini, groq, nvidia, and openai providers", async () => {
-    const { resolveActiveEngine } = await import("../src/core/engine-resolver.js");
+    const { resolveActiveEngine } = await import("../src/core/models.js");
 
     setApiKey("gemini", "mock-gemini-key", tempDir, false);
     setApiKey("groq", "mock-groq-key", tempDir, false);

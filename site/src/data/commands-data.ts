@@ -160,8 +160,9 @@ Health: All SHA-256 hashes synchronized`,
       "Scans all Markdown documents in docs/memory/, recalculates current SHA-256 hashes of all linked source code files, and rebuilds the BM25 search index in .vee/index.json in milliseconds. Ensures that searches and drift checks are 100% up to date.",
     howUsed:
       "Run after manually editing markdown memory files, pulling changes from git, or switching git branches to refresh indexes instantly.",
-    flags: "None",
-    example: "vee sync",
+    flags:
+      "-a, --accept [id] : Accept code drift for specific ADR or 'all' to update baselines\n--all : Accept all drift across workspace\n--quiet : Silence non-error output",
+    example: "vee sync\nvee sync --accept all\nvee sync --accept 0001-database",
     outputExample: `=== Synchronizing Veeshree Memory & Code Hashes ===
 [INFO] Indexed 6 memory documents.
 [OK] All memory records are in sync with codebase hashes.

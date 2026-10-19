@@ -6,9 +6,47 @@ import { writeAtomic } from "../memory/atomic.js";
 
 export interface WatchState {
   lastDiffFingerprint: string;
+  processedHunkHashes?: string[];
   callsThisHour: number;
   hourWindowStart: number;
   lastProcessedAt?: string;
+}
+
+/**
+ * Splits a git diff into distinct file hunks
+ */
+export function splitDiffIntoHunks(diff: string): string[] {
+  if (!diff || !diff.trim()) return [];
+  if (diff.includes("diff --git ")) {
+    return diff.split(/(?=^diff --git )/m).map((h) => h.trim()).filter((h) => h.length > 0);
+  }
+  return diff.split(/(?=^--- )/m).map((h) => h.trim()).filter((h) => h.length > 0);
+}
+
+/**
+ * Filters out hunks that were already processed in earlier watch cycles
+ */
+export function filterOutProcessedHunks(
+  diff: string,
+  processedHashes: string[] | Set<string> = []
+): { filteredDiff: string; newHashes: string[] } {
+  const hashSet = processedHashes instanceof Set ? processedHashes : new Set(processedHashes);
+  const hunks = splitDiffIntoHunks(diff);
+  const newHunkTexts: string[] = [];
+  const newHashes: string[] = [];
+
+  for (const hunk of hunks) {
+    const hash = crypto.createHash("sha256").update(hunk).digest("hex");
+    if (!hashSet.has(hash)) {
+      newHunkTexts.push(hunk);
+      newHashes.push(hash);
+    }
+  }
+
+  return {
+    filteredDiff: newHunkTexts.join("\n\n"),
+    newHashes,
+  };
 }
 
 /**
@@ -19,6 +57,7 @@ export function loadWatchState(rootDir: string = process.cwd()): WatchState {
   if (!fs.existsSync(statePath)) {
     return {
       lastDiffFingerprint: "",
+      processedHunkHashes: [],
       callsThisHour: 0,
       hourWindowStart: Date.now(),
     };
@@ -29,6 +68,7 @@ export function loadWatchState(rootDir: string = process.cwd()): WatchState {
     const parsed = JSON.parse(raw);
     return {
       lastDiffFingerprint: parsed.lastDiffFingerprint || "",
+      processedHunkHashes: Array.isArray(parsed.processedHunkHashes) ? parsed.processedHunkHashes : [],
       callsThisHour: typeof parsed.callsThisHour === "number" ? parsed.callsThisHour : 0,
       hourWindowStart: typeof parsed.hourWindowStart === "number" ? parsed.hourWindowStart : Date.now(),
       lastProcessedAt: parsed.lastProcessedAt,
@@ -36,6 +76,7 @@ export function loadWatchState(rootDir: string = process.cwd()): WatchState {
   } catch {
     return {
       lastDiffFingerprint: "",
+      processedHunkHashes: [],
       callsThisHour: 0,
       hourWindowStart: Date.now(),
     };

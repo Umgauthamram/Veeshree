@@ -354,3 +354,6 @@ function markAdrSuperseded(oldAdrIdentifier: string, newAdrId: string, rootDir: 
     }
   }
 }
+
+export const reconcileExtraction = reconcileExtractionSafe;
+

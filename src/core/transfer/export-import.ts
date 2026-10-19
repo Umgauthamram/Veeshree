@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { findMarkdownFiles } from "../indexer.js";
-import { MEMORY_DIR_REL } from "../../utils/constants.js";
+import { MEMORY_DIR_REL, VEESHREE_VERSION } from "../../utils/constants.js";
 import { normalizePosix, sanitizeRelativePath } from "../../utils/paths.js";
 import { writeAtomic } from "../memory/atomic.js";
 import { buildIndex } from "../indexer.js";
@@ -9,7 +9,7 @@ import { buildIndex } from "../indexer.js";
 export interface MemoryExportBundle {
   manifest: {
     format: "veeshree-memory-export";
-    version: "1.0.0";
+    version: string;
     exported_at: string;
   };
   files: Array<{
@@ -33,20 +33,34 @@ export function exportMemoryToArchive(
   return {
     manifest: {
       format: "veeshree-memory-export",
-      version: "1.0.0",
+      version: VEESHREE_VERSION,
       exported_at: new Date().toISOString(),
     },
     files: bundleFiles,
   };
 }
 
+import { createMemorySnapshot } from "../snapshots/snapshot-manager.js";
+import { VeeError } from "../../utils/errors.js";
+
 export function importMemoryFromArchive(
   rootDir: string = process.cwd(),
   bundle: MemoryExportBundle
 ): { restoredFiles: string[] } {
+  if (!bundle || !bundle.manifest || bundle.manifest.format !== "veeshree-memory-export") {
+    throw new VeeError("Invalid memory export bundle: missing or invalid manifest format", "ERR_INVALID_ARGS");
+  }
+
+  // Safety snapshot before applying imported changes (undo support)
+  try {
+    createMemorySnapshot(rootDir, `Pre-import snapshot (bundle v${bundle.manifest.version || "1.0.0"})`);
+  } catch {
+    // If docs/memory doesn't exist yet, proceed
+  }
+
   const restoredFiles: string[] = [];
 
-  for (const file of bundle.files) {
+  for (const file of bundle.files || []) {
     const safeRel = sanitizeRelativePath(file.path);
     if (!safeRel.startsWith("docs/memory/")) {
       continue;

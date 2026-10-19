@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import { buildContext } from "../core/context/builder.js";
 import { searchMemory } from "../core/search.js";
 import { checkWorkspaceDrift } from "../core/drift/status.js";
@@ -10,6 +11,46 @@ import { loadConfig } from "../core/config.js";
 import { sanitizeRelativePath } from "../utils/paths.js";
 import { DECISIONS_DIR_REL, ARCHIVE_DECISIONS_DIR_REL } from "../utils/constants.js";
 import { VeeError } from "../utils/errors.js";
+
+const GetContextSchema = z.object({
+  task: z.string().max(1000, "task description too long").optional(),
+  max_tokens: z.number().int().positive().max(100000, "max_tokens too high").optional(),
+});
+
+const SearchMemorySchema = z.object({
+  query: z.string().min(1, "Search query is required").max(500, "Search query too long"),
+  include_archived: z.boolean().optional(),
+});
+
+const GetDecisionSchema = z.object({
+  id: z.string().min(1, "ADR id is required").max(100).regex(/^[A-Za-z0-9._-]+$/, "Invalid decision ID format"),
+});
+
+const ListDecisionsSchema = z.object({
+  status: z.enum(["active", "superseded", "proposed", "all"]).optional(),
+});
+
+const CheckDriftSchema = z.object({
+  id: z.string().max(100).regex(/^[A-Za-z0-9._-]+$/).optional(),
+});
+
+const ProposeDecisionSchema = z.object({
+  title: z.string().min(1, "title is required").max(200, "title too long (max 200 characters)"),
+  decision: z.string().min(1, "decision is required").max(10000, "decision too long (max 10000 characters)"),
+  reason: z.string().min(1, "reason is required").max(10000, "reason too long (max 10000 characters)"),
+  alternatives: z.array(z.string().max(1000)).max(20, "too many alternatives (max 20)").optional(),
+  linked_files: z.array(z.string().max(500)).max(50, "too many linked files (max 50)").optional(),
+});
+
+const ProposeConstraintSchema = z.object({
+  rule: z.string().min(1, "rule is required").max(2000, "rule too long (max 2000 characters)"),
+  type: z.enum(["hard", "soft"]).optional(),
+});
+
+const UpdateTaskSchema = z.object({
+  name: z.string().min(1, "task name is required").max(500, "task name too long (max 500 characters)"),
+  action: z.enum(["add", "complete", "remove"]),
+});
 
 export const MCP_TOOLS = [
   {
@@ -117,21 +158,33 @@ export async function handleMcpToolCall(
 ): Promise<string> {
   switch (name) {
     case "get_context": {
-      const task = typeof args.task === "string" ? args.task : undefined;
-      const maxTokens = typeof args.max_tokens === "number" ? args.max_tokens : undefined;
+      const parsed = GetContextSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for get_context", "ERR_INVALID_ARGS");
+      }
+      const task = parsed.data.task;
+      const maxTokens = parsed.data.max_tokens;
       const result = buildContext(rootDir, { request: task, maxTokens });
       return result.content;
     }
 
     case "search_memory": {
-      const query = String(args.query || "");
-      const includeArchived = Boolean(args.include_archived);
+      const parsed = SearchMemorySchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for search_memory", "ERR_INVALID_ARGS");
+      }
+      const query = parsed.data.query;
+      const includeArchived = Boolean(parsed.data.include_archived);
       const results = searchMemory(query, { includeArchived }, rootDir);
       return JSON.stringify(results, null, 2);
     }
 
     case "get_decision": {
-      const id = String(args.id || "");
+      const parsed = GetDecisionSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for get_decision", "ERR_INVALID_ARGS");
+      }
+      const id = parsed.data.id;
       const dirs = [
         path.join(rootDir, DECISIONS_DIR_REL),
         path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL),
@@ -168,7 +221,11 @@ export async function handleMcpToolCall(
     }
 
     case "list_decisions": {
-      const statusFilter = typeof args.status === "string" ? args.status : "all";
+      const parsed = ListDecisionsSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for list_decisions", "ERR_INVALID_ARGS");
+      }
+      const statusFilter = parsed.data.status || "all";
       const index = loadOrBuildIndex(rootDir);
       const docs = index.documents.filter((d) => {
         if (d.type !== "decision" && d.type !== "archived_decision") return false;
@@ -192,18 +249,26 @@ export async function handleMcpToolCall(
     }
 
     case "check_drift": {
-      const specificId = typeof args.id === "string" ? args.id : undefined;
+      const parsed = CheckDriftSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for check_drift", "ERR_INVALID_ARGS");
+      }
+      const specificId = parsed.data.id;
       const report = checkWorkspaceDrift(rootDir, specificId);
       return JSON.stringify(report, null, 2);
     }
 
     case "propose_decision": {
-      const title = String(args.title || "");
-      const decision = String(args.decision || "");
-      const reason = String(args.reason || "");
-      const alternatives = Array.isArray(args.alternatives) ? args.alternatives.map(String) : [];
-      const linkedFiles = Array.isArray(args.linked_files)
-        ? args.linked_files.map((f) => sanitizeRelativePath(String(f)))
+      const parsed = ProposeDecisionSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for propose_decision", "ERR_INVALID_ARGS");
+      }
+      const title = parsed.data.title;
+      const decision = parsed.data.decision;
+      const reason = parsed.data.reason;
+      const alternatives = parsed.data.alternatives ? parsed.data.alternatives.map(String) : [];
+      const linkedFiles = parsed.data.linked_files
+        ? parsed.data.linked_files.map((f) => sanitizeRelativePath(String(f)))
         : [];
 
       const proposal = createProposal(
@@ -247,8 +312,12 @@ export async function handleMcpToolCall(
     }
 
     case "propose_constraint": {
-      const rule = String(args.rule || "");
-      const type = args.type === "soft" ? "soft" : "hard";
+      const parsed = ProposeConstraintSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for propose_constraint", "ERR_INVALID_ARGS");
+      }
+      const rule = parsed.data.rule;
+      const type = parsed.data.type === "soft" ? "soft" : "hard";
 
       const proposal = createProposal(
         "mcp",
@@ -281,8 +350,12 @@ export async function handleMcpToolCall(
     }
 
     case "update_task": {
-      const name = String(args.name || "");
-      const action = args.action === "complete" ? "complete" : args.action === "remove" ? "remove" : "add";
+      const parsed = UpdateTaskSchema.safeParse(args);
+      if (!parsed.success) {
+        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for update_task", "ERR_INVALID_ARGS");
+      }
+      const name = parsed.data.name;
+      const action = parsed.data.action;
 
       const proposal = createProposal(
         "mcp",

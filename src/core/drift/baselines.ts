@@ -57,17 +57,21 @@ export function acceptBaselines(
           existingHash = entry.sha256;
         }
 
-        const safeRel = sanitizeRelativePath(entryPath);
-        const absoluteLinked = path.join(rootDir, safeRel);
-        const currentHash = calculateNormalizedFileHash(absoluteLinked);
+        try {
+          const safeRel = sanitizeRelativePath(entryPath);
+          const absoluteLinked = path.join(rootDir, safeRel);
+          const currentHash = calculateNormalizedFileHash(absoluteLinked);
 
-        if (currentHash && currentHash !== existingHash) {
-          adrChanged = true;
-          totalUpdatedFiles++;
-          return { path: safeRel, sha256: currentHash };
+          if (currentHash && currentHash !== existingHash) {
+            adrChanged = true;
+            totalUpdatedFiles++;
+            return { path: safeRel, sha256: currentHash };
+          }
+
+          return { path: safeRel, sha256: currentHash || existingHash };
+        } catch {
+          return entry;
         }
-
-        return { path: safeRel, sha256: currentHash || existingHash };
       });
 
       if (adrChanged) {

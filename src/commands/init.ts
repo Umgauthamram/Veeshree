@@ -74,17 +74,20 @@ export function initializeVeeshree(
 
   logger.log("");
   logger.success("Veeshree initialized successfully! Version-controlled memory is active at /docs/memory/");
+
+  if (report.seededFiles.length > 0 && !options.dryRun) {
+    logger.log("");
+    logger.info("Initial Environment Diagnostics:");
+    logger.success(`Memory Scaffold: ${report.seededFiles.length} files active in /docs/memory/`);
+    if (report.installedRules.length > 0) {
+      logger.success(`Detected Agent Environments: ${report.installedRules.join(", ")}`);
+    }
+  }
+
   logger.log("");
-  logger.info(logger.bold("Next Steps:"));
-  logger.log(`  1. ${logger.bold("Configure Background AI Extractor")}:`);
-  logger.log(`     ${logger.cyan("vee keys set <provider> <YOUR_API_KEY>")}`);
-  logger.log(`     ${logger.dim("Providers: gemini | openai | anthropic | groq | nvidia")}`);
-  logger.log(`     ${logger.dim("(Stored in ~/.veeshree/credentials.json — never exposed to GitHub/Git)")}`);
-  logger.log(`     ${logger.dim("Or run local Ollama on port 11434 for 100% free offline extraction.")}`);
-  logger.log(`  2. ${logger.bold("Start Ambient Memory Watcher")} (runs in secondary terminal tab):`);
-  logger.log(`     ${logger.cyan("vee watch")}`);
-  logger.log(`  3. ${logger.bold("Run Diagnostics Anytime")}:`);
-  logger.log(`     ${logger.cyan("vee doctor")}`);
+  logger.info(logger.bold("Next Step:"));
+  logger.log(`  Start Ambient Memory Watcher:`);
+  logger.log(`    ${logger.cyan("vee watch")}`);
   logger.log("");
 
   return report;

@@ -47,7 +47,7 @@ describe("GAP-1 to GAP-4 & BUG-8, BUG-9: Automation, MCP & Feature Guardrails", 
     expect(content).toContain("# Existing user linter\nnpm run lint");
     // Verify veeshree marker block appended
     expect(content).toContain("# veeshree:start");
-    expect(content).toContain("veeshree status --check");
+    expect(content).toContain("$VEE_BIN status --check");
     expect(content).toContain("# veeshree:end");
 
     // Idempotent: re-install does not duplicate block

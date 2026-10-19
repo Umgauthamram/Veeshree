@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { initializeVeeshree } from "../src/commands/init.js";
 import { buildIndex, loadOrBuildIndex } from "../src/core/indexer.js";
-import { assembleContext, estimateTokens } from "../src/core/context.js";
+import { assembleContext, estimateTokens } from "../src/core/context/index.js";
 
 describe("Phase 2: Indexing, Retrieval & Hash Integrity", () => {
   let tempDir: string;

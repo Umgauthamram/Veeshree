@@ -3,8 +3,11 @@ import { checkWorkspaceDrift, type WorkspaceDriftReport } from "../core/drift/st
 import { acceptBaselines } from "../core/drift/baselines.js";
 import { buildIndex } from "../core/indexer.js";
 
+import { VeeError } from "../utils/errors.js";
+
 export interface SyncOptions {
-  accept?: string;
+  accept?: string | boolean;
+  all?: boolean;
   json?: boolean;
   quiet?: boolean;
   dryRun?: boolean;
@@ -17,10 +20,20 @@ export function syncVeeshree(
   if (options.quiet) logger.setQuiet(true);
   if (options.json) logger.setJson(true);
 
-  // If --accept is specified, update baselines
-  if (options.accept) {
+  let target = typeof options.accept === "string" ? options.accept : undefined;
+  if (options.all) {
+    target = "all";
+  } else if (options.accept === true || target === "") {
+    throw new VeeError(
+      "Usage: vee sync --accept <id> or vee sync --accept all (or vee sync --accept --all)",
+      "ERR_INVALID_ARGS"
+    );
+  }
+
+  // If accept target is specified, update baselines
+  if (target) {
     if (options.dryRun) {
-      logger.info(`[DRY-RUN] Would accept baselines for: ${options.accept}`);
+      logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
       return {
         report: checkWorkspaceDrift(rootDir),
         acceptedCount: 0,
@@ -28,8 +41,8 @@ export function syncVeeshree(
       };
     }
 
-    logger.title(`Accepting Drift Baselines: ${options.accept}`);
-    const result = acceptBaselines(options.accept, rootDir);
+    logger.title(`Accepting Drift Baselines: ${target}`);
+    const result = acceptBaselines(target, rootDir);
     buildIndex(rootDir);
 
     logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
@@ -70,7 +83,7 @@ export function syncVeeshree(
         }
       }
     }
-    logger.info(`Run 'vee sync --accept <id|--all>' to accept new baselines into ADR frontmatter.`);
+    logger.info(`Run 'vee sync --accept all' or 'vee sync --accept <id>' to accept new baselines into ADR frontmatter.`);
   }
 
   return {

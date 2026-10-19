@@ -1,9 +1,11 @@
 import readline from "node:readline";
+import fs from "node:fs";
+import path from "node:path";
 import { redactSecrets } from "./patterns.js";
-import { isDenylistedFile } from "./denylist.js";
-import { DEFAULT_MAX_PAYLOAD_BYTES } from "../../utils/constants.js";
+import { DEFAULT_MAX_PAYLOAD_BYTES, CONFIG_FILE_REL } from "../../utils/constants.js";
 import { VeeError } from "../../utils/errors.js";
 import type { VeeshreeConfig } from "../../schemas/config.schema.js";
+import { loadConfig, saveConfig } from "../config.js";
 
 /**
  * Redacts secrets from text content
@@ -47,10 +49,27 @@ export function capDiffPayload(diff: string, maxBytes: number = DEFAULT_MAX_PAYL
  */
 export async function assertCloudConsent(
   config: VeeshreeConfig,
-  onConsentGranted?: () => void
+  onConsentGranted?: () => void,
+  rootDir: string = process.cwd()
 ): Promise<void> {
-  if (config.privacy?.allow_cloud) {
+  if (config.privacy?.allow_cloud === true) {
     return;
+  }
+
+  // Check if allow_cloud is explicitly defined in raw config
+  const rawConfigPath = path.join(rootDir, CONFIG_FILE_REL);
+  if (fs.existsSync(rawConfigPath)) {
+    try {
+      const rawJson = JSON.parse(fs.readFileSync(rawConfigPath, "utf-8"));
+      if (rawJson.privacy && rawJson.privacy.allow_cloud === false) {
+        throw new VeeError(
+          "Cloud extraction declined. Cloud calls remain disabled. Run locally via Ollama or run 'vee config set privacy.allow_cloud true' later.",
+          "ERR_CLOUD_CONSENT_REQUIRED"
+        );
+      }
+    } catch (e: any) {
+      if (e instanceof VeeError) throw e;
+    }
   }
 
   const isInteractive = process.stdin.isTTY && process.stdout.isTTY;
@@ -71,13 +90,39 @@ export async function assertCloudConsent(
     rl.question(
       "\n[PRIVACY] Veeshree is about to send a redacted code diff to an external cloud LLM provider.\nAllow cloud requests? (y/N): ",
       (ans) => {
+        resolve(ans.trim().toLowerCase());
+      }
+    );
+  });
+
+  const remember = await new Promise<string>((resolve) => {
+    rl.question(
+      "Remember this choice and save to .vee/config.json? (Y/n): ",
+      (ans) => {
         rl.close();
         resolve(ans.trim().toLowerCase());
       }
     );
   });
 
-  if (answer === "y" || answer === "yes") {
+  const isGranted = answer === "y" || answer === "yes";
+  const shouldPersist = remember !== "n" && remember !== "no";
+
+  if (shouldPersist) {
+    try {
+      const currentConfig = loadConfig(rootDir);
+      if (!currentConfig.privacy) {
+        currentConfig.privacy = { allow_cloud: isGranted, max_payload_bytes: DEFAULT_MAX_PAYLOAD_BYTES };
+      } else {
+        currentConfig.privacy.allow_cloud = isGranted;
+      }
+      saveConfig(currentConfig, rootDir);
+    } catch {
+      // ignore persistence error
+    }
+  }
+
+  if (isGranted) {
     if (onConsentGranted) onConsentGranted();
   } else {
     throw new VeeError(

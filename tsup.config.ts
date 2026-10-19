@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import pkg from "./package.json";
 
 export default defineConfig({
   entry: ["src/index.ts", "src/cli.ts"],
@@ -8,4 +9,7 @@ export default defineConfig({
   sourcemap: true,
   target: "node20",
   shims: true,
+  define: {
+    __VERSION__: JSON.stringify(pkg.version),
+  },
 });

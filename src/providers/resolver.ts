@@ -82,7 +82,7 @@ export async function resolveEngine(
     apiKey = getApiKey(provider as any, rootDir);
 
     // SEC-2: Cloud Consent check
-    await assertCloudConsent(config);
+    await assertCloudConsent(config, undefined, rootDir);
   }
 
   return {
