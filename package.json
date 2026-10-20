@@ -18,6 +18,7 @@
   "files": [
     "dist",
     "bin",
+    "models.json",
     "README.md",
     "CHANGELOG.md",
     "SECURITY.md",

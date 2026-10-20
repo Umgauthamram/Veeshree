@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { writeAtomic } from "../core/memory/atomic.js";
+import { logger } from "../utils/logger.js";
 import { VeeError } from "../utils/errors.js";
 
 export type McpClientType = "claude" | "cursor" | "vscode" | "gemini" | "claude-code";
@@ -124,6 +125,14 @@ export function installMcpClientConfig(
           "ERR_CONFIG_INVALID"
         );
       }
+    }
+
+    // Check if original file contains JSONC comments (// or /*)
+    const hasComments = /(?<!:)\/\/|\/\*/.test(raw);
+    if (hasComments) {
+      logger.warn(
+        `Existing MCP config at '${configPath}' contains comments which will be removed during update. A backup copy of your original configuration was saved to '${configPath}.bak'.`
+      );
     }
 
     // Create backup file before modifying

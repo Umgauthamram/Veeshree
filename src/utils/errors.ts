@@ -15,6 +15,7 @@ export type VeeErrorCode =
   | "ERR_MIGRATION_FAILED"
   | "ERR_MCP_ERROR"
   | "ERR_SECURITY_VIOLATION"
+  | "ERR_INVALID_MODEL"
   | "ERR_UNKNOWN";
 
 export class VeeError extends Error {

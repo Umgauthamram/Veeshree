@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { logger } from "../utils/logger.js";
 import { resolveEngine } from "../providers/resolver.js";
+import { verifyModelEndpoint } from "../providers/models.js";
 import { checkWorkspaceDrift } from "../core/drift/status.js";
 import { listApiKeys, getGlobalCredentialsPath, loadGlobalCredentials } from "../core/auth.js";
 import { runCommandSafe } from "../utils/process.js";
@@ -258,23 +259,44 @@ export async function handleDoctorCommand(
     fixedCount++;
   }
 
-  // 7. Check AI Engine Connectivity
+  // 7. Check AI Engine Connectivity & Model Verification
   try {
     const engine = await resolveEngine(rootDir);
-    checks.push({
-      category: "AI Extraction Engine",
-      name: "Active Engine",
-      status: "ok",
-      message: `${engine.provider} (${engine.model})`,
-    });
+    const modelCheck = await verifyModelEndpoint(engine.provider, engine.model, engine.apiKey, engine.baseUrl);
+    if (!modelCheck.ok) {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Model Verification",
+        status: "fail",
+        message: modelCheck.message || `Configured model '${engine.model}' is not supported`,
+        remedy: modelCheck.remedy || `Configure a supported model in .vee/config.json.`,
+      });
+    } else {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Active Engine",
+        status: "ok",
+        message: `${engine.provider} (${engine.model}) verified`,
+      });
+    }
   } catch (err: any) {
-    checks.push({
-      category: "AI Extraction Engine",
-      name: "Active Engine",
-      status: "warn",
-      message: "No active model engine connected (indexing-only mode)",
-      remedy: "Set a key with 'vee keys set gemini <KEY>' or run local Ollama.",
-    });
+    if (err.code === "ERR_INVALID_MODEL") {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Model Validation",
+        status: "fail",
+        message: err.message,
+        remedy: "Update extractor.model in .vee/config.json with a supported model name.",
+      });
+    } else {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Active Engine",
+        status: "warn",
+        message: "No active model engine connected (indexing-only mode)",
+        remedy: "Set a key with 'vee keys set gemini <KEY>' or run local Ollama.",
+      });
+    }
   }
 
   // 8. Check Code Drift

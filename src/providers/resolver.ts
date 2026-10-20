@@ -8,6 +8,7 @@ import { getApiKey } from "../core/auth.js";
 import { loadConfig } from "../core/config.js";
 import { assertCloudConsent } from "../core/redact/redactor.js";
 import { DEFAULT_MODELS } from "../utils/constants.js";
+import { validateModel } from "./models.js";
 import { VeeError } from "../utils/errors.js";
 
 export interface ResolvedEngine {
@@ -33,36 +34,36 @@ export async function resolveEngine(
   ).toLowerCase();
 
   let extractor: Extractor;
-  let defaultModel: string = DEFAULT_MODELS.gemini;
+  let defaultModel: string = DEFAULT_MODELS.gemini || "gemini-2.0-flash";
 
   switch (provider) {
     case "gemini":
       extractor = new GeminiExtractor();
-      defaultModel = DEFAULT_MODELS.gemini;
+      defaultModel = DEFAULT_MODELS.gemini || "gemini-2.0-flash";
       break;
     case "openai":
       extractor = new OpenAIExtractor("openai", "https://api.openai.com/v1");
-      defaultModel = DEFAULT_MODELS.openai;
+      defaultModel = DEFAULT_MODELS.openai || "gpt-4o-mini";
       break;
     case "anthropic":
       extractor = new AnthropicExtractor();
-      defaultModel = DEFAULT_MODELS.anthropic;
+      defaultModel = DEFAULT_MODELS.anthropic || "claude-3-5-sonnet-20241022";
       break;
     case "groq":
       extractor = new OpenAIExtractor("groq", "https://api.groq.com/openai/v1");
-      defaultModel = DEFAULT_MODELS.groq;
+      defaultModel = DEFAULT_MODELS.groq || "llama-3.3-70b-versatile";
       break;
     case "nvidia":
       extractor = new OpenAIExtractor("nvidia", "https://integrate.api.nvidia.com/v1");
-      defaultModel = DEFAULT_MODELS.nvidia;
+      defaultModel = DEFAULT_MODELS.nvidia || "meta/llama-3.1-70b-instruct";
       break;
     case "ollama":
       extractor = new OllamaExtractor();
-      defaultModel = DEFAULT_MODELS.ollama;
+      defaultModel = DEFAULT_MODELS.ollama || "llama3.2";
       break;
     case "lmstudio":
       extractor = new LmStudioExtractor();
-      defaultModel = DEFAULT_MODELS.lmstudio;
+      defaultModel = DEFAULT_MODELS.lmstudio || "default";
       break;
     default:
       throw new VeeError(`Unsupported AI model provider: '${provider}'.`, "ERR_INVALID_ARGS");
@@ -74,6 +75,14 @@ export async function resolveEngine(
     config.extractor?.model ||
     config.default_extractor?.model ||
     defaultModel;
+
+  const validation = validateModel(provider, model);
+  if (!validation.valid) {
+    throw new VeeError(
+      `Unknown model '${model}' for provider '${provider}'. Did you mean '${validation.suggested}'? Available models: ${validation.available.join(", ")}`,
+      "ERR_INVALID_MODEL"
+    );
+  }
 
   const baseUrl = config.extractor?.base_url;
 

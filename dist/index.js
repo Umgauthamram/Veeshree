@@ -12,7 +12,6 @@ import {
   GeminiExtractor,
   LinkedFileEntrySchema,
   LmStudioExtractor,
-  MEMORY_DIR_REL,
   OllamaExtractor,
   OpenAIExtractor,
   ProposalRiskSchema,
@@ -33,12 +32,13 @@ import {
   createProposal,
   estimateTokens,
   explainContextBudget,
+  exportMemoryToArchive,
   filterDiffByDenylist,
-  findMarkdownFiles,
   generateClientConfig,
   getGlobalConfigPath,
   getHooksStatus,
   getProposal,
+  importMemoryFromArchive,
   installAgentRules,
   installGitHooks,
   installMcpClientConfig,
@@ -62,50 +62,8 @@ import {
   uninstallAgentRules,
   uninstallGitHooks,
   updateAgentRules,
-  validateExtractionJson,
-  writeAtomic
-} from "./chunk-W5GCJGKU.js";
-
-// src/core/transfer/export-import.ts
-import fs from "fs";
-import path from "path";
-function exportMemoryToArchive(rootDir = process.cwd(), format = "json") {
-  const memoryDir = path.join(rootDir, MEMORY_DIR_REL);
-  const files = findMarkdownFiles(memoryDir);
-  const bundleFiles = files.map((f) => ({
-    path: normalizePosix(path.relative(rootDir, f)),
-    content: fs.readFileSync(f, "utf-8")
-  }));
-  return {
-    manifest: {
-      format: "veeshree-memory-export",
-      version: VEESHREE_VERSION,
-      exported_at: (/* @__PURE__ */ new Date()).toISOString()
-    },
-    files: bundleFiles
-  };
-}
-function importMemoryFromArchive(rootDir = process.cwd(), bundle) {
-  if (!bundle || !bundle.manifest || bundle.manifest.format !== "veeshree-memory-export") {
-    throw new VeeError("Invalid memory export bundle: missing or invalid manifest format", "ERR_INVALID_ARGS");
-  }
-  try {
-    createMemorySnapshot(rootDir, `Pre-import snapshot (bundle v${bundle.manifest.version || "1.0.0"})`);
-  } catch {
-  }
-  const restoredFiles = [];
-  for (const file of bundle.files || []) {
-    const safeRel = sanitizeRelativePath(file.path);
-    if (!safeRel.startsWith("docs/memory/")) {
-      continue;
-    }
-    const fullPath = path.join(rootDir, safeRel);
-    writeAtomic(fullPath, file.content);
-    restoredFiles.push(safeRel);
-  }
-  buildIndex(rootDir);
-  return { restoredFiles };
-}
+  validateExtractionJson
+} from "./chunk-AEXERJC7.js";
 export {
   AnthropicExtractor,
   DecisionFrontmatterSchema,

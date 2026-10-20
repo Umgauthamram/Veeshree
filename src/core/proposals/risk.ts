@@ -16,11 +16,11 @@ const SUSPICIOUS_PATTERNS = [
   },
   {
     name: "remote_fetch",
-    regex: /\b(?:curl|wget|fetch|Invoke-WebRequest|Invoke-RestMethod)\b/i,
+    regex: /\b(?:curl\s+|wget\s+|Invoke-WebRequest|Invoke-RestMethod)\b/i,
   },
   {
     name: "shell_pipe",
-    regex: /(?:curl|wget|fetch|powershell|bash|sh|cmd)\b[^\n|]*\|\s*(?:sh|bash|zsh|powershell|cmd)\b/i,
+    regex: /(?:curl\s+|wget\s+|powershell|bash|sh|cmd)\b[^\n|]*\|\s*(?:sh|bash|zsh|powershell|cmd)\b/i,
   },
   {
     name: "base64_shell",
@@ -36,7 +36,7 @@ const SUSPICIOUS_PATTERNS = [
   },
   {
     name: "instruction_override",
-    regex: /(?:ignore|disregard|forget|bypass|override|drop)\s+(?:all\s+)?(?:previous|prior|system|developer|safety|security)?\s*(?:instructions|rules|constraints|prompt|guidelines|guardrails)/i,
+    regex: /(?:ignore|disregard|forget|bypass|override|drop)\s+(?:(?:the|all|any|earlier|above|previous|prior|system|developer|safety|security)\s+)*(?:instructions|rules|constraints|prompt|guidelines|guardrails)|\b(?:skip\s+tests?|force\s+push|without\s+review)\b/i,
   },
   {
     name: "disable_security_checks",
@@ -59,7 +59,7 @@ export interface RiskScoringOptions {
  * - Any payload containing shell execution, command injection, instruction overrides or check disablement is scored high risk
  */
 export function scoreProposalRisk(
-  delta: ExtractionDelta,
+  delta: Partial<ExtractionDelta>,
   options: RiskScoringOptions = {}
 ): { risk: ProposalRisk; flags: string[] } {
   const flags: string[] = [];
@@ -96,12 +96,12 @@ export function scoreProposalRisk(
   return { risk, flags };
 }
 
-export function assessDeltaRisk(delta: ExtractionDelta): { isHighRisk: boolean; reasons: string[] } {
+export function assessDeltaRisk(delta: Partial<ExtractionDelta>): { isHighRisk: boolean; reasons: string[] } {
   const { risk, flags } = scoreProposalRisk(delta);
   return { isHighRisk: risk === "high", reasons: flags };
 }
 
-function extractAllText(delta: ExtractionDelta): string {
+function extractAllText(delta: Partial<ExtractionDelta>): string {
   const chunks: string[] = [];
 
   if (delta.decisions) {

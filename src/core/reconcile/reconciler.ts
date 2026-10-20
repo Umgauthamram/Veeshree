@@ -30,6 +30,7 @@ export interface ReconcileOptions {
   source?: string;
   acceptedBy?: string;
   createSnapshot?: boolean;
+  isAuto?: boolean;
 }
 
 export interface ReconcileResult {
@@ -58,9 +59,10 @@ export async function reconcileExtractionSafe(
 
     const updatedFiles: string[] = [];
     const newDecisions: string[] = [];
+    const isAutoMode = Boolean(options.isAuto || (options.acceptedBy && options.acceptedBy.includes("auto")));
 
-    // 2. Process Decisions
-    if (Array.isArray(delta.decisions) && delta.decisions.length > 0) {
+    // 2. Process Decisions (Never auto-apply ADR bodies under --auto; only tasks and state)
+    if (!isAutoMode && Array.isArray(delta.decisions) && delta.decisions.length > 0) {
       const decisionsDir = path.join(rootDir, DECISIONS_DIR_REL);
       if (!fs.existsSync(decisionsDir)) {
         fs.mkdirSync(decisionsDir, { recursive: true });
@@ -256,8 +258,8 @@ ${linkedFilesBlock}
       }
     }
 
-    // 5. Process Constraints
-    if (Array.isArray(delta.constraints) && delta.constraints.length > 0) {
+    // 5. Process Constraints (Never auto-apply constraints under --auto; only tasks and state)
+    if (!isAutoMode && Array.isArray(delta.constraints) && delta.constraints.length > 0) {
       const constraintsPath = path.join(rootDir, CONSTRAINTS_FILE_REL);
       if (fs.existsSync(constraintsPath)) {
         let constraintsContent = fs.readFileSync(constraintsPath, "utf-8");
@@ -286,8 +288,8 @@ ${linkedFilesBlock}
       }
     }
 
-    // 6. Process Rejected Approaches
-    if (Array.isArray(delta.rejected_approaches) && delta.rejected_approaches.length > 0) {
+    // 6. Process Rejected Approaches (Never auto-apply under --auto; only tasks and state)
+    if (!isAutoMode && Array.isArray(delta.rejected_approaches) && delta.rejected_approaches.length > 0) {
       const rejectedPath = path.join(rootDir, REJECTED_FILE_REL);
       if (fs.existsSync(rejectedPath)) {
         let rejectedContent = fs.readFileSync(rejectedPath, "utf-8");
@@ -305,8 +307,8 @@ ${linkedFilesBlock}
       }
     }
 
-    // 7. Process Discoveries
-    if (Array.isArray(delta.discoveries) && delta.discoveries.length > 0) {
+    // 7. Process Discoveries (Never auto-apply under --auto; only tasks and state)
+    if (!isAutoMode && Array.isArray(delta.discoveries) && delta.discoveries.length > 0) {
       const discoveriesPath = path.join(rootDir, DISCOVERIES_FILE_REL);
       if (fs.existsSync(discoveriesPath)) {
         let discoveriesContent = fs.readFileSync(discoveriesPath, "utf-8");

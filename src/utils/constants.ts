@@ -46,15 +46,9 @@ export const REJECTED_FILE_REL = path.join("docs", "memory", "rejected.md");
 export const DISCOVERIES_FILE_REL = path.join("docs", "memory", "discoveries.md");
 export const COMPLETED_TASKS_FILE_REL = path.join("docs", "memory", "archive", "completed-tasks.md");
 
-export const DEFAULT_MODELS = {
-  gemini: "gemini-2.0-flash",
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-sonnet-latest",
-  groq: "llama-3.3-70b-versatile",
-  nvidia: "meta/llama-3.1-70b-instruct",
-  ollama: "llama3.2",
-  lmstudio: "default",
-} as const;
+import { getDefaultModels } from "../providers/models.js";
+
+export const DEFAULT_MODELS = getDefaultModels();
 
 export const DEFAULT_MAX_PAYLOAD_BYTES = 24576;
 export const DEFAULT_MAX_CONTEXT_TOKENS = 2000;

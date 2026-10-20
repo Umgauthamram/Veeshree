@@ -39,6 +39,7 @@ import {
   getNextAdrNumber,
   getProjectConfigPath,
   getProposal,
+  importMemoryFromArchive,
   installAgentRules,
   installGitHooks,
   installMcpClientConfig,
@@ -73,8 +74,9 @@ import {
   uninstallGitHooks,
   updateAgentRules,
   validateModelName,
+  verifyModelEndpoint,
   writeAtomic
-} from "./chunk-W5GCJGKU.js";
+} from "./chunk-AEXERJC7.js";
 
 // src/cli.ts
 import path14 from "path";
@@ -853,20 +855,41 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
   }
   try {
     const engine = await resolveEngine(rootDir);
-    checks.push({
-      category: "AI Extraction Engine",
-      name: "Active Engine",
-      status: "ok",
-      message: `${engine.provider} (${engine.model})`
-    });
+    const modelCheck = await verifyModelEndpoint(engine.provider, engine.model, engine.apiKey, engine.baseUrl);
+    if (!modelCheck.ok) {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Model Verification",
+        status: "fail",
+        message: modelCheck.message || `Configured model '${engine.model}' is not supported`,
+        remedy: modelCheck.remedy || `Configure a supported model in .vee/config.json.`
+      });
+    } else {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Active Engine",
+        status: "ok",
+        message: `${engine.provider} (${engine.model}) verified`
+      });
+    }
   } catch (err) {
-    checks.push({
-      category: "AI Extraction Engine",
-      name: "Active Engine",
-      status: "warn",
-      message: "No active model engine connected (indexing-only mode)",
-      remedy: "Set a key with 'vee keys set gemini <KEY>' or run local Ollama."
-    });
+    if (err.code === "ERR_INVALID_MODEL") {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Model Validation",
+        status: "fail",
+        message: err.message,
+        remedy: "Update extractor.model in .vee/config.json with a supported model name."
+      });
+    } else {
+      checks.push({
+        category: "AI Extraction Engine",
+        name: "Active Engine",
+        status: "warn",
+        message: "No active model engine connected (indexing-only mode)",
+        remedy: "Set a key with 'vee keys set gemini <KEY>' or run local Ollama."
+      });
+    }
   }
   const driftReport = checkWorkspaceDrift(rootDir);
   if (!driftReport.hasDrift) {
@@ -2534,60 +2557,23 @@ function handleImportCommand(filePath, options = {}, rootDir = process.cwd()) {
     throw new VeeError("No valid memory documents detected in import bundle.", "ERR_INVALID_ARGS");
   }
   logger.title(`Importing Memory Bundle (${keys.length} files)`);
-  if (options.yes) {
-    for (const [relPath, content] of Object.entries(bundle)) {
-      const safeRel = sanitizeRelativePath(relPath);
-      if (!safeRel.startsWith("docs/memory/")) {
-        logger.warn(`Skipping untrusted destination path outside docs/memory: ${safeRel}`);
-        continue;
-      }
-      const fullPath = path11.join(rootDir, safeRel);
-      writeAtomic(fullPath, content);
-    }
-    buildIndex(rootDir);
-    logger.success(`Successfully imported ${keys.length} memory file(s).`);
-    return { importedFiles: keys.length };
-  }
-  const delta = {
-    decisions: [],
-    current_state: {
-      current_feature: `Imported from ${path11.basename(filePath)}`,
-      completed_in_session: [],
-      next_immediate_steps: []
+  const memoryExportBundle = {
+    manifest: {
+      format: "veeshree-memory-export",
+      version: "1.0.0",
+      exported_at: (/* @__PURE__ */ new Date()).toISOString()
     },
-    tasks: [],
-    constraints: [],
-    rejected_approaches: [],
-    discoveries: []
+    files: Object.entries(bundle).map(([p, content]) => ({ path: p, content }))
   };
-  for (const [relPath, content] of Object.entries(bundle)) {
-    const safeRel = sanitizeRelativePath(relPath);
-    if (!safeRel.startsWith("docs/memory/")) continue;
-    if (safeRel.includes("/decisions/")) {
-      const { data, content: body } = parseDecisionFrontmatter(content);
-      delta.decisions.push({
-        title: data.title || path11.basename(safeRel, ".md"),
-        decision: body.slice(0, 500).trim(),
-        reason: "Imported from external memory bundle",
-        alternatives_considered: data.alternatives_considered || [],
-        linked_files: (data.linked_files || []).map((f) => typeof f === "string" ? f : f.path),
-        tags: data.tags || ["import"],
-        status: data.status || "active"
-      });
-    } else if (safeRel.endsWith("constraints.md")) {
-      const lines = content.split("\n").filter((l) => l.trim().startsWith("-"));
-      for (const line of lines) {
-        const rule = line.replace(/^-\s*/, "").trim();
-        if (rule) {
-          delta.constraints.push({ rule, type: "hard", source: "import" });
-        }
-      }
-    }
+  const { restoredFiles, proposal } = importMemoryFromArchive(rootDir, memoryExportBundle, { yes: options.yes });
+  if (proposal) {
+    logger.info(`Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
+    logger.info(`Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`);
   }
-  const proposal = createProposal("manual", delta, "import", rootDir);
-  logger.info(`Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
-  logger.info(`Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`);
-  return { proposal, importedFiles: keys.length };
+  if (restoredFiles.length > 0) {
+    logger.success(`Successfully imported ${restoredFiles.length} memory file(s).`);
+  }
+  return { proposal, importedFiles: restoredFiles.length };
 }
 
 // src/commands/mcp.ts

@@ -3,6 +3,7 @@ import path from "node:path";
 import { writeAtomic } from "../core/memory/atomic.js";
 import { buildIndex } from "../core/indexer.js";
 import { createMemorySnapshot } from "../core/snapshots/snapshot-manager.js";
+import { importMemoryFromArchive } from "../core/transfer/export-import.js";
 import { createProposal } from "../core/proposals/queue.js";
 import { parseDecisionFrontmatter } from "../core/memory/frontmatter.js";
 import { sanitizeRelativePath } from "../utils/paths.js";
@@ -75,66 +76,25 @@ export function handleImportCommand(
 
   logger.title(`Importing Memory Bundle (${keys.length} files)`);
 
-  // If --yes flag is passed, apply directly
-  if (options.yes) {
-    for (const [relPath, content] of Object.entries(bundle)) {
-      const safeRel = sanitizeRelativePath(relPath);
-      if (!safeRel.startsWith("docs/memory/")) {
-        logger.warn(`Skipping untrusted destination path outside docs/memory: ${safeRel}`);
-        continue;
-      }
-      const fullPath = path.join(rootDir, safeRel);
-      writeAtomic(fullPath, content);
-    }
-
-    buildIndex(rootDir);
-    logger.success(`Successfully imported ${keys.length} memory file(s).`);
-    return { importedFiles: keys.length };
-  }
-
-  // If --yes not passed, route decisions and constraints through the proposal queue
-  const delta: ExtractionDelta = {
-    decisions: [],
-    current_state: {
-      current_feature: `Imported from ${path.basename(filePath)}`,
-      completed_in_session: [],
-      next_immediate_steps: [],
+  const memoryExportBundle = {
+    manifest: {
+      format: "veeshree-memory-export" as const,
+      version: "1.0.0",
+      exported_at: new Date().toISOString(),
     },
-    tasks: [],
-    constraints: [],
-    rejected_approaches: [],
-    discoveries: [],
+    files: Object.entries(bundle).map(([p, content]) => ({ path: p, content })),
   };
 
-  for (const [relPath, content] of Object.entries(bundle)) {
-    const safeRel = sanitizeRelativePath(relPath);
-    if (!safeRel.startsWith("docs/memory/")) continue;
+  const { restoredFiles, proposal } = importMemoryFromArchive(rootDir, memoryExportBundle, { yes: options.yes });
 
-    if (safeRel.includes("/decisions/")) {
-      const { data, content: body } = parseDecisionFrontmatter(content);
-      delta.decisions.push({
-        title: data.title || path.basename(safeRel, ".md"),
-        decision: body.slice(0, 500).trim(),
-        reason: "Imported from external memory bundle",
-        alternatives_considered: (data as any).alternatives_considered || [],
-        linked_files: (data.linked_files || []).map((f) => (typeof f === "string" ? f : f.path)),
-        tags: data.tags || ["import"],
-        status: data.status || "active",
-      });
-    } else if (safeRel.endsWith("constraints.md")) {
-      const lines = content.split("\n").filter((l) => l.trim().startsWith("-"));
-      for (const line of lines) {
-        const rule = line.replace(/^-\s*/, "").trim();
-        if (rule) {
-          delta.constraints.push({ rule, type: "hard", source: "import" });
-        }
-      }
-    }
+  if (proposal) {
+    logger.info(`Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
+    logger.info(`Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`);
   }
 
-  const proposal = createProposal("manual", delta, "import", rootDir);
-  logger.info(`Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
-  logger.info(`Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`);
+  if (restoredFiles.length > 0) {
+    logger.success(`Successfully imported ${restoredFiles.length} memory file(s).`);
+  }
 
-  return { proposal, importedFiles: keys.length };
+  return { proposal, importedFiles: restoredFiles.length };
 }
