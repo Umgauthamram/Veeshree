@@ -6,6 +6,7 @@ import { handleMigrateCommand } from "../src/commands/migrate.js";
 import { handleDoctorCommand } from "../src/commands/doctor.js";
 import { loadConfig } from "../src/core/config.js";
 import { parseDecisionFrontmatter } from "../src/core/memory/frontmatter.js";
+import { VEESHREE_VERSION } from "../src/utils/constants.js";
 
 describe("Quality Gate 10: 0.3.x to 1.0.0 Migration & Compatibility", () => {
   let tempDir: string;
@@ -83,7 +84,7 @@ We use JWTs for authentication.
     // 3. Verify Config is upgraded to 1.0.0
     const upgradedConfig = loadConfig(tempDir);
     expect(upgradedConfig.schema_version).toBe(1);
-    expect(upgradedConfig.version).toBe("1.0.0");
+    expect(upgradedConfig.version).toBe(VEESHREE_VERSION);
     expect(upgradedConfig.extractor.provider).toBe("gemini");
     expect(upgradedConfig.extractor.model).toBe("gemini-1.5-flash");
     expect(upgradedConfig.context.max_tokens).toBe(1800);

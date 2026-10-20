@@ -13,9 +13,12 @@ export function handleConfigCommand(
   action: "get" | "set" | "list" | "path" = "list",
   key?: string,
   value?: string,
-  options: { global?: boolean } = {},
+  options: { global?: boolean; json?: boolean } = {},
   rootDir: string = process.cwd()
 ): void {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
+
   if (action === "path") {
     const p = options.global ? getGlobalConfigPath() : getProjectConfigPath(rootDir);
     console.log(p);
@@ -24,7 +27,9 @@ export function handleConfigCommand(
 
   if (action === "list") {
     const config = loadConfig(rootDir);
-    logger.title("Veeshree Configuration (Merged)");
+    if (!isJson) {
+      logger.title("Veeshree Configuration (Merged)");
+    }
     console.log(JSON.stringify(config, null, 2));
     return;
   }

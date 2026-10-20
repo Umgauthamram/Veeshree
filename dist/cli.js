@@ -74,9 +74,10 @@ import {
   updateAgentRules,
   validateModelName,
   writeAtomic
-} from "./chunk-PIJSJQYS.js";
+} from "./chunk-W5GCJGKU.js";
 
 // src/cli.ts
+import path14 from "path";
 import { Command } from "commander";
 
 // src/core/moderator.ts
@@ -641,7 +642,11 @@ import path4 from "path";
 import fs3 from "fs";
 import path3 from "path";
 async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
-  logger.title("Veeshree System Diagnostics & Health Check");
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
+  if (!isJson) {
+    logger.title("Veeshree System Diagnostics & Health Check");
+  }
   const checks = [];
   let fixedCount = 0;
   const memoryDir = path3.join(rootDir, "docs", "memory");
@@ -880,19 +885,41 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
       remedy: "Run 'vee sync --accept --all' or 'vee capture' to reconcile."
     });
   }
-  console.log("");
   let hasFailures = false;
   let hasWarnings = false;
+  for (const item of checks) {
+    if (item.status === "warn") hasWarnings = true;
+    if (item.status === "fail") hasFailures = true;
+  }
+  if (isJson) {
+    console.log(
+      JSON.stringify(
+        {
+          checks,
+          hasFailures,
+          hasWarnings,
+          fixedCount
+        },
+        null,
+        2
+      )
+    );
+    return {
+      checks,
+      hasFailures,
+      hasWarnings,
+      fixedCount
+    };
+  }
+  console.log("");
   for (const item of checks) {
     let icon = "";
     if (item.status === "ok") {
       icon = logger.green("[PASS]");
     } else if (item.status === "warn") {
       icon = logger.yellow("[WARN]");
-      hasWarnings = true;
     } else {
       icon = logger.red("[FAIL]");
-      hasFailures = true;
     }
     console.log(`${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`);
     if (item.remedy && !item.fixed) {
@@ -1042,8 +1069,9 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
 
 // src/commands/sync.ts
 function syncVeeshree(rootDir = process.cwd(), options = {}) {
+  const isJson = options.json || logger.isJson();
   if (options.quiet) logger.setQuiet(true);
-  if (options.json) logger.setJson(true);
+  if (isJson) logger.setJson(true);
   let target = typeof options.accept === "string" ? options.accept : void 0;
   if (options.all) {
     target = "all";
@@ -1055,27 +1083,48 @@ function syncVeeshree(rootDir = process.cwd(), options = {}) {
   }
   if (target) {
     if (options.dryRun) {
-      logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
+      const rep = checkWorkspaceDrift(rootDir);
+      if (isJson) {
+        console.log(JSON.stringify({ dryRun: true, target, report: rep, acceptedCount: 0 }, null, 2));
+      } else {
+        logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
+      }
       return {
-        report: checkWorkspaceDrift(rootDir),
+        report: rep,
         acceptedCount: 0,
         exitCode: 0
       };
     }
-    logger.title(`Accepting Drift Baselines: ${target}`);
+    if (!isJson) logger.title(`Accepting Drift Baselines: ${target}`);
     const result = acceptBaselines(target, rootDir);
     buildIndex(rootDir);
-    logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
+    const postReport = checkWorkspaceDrift(rootDir);
+    if (isJson) {
+      console.log(
+        JSON.stringify(
+          {
+            target,
+            updatedAdrs: result.updatedAdrs,
+            acceptedCount: result.totalUpdatedFiles,
+            report: postReport
+          },
+          null,
+          2
+        )
+      );
+    } else {
+      logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
+    }
     return {
-      report: checkWorkspaceDrift(rootDir),
+      report: postReport,
       acceptedCount: result.totalUpdatedFiles,
       exitCode: 0
     };
   }
-  logger.title("Synchronizing Veeshree Memory & Code Hashes");
+  if (!isJson) logger.title("Synchronizing Veeshree Memory & Code Hashes");
   const driftReport = checkWorkspaceDrift(rootDir);
   buildIndex(rootDir);
-  if (options.json) {
+  if (isJson) {
     console.log(JSON.stringify(driftReport, null, 2));
     return {
       report: driftReport,
@@ -1108,8 +1157,10 @@ function syncVeeshree(rootDir = process.cwd(), options = {}) {
 
 // src/commands/context.ts
 function generateContext(request, options = {}, rootDir = process.cwd()) {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   const maxTokens = options.maxTokens ? parseInt(String(options.maxTokens), 10) : void 0;
-  const format = options.json ? "json" : options.format || "markdown";
+  const format = isJson ? "json" : options.format || "markdown";
   const result = buildContext(rootDir, {
     request,
     maxTokens,
@@ -1117,10 +1168,14 @@ function generateContext(request, options = {}, rootDir = process.cwd()) {
     format
   });
   if (options.explain) {
-    console.log(explainContextBudget(result));
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(explainContextBudget(result));
+    }
     return result;
   }
-  if (options.raw || options.json || options.format === "xml") {
+  if (options.raw || isJson || options.format === "xml") {
     process.stdout.write(result.content + "\n");
     return result;
   }
@@ -1139,9 +1194,15 @@ function generateContext(request, options = {}, rootDir = process.cwd()) {
 
 // src/commands/keys.ts
 function handleKeysCommand(action, provider, key, options = {}, rootDir = process.cwd()) {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   if (action === "list") {
-    logger.title("Configured AI Provider API Keys");
     const keys = listApiKeys(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(keys, null, 2));
+      return keys;
+    }
+    logger.title("Configured AI Provider API Keys");
     for (const [p, info] of Object.entries(keys)) {
       const statusStr = info.configured ? logger.cyan(`Configured via ${info.source}`) : logger.dim("Not Configured");
       const warningStr = info.insecureWarning ? ` ${logger.yellow(`[WARN: ${info.insecureWarning}]`)}` : "";
@@ -1149,7 +1210,7 @@ function handleKeysCommand(action, provider, key, options = {}, rootDir = proces
     }
     console.log("");
     logger.info("Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure.");
-    return;
+    return keys;
   }
   if (action === "set" || action === "update") {
     if (!provider || !key) {
@@ -1588,6 +1649,8 @@ function handleSearchCommand(query, options = {}, rootDir = process.cwd()) {
 import fs7 from "fs";
 import path6 from "path";
 function handleDecisionsCommand(options = {}, rootDir = process.cwd()) {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   const sub = options.subcommand || "list";
   if (sub === "new") {
     if (!options.title) {
@@ -1737,6 +1800,10 @@ Why the previous approach was superseded.
     decisions = decisions.filter((d) => d.status === options.status);
   } else if (!options.all) {
     decisions = decisions.filter((d) => d.status === "active");
+  }
+  if (isJson) {
+    console.log(JSON.stringify(decisions, null, 2));
+    return decisions;
   }
   logger.title("Architectural Decision Records (ADRs)");
   if (decisions.length === 0) {
@@ -2095,7 +2162,28 @@ function getDaemonStatus(rootDir = process.cwd()) {
   }
   return { running: false, logPath };
 }
-function startDaemon(rootDir = process.cwd(), options = {}) {
+function resolveCliEntrypoint(rootDir = process.cwd()) {
+  if (process.argv[1]) {
+    const candidate = path9.resolve(process.argv[1]);
+    if (fs10.existsSync(candidate) && fs10.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  const candidates = [
+    path9.resolve(rootDir, "dist", "cli.js"),
+    path9.resolve(rootDir, "bin", "vee.js"),
+    path9.resolve(__dirname, "cli.js"),
+    path9.resolve(__dirname, "../cli.js"),
+    path9.resolve(__dirname, "../../dist/cli.js")
+  ];
+  for (const c of candidates) {
+    if (fs10.existsSync(c) && fs10.statSync(c).isFile()) {
+      return c;
+    }
+  }
+  return path9.resolve(rootDir, "bin", "vee.js");
+}
+async function startDaemon(rootDir = process.cwd(), options = {}) {
   const status = getDaemonStatus(rootDir);
   if (status.running && status.pid) {
     throw new VeeError(`Watcher daemon is already running (PID: ${status.pid}).`, "ERR_INVALID_ARGS");
@@ -2104,7 +2192,7 @@ function startDaemon(rootDir = process.cwd(), options = {}) {
   if (!fs10.existsSync(veeDir)) {
     fs10.mkdirSync(veeDir, { recursive: true });
   }
-  const cliScript = path9.resolve(__dirname, "../../cli.js");
+  const cliScript = resolveCliEntrypoint(rootDir);
   const args = [cliScript, "watch"];
   if (options.debounce) args.push("--debounce", options.debounce);
   if (options.provider) args.push("--provider", options.provider);
@@ -2130,6 +2218,31 @@ function startDaemon(rootDir = process.cwd(), options = {}) {
   }
   const pidPath = path9.join(rootDir, WATCH_PID_FILE_REL);
   fs10.writeFileSync(pidPath, String(pid), "utf-8");
+  await new Promise((r) => setTimeout(r, 1e3));
+  let alive = false;
+  try {
+    process.kill(pid, 0);
+    alive = true;
+  } catch {
+    alive = false;
+  }
+  if (!alive) {
+    try {
+      fs10.unlinkSync(pidPath);
+    } catch {
+    }
+    let logTail = "";
+    if (fs10.existsSync(logPath)) {
+      const logs = fs10.readFileSync(logPath, "utf-8").trim();
+      logTail = logs.split("\n").slice(-10).join("\n");
+    }
+    throw new VeeError(
+      `Watcher daemon failed to start (process exited immediately).${logTail ? `
+Logs:
+${logTail}` : ""}`,
+      "ERR_PROVIDER_FAILURE"
+    );
+  }
   return { pid, logPath };
 }
 function stopDaemon(rootDir = process.cwd()) {
@@ -2158,26 +2271,36 @@ function stopDaemon(rootDir = process.cwd()) {
 
 // src/commands/watch.ts
 async function handleWatchCommand(options = {}, rootDir = process.cwd()) {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   if (options.subcommand === "status") {
     const status = getDaemonStatus(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(status, null, 2));
+      return status;
+    }
     if (status.running) {
       logger.success(`Watcher daemon is RUNNING (PID: ${status.pid}). Log: ${status.logPath}`);
     } else {
       logger.info("Watcher daemon is NOT running.");
     }
-    return;
+    return status;
   }
   if (options.subcommand === "stop") {
     const result = stopDaemon(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+      return result;
+    }
     if (result.stopped) {
       logger.success(`Stopped watcher daemon (PID: ${result.pid}).`);
     } else {
       logger.info("No active watcher daemon found to stop.");
     }
-    return;
+    return result;
   }
   if (options.daemon) {
-    const { pid, logPath } = startDaemon(rootDir, options);
+    const { pid, logPath } = await startDaemon(rootDir, options);
     logger.success(`Watcher daemon spawned in background (PID: ${pid}).`);
     logger.info(`Output logging to: ${logPath}`);
     logger.info(`Check status anytime with 'vee watch status' or stop with 'vee watch stop'.`);
@@ -2294,10 +2417,11 @@ function handleRejectCommand(id, rootDir = process.cwd()) {
 
 // src/commands/proposals.ts
 function handleProposalsCommand(options = {}, rootDir = process.cwd()) {
-  if (options.json) logger.setJson(true);
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   const statusFilter = options.status || void 0;
   const list = listProposals(rootDir, statusFilter);
-  if (options.json) {
+  if (isJson) {
     console.log(JSON.stringify(list, null, 2));
     return list;
   }
@@ -2477,7 +2601,7 @@ async function handleMcpCommand(action, options = {}, rootDir = process.cwd()) {
     const client = options.client.toLowerCase();
     const { configPath, backupPath } = installMcpClientConfig(client, effectiveRoot, {
       noInstall: options.noInstall,
-      root: effectiveRoot
+      root: options.root
     });
     if (backupPath) {
       logger.info(`Created backup of existing config at: ${backupPath}`);
@@ -2489,33 +2613,47 @@ async function handleMcpCommand(action, options = {}, rootDir = process.cwd()) {
 }
 
 // src/commands/hooks.ts
-function handleHooksCommand(action = "status", rootDir = process.cwd()) {
+function handleHooksCommand(action = "status", rootDir = process.cwd(), options = {}) {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   if (action === "install") {
     const installed = installGitHooks(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify({ action: "install", installed }, null, 2));
+      return installed;
+    }
     logger.success(`Installed Veeshree Git hooks: ${installed.join(", ")}`);
-    return;
+    return installed;
   }
   if (action === "uninstall") {
     const removed = uninstallGitHooks(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify({ action: "uninstall", removed }, null, 2));
+      return removed;
+    }
     if (removed.length > 0) {
       logger.success(`Uninstalled Veeshree Git hooks: ${removed.join(", ")}`);
     } else {
       logger.info("No Veeshree Git hooks were found to remove.");
     }
-    return;
+    return removed;
   }
   if (action === "status") {
     const status = getHooksStatus(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(status, null, 2));
+      return status;
+    }
     logger.title("Veeshree Git Hooks Status");
     if (!status.isGitRepo) {
       logger.warn("Not a Git repository.");
-      return;
+      return status;
     }
     console.log(`Hooks Directory:  ${logger.dim(status.hooksDir)}`);
     console.log(`pre-commit:       ${status.preCommitInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
     console.log(`post-checkout:    ${status.postCheckoutInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
     console.log(`post-merge:       ${status.postMergeInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
-    return;
+    return status;
   }
   throw new VeeError(`Unknown hooks action '${action}'. Supported: install, uninstall, status`, "ERR_INVALID_ARGS");
 }
@@ -2580,6 +2718,8 @@ function handleCiCommand(action = "init", rootDir = process.cwd()) {
 
 // src/commands/config.ts
 function handleConfigCommand(action = "list", key, value, options = {}, rootDir = process.cwd()) {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   if (action === "path") {
     const p = options.global ? getGlobalConfigPath() : getProjectConfigPath(rootDir);
     console.log(p);
@@ -2587,7 +2727,9 @@ function handleConfigCommand(action = "list", key, value, options = {}, rootDir 
   }
   if (action === "list") {
     const config = loadConfig(rootDir);
-    logger.title("Veeshree Configuration (Merged)");
+    if (!isJson) {
+      logger.title("Veeshree Configuration (Merged)");
+    }
     console.log(JSON.stringify(config, null, 2));
     return;
   }
@@ -2693,8 +2835,8 @@ if (majorVersion < 20) {
   process.exit(1);
 }
 var program = new Command();
-program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version(VEESHREE_VERSION).option("-q, --quiet", "Suppress non-essential console output").option("--json", "Format supported output as structured JSON").option("--no-color", "Disable terminal colors").hook("preAction", (thisCommand) => {
-  const opts = thisCommand.opts();
+program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version(VEESHREE_VERSION).option("-q, --quiet", "Suppress non-essential console output").option("--json", "Format supported output as structured JSON").option("--no-color", "Disable terminal colors").hook("preAction", (thisCommand, actionCommand) => {
+  const opts = { ...thisCommand.opts(), ...actionCommand?.opts() };
   if (opts.quiet) logger.setQuiet(true);
   if (opts.json) logger.setJson(true);
 });
@@ -2730,8 +2872,8 @@ program.command("sync").description("Re-scan memory, verify SHA-256 code hashes,
 var watchCmd = program.command("watch").description("Start ambient background watcher to observe code diffs and queue memory proposals").option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)").option("-p, --provider <provider>", "Specific model provider override").option("-m, --model <model>", "Specific model name override").option("--auto", "Automatically apply low-risk memory deltas", false).option("--daemon", "Run watcher in the background as a detached daemon process", false).action(async (options) => {
   await runSafeAsync(() => handleWatchCommand(options, process.cwd()));
 });
-watchCmd.command("status").description("Check if background watcher daemon is currently running").action(async () => {
-  await runSafeAsync(() => handleWatchCommand({ subcommand: "status" }, process.cwd()));
+watchCmd.command("status").description("Check if background watcher daemon is currently running").option("-j, --json", "Output daemon status as JSON", false).action(async (options) => {
+  await runSafeAsync(() => handleWatchCommand({ subcommand: "status", ...options }, process.cwd()));
 });
 watchCmd.command("stop").description("Stop background watcher daemon").action(async () => {
   await runSafeAsync(() => handleWatchCommand({ subcommand: "stop" }, process.cwd()));
@@ -2754,7 +2896,7 @@ program.command("proposals").description("List memory update proposals in queue"
 program.command("context [request]").description("Generate token-budgeted system prompt context payload from active memory").option("-m, --max-tokens <tokens>", "Maximum total context tokens budget").option("-t, --tasks", "Include project tasks list in context", false).option("-j, --json", "Output structured JSON metadata", false).option("-r, --raw", "Output pure prompt text without stderr notices", false).option("--explain", "Show breakdown of token usage per tier and budget caps", false).option("--format <format>", "Output format: markdown, json, or xml", "markdown").action((request, options) => {
   runSafe(() => generateContext(request, options, process.cwd()));
 });
-var decisionsCmd = program.command("decisions").description("List and manage Architectural Decision Records (ADRs)").option("-a, --all", "Include superseded and proposed decisions", false).option("-s, --status <status>", "Filter by status (active, superseded, proposed)").action((options) => {
+var decisionsCmd = program.command("decisions").description("List and manage Architectural Decision Records (ADRs)").option("-a, --all", "Include superseded and proposed decisions", false).option("-s, --status <status>", "Filter by status (active, superseded, proposed)").option("-j, --json", "Output decisions as JSON", false).action((options) => {
   runSafe(() => handleDecisionsCommand({ ...options, subcommand: "list" }, process.cwd()));
 });
 decisionsCmd.command("new <title>").description("Create a new numbered ADR scaffold").action((title) => {
@@ -2792,11 +2934,13 @@ program.command("export").description("Export docs/memory as a bundled JSON or M
 program.command("import <file>").description("Import memory bundle into docs/memory").option("-y, --yes", "Apply import directly without creating review proposals", false).action((file, options) => {
   runSafe(() => handleImportCommand(file, options, process.cwd()));
 });
-var mcpCmd = program.command("mcp").description("Start Model Context Protocol (MCP) stdio server").action(async () => {
-  await runSafeAsync(() => handleMcpCommand(void 0, {}, process.cwd()));
+var mcpCmd = program.command("mcp").description("Start Model Context Protocol (MCP) stdio server").option("--root <dir>", "Project or workspace root directory").action(async (options) => {
+  const rootDir = options.root ? path14.resolve(options.root) : process.cwd();
+  await runSafeAsync(() => handleMcpCommand(void 0, options, rootDir));
 });
-mcpCmd.command("install").description("Install Veeshree MCP server into client configuration (claude, cursor, vscode, gemini)").requiredOption("--client <client>", "Client type: claude, cursor, vscode, gemini").option("--root <dir>", "Project or workspace root directory").option("--no-install", "Use local binary instead of npx").action(async (options) => {
-  await runSafeAsync(() => handleMcpCommand("install", options, process.cwd()));
+mcpCmd.command("install").description("Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)").requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini").option("--root <dir>", "Project or workspace root directory").option("--no-install", "Use local binary instead of npx").action(async (options) => {
+  const noInstall = options.install === false || options.noInstall === true;
+  await runSafeAsync(() => handleMcpCommand("install", { ...options, noInstall }, process.cwd()));
 });
 var hooksCmd = program.command("hooks").description("Manage Git hooks (pre-commit drift checks, post-checkout sync)");
 hooksCmd.command("install").description("Install Git hooks in repository").action(() => {
@@ -2805,8 +2949,8 @@ hooksCmd.command("install").description("Install Git hooks in repository").actio
 hooksCmd.command("uninstall").description("Remove Veeshree Git hooks").action(() => {
   runSafe(() => handleHooksCommand("uninstall", process.cwd()));
 });
-hooksCmd.command("status").description("Inspect current Git hooks status").action(() => {
-  runSafe(() => handleHooksCommand("status", process.cwd()));
+hooksCmd.command("status").description("Inspect current Git hooks status").option("-j, --json", "Output hooks status as JSON", false).action((options) => {
+  runSafe(() => handleHooksCommand("status", process.cwd(), options));
 });
 var rulesCmd = program.command("rules").description("Manage AI agent instruction rule files (.cursorrules, CLAUDE.md, GEMINI.md)");
 rulesCmd.command("list").description("List known agent rule targets").action(() => {
@@ -2823,8 +2967,8 @@ ciCmd.command("init").description("Generate GitHub Actions workflow file for aut
   runSafe(() => handleCiCommand("init", process.cwd()));
 });
 var keysCmd = program.command("keys").description("Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)");
-keysCmd.command("list").description("List configured AI model providers with masked keys and sources").action(() => {
-  runSafe(() => handleKeysCommand("list", void 0, void 0, {}, process.cwd()));
+keysCmd.command("list").description("List configured AI model providers with masked keys and sources").option("-j, --json", "Output configured keys as JSON", false).action((options) => {
+  runSafe(() => handleKeysCommand("list", void 0, void 0, options, process.cwd()));
 });
 keysCmd.command("set <provider> <key>").description("Store an API key for a provider (gemini, openai, anthropic, groq, nvidia)").option("-l, --local", "Store in project .vee/config.json instead of global keystore", false).action((provider, key, options) => {
   runSafe(() => handleKeysCommand("set", provider, key, options, process.cwd()));
@@ -2845,8 +2989,8 @@ modelsCmd.command("pull <model>").description("Pull / update a local model via O
   runSafe(() => handleModelsPullCommand(model));
 });
 var configCmd = program.command("config").description("Manage Veeshree configuration settings");
-configCmd.command("list").description("Display merged configuration settings").action(() => {
-  runSafe(() => handleConfigCommand("list", void 0, void 0, {}, process.cwd()));
+configCmd.command("list").description("Display merged configuration settings").option("-j, --json", "Output merged config as JSON", false).action((options) => {
+  runSafe(() => handleConfigCommand("list", void 0, void 0, options, process.cwd()));
 });
 configCmd.command("get <key>").description("Get configuration setting value by dot-notation (e.g. 'vee config get privacy.allow_cloud')").action((key) => {
   runSafe(() => handleConfigCommand("get", key, void 0, {}, process.cwd()));
@@ -2857,7 +3001,7 @@ configCmd.command("set <key> <value>").description("Set configuration setting va
 configCmd.command("path").description("Display path to configuration file").option("-g, --global", "Show path to global config", false).action((options) => {
   runSafe(() => handleConfigCommand("path", void 0, void 0, options, process.cwd()));
 });
-program.command("doctor").description("Run comprehensive repository health, security, and AI engine connectivity diagnostics").option("--fix", "Automatically repair permissions, missing directories, gitignore, and rules", false).action(async (options) => {
+program.command("doctor").description("Run comprehensive repository health, security, and AI engine connectivity diagnostics").option("--fix", "Automatically repair permissions, missing directories, gitignore, and rules", false).option("-j, --json", "Output diagnostics as JSON", false).action(async (options) => {
   await runSafeAsync(async () => {
     const result = await handleDoctorCommand(options, process.cwd());
     if (result.hasFailures) {

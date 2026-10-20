@@ -17,7 +17,7 @@ export async function handleMcpCommand(
     const client = options.client.toLowerCase() as McpClientType;
     const { configPath, backupPath } = installMcpClientConfig(client, effectiveRoot, {
       noInstall: options.noInstall,
-      root: effectiveRoot,
+      root: options.root,
     });
     if (backupPath) {
       logger.info(`Created backup of existing config at: ${backupPath}`);

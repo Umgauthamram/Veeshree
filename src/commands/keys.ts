@@ -11,6 +11,7 @@ import { VeeError } from "../utils/errors.js";
 export interface KeysCommandOptions {
   local?: boolean;
   global?: boolean;
+  json?: boolean;
 }
 
 export function handleKeysCommand(
@@ -19,10 +20,17 @@ export function handleKeysCommand(
   key?: string,
   options: KeysCommandOptions = {},
   rootDir: string = process.cwd()
-): void {
+): any {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
+
   if (action === "list") {
-    logger.title("Configured AI Provider API Keys");
     const keys = listApiKeys(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(keys, null, 2));
+      return keys;
+    }
+    logger.title("Configured AI Provider API Keys");
     for (const [p, info] of Object.entries(keys)) {
       const statusStr = info.configured ? logger.cyan(`Configured via ${info.source}`) : logger.dim("Not Configured");
       const warningStr = info.insecureWarning ? ` ${logger.yellow(`[WARN: ${info.insecureWarning}]`)}` : "";
@@ -30,7 +38,7 @@ export function handleKeysCommand(
     }
     console.log("");
     logger.info("Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure.");
-    return;
+    return keys;
   }
 
   if (action === "set" || action === "update") {

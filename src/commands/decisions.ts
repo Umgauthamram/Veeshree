@@ -13,6 +13,7 @@ import { VeeError } from "../utils/errors.js";
 export interface DecisionsOptions {
   all?: boolean;
   status?: string;
+  json?: boolean;
   subcommand?: "list" | "new" | "show" | "supersede" | "link";
   title?: string;
   id?: string;
@@ -22,7 +23,9 @@ export interface DecisionsOptions {
 export function handleDecisionsCommand(
   options: DecisionsOptions = {},
   rootDir: string = process.cwd()
-): void {
+): any {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   const sub = options.subcommand || "list";
 
   if (sub === "new") {
@@ -201,6 +204,11 @@ Why the previous approach was superseded.
     decisions = decisions.filter((d) => d.status === options.status);
   } else if (!options.all) {
     decisions = decisions.filter((d) => d.status === "active");
+  }
+
+  if (isJson) {
+    console.log(JSON.stringify(decisions, null, 2));
+    return decisions;
   }
 
   logger.title("Architectural Decision Records (ADRs)");

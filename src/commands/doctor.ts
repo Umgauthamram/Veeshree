@@ -28,10 +28,15 @@ export interface DoctorResult {
 }
 
 export async function handleDoctorCommand(
-  options: { fix?: boolean } = {},
+  options: { fix?: boolean; json?: boolean } = {},
   rootDir: string = process.cwd()
 ): Promise<DoctorResult> {
-  logger.title("Veeshree System Diagnostics & Health Check");
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
+
+  if (!isJson) {
+    logger.title("Veeshree System Diagnostics & Health Check");
+  }
 
   const checks: DoctorCheckItem[] = [];
   let fixedCount = 0;
@@ -292,20 +297,44 @@ export async function handleDoctorCommand(
   }
 
   // Print summary
-  console.log("");
   let hasFailures = false;
   let hasWarnings = false;
 
+  for (const item of checks) {
+    if (item.status === "warn") hasWarnings = true;
+    if (item.status === "fail") hasFailures = true;
+  }
+
+  if (isJson) {
+    console.log(
+      JSON.stringify(
+        {
+          checks,
+          hasFailures,
+          hasWarnings,
+          fixedCount,
+        },
+        null,
+        2
+      )
+    );
+    return {
+      checks,
+      hasFailures,
+      hasWarnings,
+      fixedCount,
+    };
+  }
+
+  console.log("");
   for (const item of checks) {
     let icon = "";
     if (item.status === "ok") {
       icon = logger.green("[PASS]");
     } else if (item.status === "warn") {
       icon = logger.yellow("[WARN]");
-      hasWarnings = true;
     } else {
       icon = logger.red("[FAIL]");
-      hasFailures = true;
     }
 
     console.log(`${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`);

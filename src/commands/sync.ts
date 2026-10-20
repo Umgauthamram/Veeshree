@@ -17,8 +17,9 @@ export function syncVeeshree(
   rootDir: string = process.cwd(),
   options: SyncOptions = {}
 ): { report: WorkspaceDriftReport; acceptedCount?: number; exitCode: number } {
+  const isJson = options.json || logger.isJson();
   if (options.quiet) logger.setQuiet(true);
-  if (options.json) logger.setJson(true);
+  if (isJson) logger.setJson(true);
 
   let target = typeof options.accept === "string" ? options.accept : undefined;
   if (options.all) {
@@ -33,32 +34,54 @@ export function syncVeeshree(
   // If accept target is specified, update baselines
   if (target) {
     if (options.dryRun) {
-      logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
+      const rep = checkWorkspaceDrift(rootDir);
+      if (isJson) {
+        console.log(JSON.stringify({ dryRun: true, target, report: rep, acceptedCount: 0 }, null, 2));
+      } else {
+        logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
+      }
       return {
-        report: checkWorkspaceDrift(rootDir),
+        report: rep,
         acceptedCount: 0,
         exitCode: 0,
       };
     }
 
-    logger.title(`Accepting Drift Baselines: ${target}`);
+    if (!isJson) logger.title(`Accepting Drift Baselines: ${target}`);
     const result = acceptBaselines(target, rootDir);
     buildIndex(rootDir);
 
-    logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
+    const postReport = checkWorkspaceDrift(rootDir);
+    if (isJson) {
+      console.log(
+        JSON.stringify(
+          {
+            target,
+            updatedAdrs: result.updatedAdrs,
+            acceptedCount: result.totalUpdatedFiles,
+            report: postReport,
+          },
+          null,
+          2
+        )
+      );
+    } else {
+      logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
+    }
+
     return {
-      report: checkWorkspaceDrift(rootDir),
+      report: postReport,
       acceptedCount: result.totalUpdatedFiles,
       exitCode: 0,
     };
   }
 
   // Read-only report (re-hashes all live files)
-  logger.title("Synchronizing Veeshree Memory & Code Hashes");
+  if (!isJson) logger.title("Synchronizing Veeshree Memory & Code Hashes");
   const driftReport = checkWorkspaceDrift(rootDir);
   buildIndex(rootDir); // refresh cache
 
-  if (options.json) {
+  if (isJson) {
     console.log(JSON.stringify(driftReport, null, 2));
     return {
       report: driftReport,

@@ -1,6 +1,6 @@
 {
   "name": "veeshree",
-  "version": "1.0.0",
+  "version": "1.0.0-rc.1",
   "description": "Local-first, model-independent architectural context persistence layer for AI software development",
   "type": "module",
   "bin": {

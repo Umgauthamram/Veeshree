@@ -1,3 +1,4 @@
+import path from "node:path";
 import { Command } from "commander";
 import { initializeVeeshree } from "./commands/init.js";
 import { handleMigrateCommand } from "./commands/migrate.js";
@@ -46,8 +47,8 @@ program
   .option("-q, --quiet", "Suppress non-essential console output")
   .option("--json", "Format supported output as structured JSON")
   .option("--no-color", "Disable terminal colors")
-  .hook("preAction", (thisCommand) => {
-    const opts = thisCommand.opts();
+  .hook("preAction", (thisCommand, actionCommand) => {
+    const opts = { ...thisCommand.opts(), ...actionCommand?.opts() };
     if (opts.quiet) logger.setQuiet(true);
     if (opts.json) logger.setJson(true);
   });
@@ -121,8 +122,9 @@ const watchCmd = program
 watchCmd
   .command("status")
   .description("Check if background watcher daemon is currently running")
-  .action(async () => {
-    await runSafeAsync(() => handleWatchCommand({ subcommand: "status" }, process.cwd()));
+  .option("-j, --json", "Output daemon status as JSON", false)
+  .action(async (options) => {
+    await runSafeAsync(() => handleWatchCommand({ subcommand: "status", ...options }, process.cwd()));
   });
 
 watchCmd
@@ -200,6 +202,7 @@ const decisionsCmd = program
   .description("List and manage Architectural Decision Records (ADRs)")
   .option("-a, --all", "Include superseded and proposed decisions", false)
   .option("-s, --status <status>", "Filter by status (active, superseded, proposed)")
+  .option("-j, --json", "Output decisions as JSON", false)
   .action((options) => {
     runSafe(() => handleDecisionsCommand({ ...options, subcommand: "list" }, process.cwd()));
   });
@@ -296,18 +299,21 @@ program
 const mcpCmd = program
   .command("mcp")
   .description("Start Model Context Protocol (MCP) stdio server")
-  .action(async () => {
-    await runSafeAsync(() => handleMcpCommand(undefined, {}, process.cwd()));
+  .option("--root <dir>", "Project or workspace root directory")
+  .action(async (options) => {
+    const rootDir = options.root ? path.resolve(options.root) : process.cwd();
+    await runSafeAsync(() => handleMcpCommand(undefined, options, rootDir));
   });
 
 mcpCmd
   .command("install")
-  .description("Install Veeshree MCP server into client configuration (claude, cursor, vscode, gemini)")
-  .requiredOption("--client <client>", "Client type: claude, cursor, vscode, gemini")
+  .description("Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)")
+  .requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini")
   .option("--root <dir>", "Project or workspace root directory")
   .option("--no-install", "Use local binary instead of npx")
   .action(async (options) => {
-    await runSafeAsync(() => handleMcpCommand("install", options, process.cwd()));
+    const noInstall = options.install === false || options.noInstall === true;
+    await runSafeAsync(() => handleMcpCommand("install", { ...options, noInstall }, process.cwd()));
   });
 
 // 15. hooks
@@ -332,8 +338,9 @@ hooksCmd
 hooksCmd
   .command("status")
   .description("Inspect current Git hooks status")
-  .action(() => {
-    runSafe(() => handleHooksCommand("status", process.cwd()));
+  .option("-j, --json", "Output hooks status as JSON", false)
+  .action((options) => {
+    runSafe(() => handleHooksCommand("status", process.cwd(), options));
   });
 
 // 16. rules
@@ -384,8 +391,9 @@ const keysCmd = program
 keysCmd
   .command("list")
   .description("List configured AI model providers with masked keys and sources")
-  .action(() => {
-    runSafe(() => handleKeysCommand("list", undefined, undefined, {}, process.cwd()));
+  .option("-j, --json", "Output configured keys as JSON", false)
+  .action((options) => {
+    runSafe(() => handleKeysCommand("list", undefined, undefined, options, process.cwd()));
   });
 
 keysCmd
@@ -443,8 +451,9 @@ const configCmd = program
 configCmd
   .command("list")
   .description("Display merged configuration settings")
-  .action(() => {
-    runSafe(() => handleConfigCommand("list", undefined, undefined, {}, process.cwd()));
+  .option("-j, --json", "Output merged config as JSON", false)
+  .action((options) => {
+    runSafe(() => handleConfigCommand("list", undefined, undefined, options, process.cwd()));
   });
 
 configCmd
@@ -475,6 +484,7 @@ program
   .command("doctor")
   .description("Run comprehensive repository health, security, and AI engine connectivity diagnostics")
   .option("--fix", "Automatically repair permissions, missing directories, gitignore, and rules", false)
+  .option("-j, --json", "Output diagnostics as JSON", false)
   .action(async (options) => {
     await runSafeAsync(async () => {
       const result = await handleDoctorCommand(options, process.cwd());

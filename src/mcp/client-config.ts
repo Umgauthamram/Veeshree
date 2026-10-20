@@ -57,26 +57,43 @@ export function parseJsonc(raw: string): any {
   return JSON.parse(withoutTrailingCommas);
 }
 
+function resolveInstalledVeeBinary(rootDir: string): { command: string; args: string[] } {
+  const localPkgBin = path.resolve(rootDir, "node_modules", "veeshree", "bin", "vee.js");
+  if (fs.existsSync(localPkgBin)) {
+    return { command: "node", args: [localPkgBin] };
+  }
+  const localBin = path.resolve(rootDir, "node_modules", ".bin", process.platform === "win32" ? "vee.cmd" : "vee");
+  if (fs.existsSync(localBin)) {
+    return { command: localBin, args: [] };
+  }
+  if (process.argv[1] && fs.existsSync(process.argv[1])) {
+    return { command: "node", args: [path.resolve(process.argv[1])] };
+  }
+  return { command: "vee", args: [] };
+}
+
 function buildServerEntry(client: McpClientType, rootDir: string, options: InstallMcpOptions = {}) {
   const isGlobalConfig = client === "claude";
-  const serverArgs = options.noInstall
-    ? [path.resolve(rootDir, "bin", "vee.js"), "mcp"]
-    : ["-y", `veeshree@${VEESHREE_VERSION}`, "mcp"];
+  let command = "npx";
+  const serverArgs: string[] = [];
+
+  if (options.noInstall) {
+    const resolved = resolveInstalledVeeBinary(rootDir);
+    command = resolved.command;
+    serverArgs.push(...resolved.args, "mcp");
+  } else {
+    serverArgs.push("-y", `veeshree@${VEESHREE_VERSION}`, "mcp");
+  }
 
   if (isGlobalConfig || options.root) {
     const targetRoot = options.root ? path.resolve(options.root) : path.resolve(rootDir);
     serverArgs.push("--root", targetRoot);
   }
 
-  return options.noInstall
-    ? {
-        command: "node",
-        args: serverArgs,
-      }
-    : {
-        command: "npx",
-        args: serverArgs,
-      };
+  return {
+    command,
+    args: serverArgs,
+  };
 }
 
 /**

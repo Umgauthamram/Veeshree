@@ -6,11 +6,12 @@ export function handleProposalsCommand(
   options: { json?: boolean; status?: string } = {},
   rootDir: string = process.cwd()
 ): Proposal[] {
-  if (options.json) logger.setJson(true);
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
   const statusFilter = (options.status as ProposalStatus) || undefined;
   const list = listProposals(rootDir, statusFilter);
 
-  if (options.json) {
+  if (isJson) {
     console.log(JSON.stringify(list, null, 2));
     return list;
   }

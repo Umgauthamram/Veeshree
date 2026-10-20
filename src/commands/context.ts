@@ -15,8 +15,11 @@ export function generateContext(
   options: ContextCommandOptions = {},
   rootDir: string = process.cwd()
 ): ContextBuildResult {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
+
   const maxTokens = options.maxTokens ? parseInt(String(options.maxTokens), 10) : undefined;
-  const format = options.json ? "json" : options.format || "markdown";
+  const format = isJson ? "json" : options.format || "markdown";
 
   const result = buildContext(rootDir, {
     request,
@@ -26,11 +29,15 @@ export function generateContext(
   });
 
   if (options.explain) {
-    console.log(explainContextBudget(result));
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(explainContextBudget(result));
+    }
     return result;
   }
 
-  if (options.raw || options.json || options.format === "xml") {
+  if (options.raw || isJson || options.format === "xml") {
     process.stdout.write(result.content + "\n");
     return result;
   }

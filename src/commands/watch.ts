@@ -8,35 +8,47 @@ export interface WatchCommandOptions {
   model?: string;
   auto?: boolean;
   daemon?: boolean;
+  json?: boolean;
   subcommand?: "status" | "stop";
 }
 
 export async function handleWatchCommand(
   options: WatchCommandOptions = {},
   rootDir: string = process.cwd()
-): Promise<void> {
+): Promise<any> {
+  const isJson = options.json || logger.isJson();
+  if (isJson) logger.setJson(true);
+
   if (options.subcommand === "status") {
     const status = getDaemonStatus(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(status, null, 2));
+      return status;
+    }
     if (status.running) {
       logger.success(`Watcher daemon is RUNNING (PID: ${status.pid}). Log: ${status.logPath}`);
     } else {
       logger.info("Watcher daemon is NOT running.");
     }
-    return;
+    return status;
   }
 
   if (options.subcommand === "stop") {
     const result = stopDaemon(rootDir);
+    if (isJson) {
+      console.log(JSON.stringify(result, null, 2));
+      return result;
+    }
     if (result.stopped) {
       logger.success(`Stopped watcher daemon (PID: ${result.pid}).`);
     } else {
       logger.info("No active watcher daemon found to stop.");
     }
-    return;
+    return result;
   }
 
   if (options.daemon) {
-    const { pid, logPath } = startDaemon(rootDir, options);
+    const { pid, logPath } = await startDaemon(rootDir, options);
     logger.success(`Watcher daemon spawned in background (PID: ${pid}).`);
     logger.info(`Output logging to: ${logPath}`);
     logger.info(`Check status anytime with 'vee watch status' or stop with 'vee watch stop'.`);

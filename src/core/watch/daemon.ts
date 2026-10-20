@@ -53,13 +53,38 @@ export function getDaemonStatus(rootDir: string = process.cwd()): DaemonStatus {
   return { running: false, logPath };
 }
 
+export function resolveCliEntrypoint(rootDir: string = process.cwd()): string {
+  if (process.argv[1]) {
+    const candidate = path.resolve(process.argv[1]);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  const candidates = [
+    path.resolve(rootDir, "dist", "cli.js"),
+    path.resolve(rootDir, "bin", "vee.js"),
+    path.resolve(__dirname, "cli.js"),
+    path.resolve(__dirname, "../cli.js"),
+    path.resolve(__dirname, "../../dist/cli.js"),
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c) && fs.statSync(c).isFile()) {
+      return c;
+    }
+  }
+
+  return path.resolve(rootDir, "bin", "vee.js");
+}
+
 /**
  * Starts the watcher in background daemon mode
  */
-export function startDaemon(
+export async function startDaemon(
   rootDir: string = process.cwd(),
   options: { debounce?: string; provider?: string; model?: string; auto?: boolean } = {}
-): { pid: number; logPath: string } {
+): Promise<{ pid: number; logPath: string }> {
   const status = getDaemonStatus(rootDir);
   if (status.running && status.pid) {
     throw new VeeError(`Watcher daemon is already running (PID: ${status.pid}).`, "ERR_INVALID_ARGS");
@@ -71,7 +96,7 @@ export function startDaemon(
   }
 
   // Find entrypoint script
-  const cliScript = path.resolve(__dirname, "../../cli.js");
+  const cliScript = resolveCliEntrypoint(rootDir);
 
   const args: string[] = [cliScript, "watch"];
   if (options.debounce) args.push("--debounce", options.debounce);
@@ -104,6 +129,36 @@ export function startDaemon(
 
   const pidPath = path.join(rootDir, WATCH_PID_FILE_REL);
   fs.writeFileSync(pidPath, String(pid), "utf-8");
+
+  // Wait ~1 second and confirm the child process is alive before reporting success
+  await new Promise((r) => setTimeout(r, 1000));
+
+  let alive = false;
+  try {
+    process.kill(pid, 0);
+    alive = true;
+  } catch {
+    alive = false;
+  }
+
+  if (!alive) {
+    try {
+      fs.unlinkSync(pidPath);
+    } catch {
+      // ignore
+    }
+
+    let logTail = "";
+    if (fs.existsSync(logPath)) {
+      const logs = fs.readFileSync(logPath, "utf-8").trim();
+      logTail = logs.split("\n").slice(-10).join("\n");
+    }
+
+    throw new VeeError(
+      `Watcher daemon failed to start (process exited immediately).${logTail ? `\nLogs:\n${logTail}` : ""}`,
+      "ERR_PROVIDER_FAILURE"
+    );
+  }
 
   return { pid, logPath };
 }

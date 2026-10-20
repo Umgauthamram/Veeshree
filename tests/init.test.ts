@@ -5,6 +5,7 @@ import os from "node:os";
 import { scanRepository } from "../src/core/scanner.js";
 import { initializeVeeshree } from "../src/commands/init.js";
 import { loadConfig } from "../src/core/config.js";
+import { VEESHREE_VERSION } from "../src/utils/constants.js";
 
 describe("Phase 1: Scanner and Init Engine", () => {
   let tempDir: string;
@@ -73,7 +74,7 @@ describe("Phase 1: Scanner and Init Engine", () => {
 
     // Validate config content
     const config = loadConfig(tempDir);
-    expect(config.version).toBe("1.0.0");
+    expect(config.version).toBe(VEESHREE_VERSION);
     expect(config.default_extractor.provider).toBe("gemini");
     expect(config.settings.max_context_tokens).toBe(2000);
 
