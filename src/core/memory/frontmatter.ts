@@ -1,5 +1,8 @@
 import YAML from "yaml";
-import { DecisionFrontmatterSchema, type DecisionFrontmatter } from "../../schemas/frontmatter.schema.js";
+import {
+  DecisionFrontmatterSchema,
+  type DecisionFrontmatter,
+} from "../../schemas/frontmatter.schema.js";
 
 export interface ParsedMarkdown<T = Record<string, unknown>> {
   data: T;
@@ -9,7 +12,9 @@ export interface ParsedMarkdown<T = Record<string, unknown>> {
 /**
  * Safely parses YAML frontmatter using the 'yaml' package (no gray-matter vulnerability).
  */
-export function parseMarkdownFrontmatter<T = Record<string, unknown>>(raw: string): ParsedMarkdown<T> {
+export function parseMarkdownFrontmatter<T = Record<string, unknown>>(
+  raw: string
+): ParsedMarkdown<T> {
   const normalized = raw.replace(/\r\n/g, "\n");
   const match = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
 
@@ -58,7 +63,10 @@ export function parseDecisionFrontmatter(raw: string): ParsedMarkdown<DecisionFr
 /**
  * Serializes data and markdown body into frontmatter format
  */
-export function stringifyMarkdownFrontmatter(data: Record<string, unknown>, content: string): string {
+export function stringifyMarkdownFrontmatter(
+  data: Record<string, unknown>,
+  content: string
+): string {
   const yamlPart = YAML.stringify(data).trim();
   const cleanBody = content.trim();
   if (!yamlPart || yamlPart === "{}") {

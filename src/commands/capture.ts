@@ -25,22 +25,27 @@ export async function handleCaptureCommand(
 ): Promise<{ proposal?: Proposal; payload?: string; autoApplied?: boolean }> {
   logger.title("Capturing Architectural Memory");
 
-  let content = "";
+  let content: string;
   if (options.diff) {
     try {
       let rawDiff = "";
       try {
         rawDiff = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
-      } catch {
+      } catch (e: unknown) {
+        logger.debug(`git diff HEAD failed: ${e instanceof Error ? e.message : String(e)}`);
         rawDiff = runCommandSafe("git", ["diff"], { cwd: rootDir });
       }
       content = filterDiffByDenylist(rawDiff, rootDir);
-    } catch (err: any) {
-      throw new VeeError(`Failed to read git diff: ${err.message}`, "ERR_PROVIDER_FAILURE");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new VeeError(`Failed to read git diff: ${msg}`, "ERR_PROVIDER_FAILURE");
     }
   } else if (options.file) {
     if (isDenylistedFile(options.file, rootDir)) {
-      throw new VeeError(`Cannot capture denylisted or ignored file: ${options.file}`, "ERR_SECURITY_VIOLATION");
+      throw new VeeError(
+        `Cannot capture denylisted or ignored file: ${options.file}`,
+        "ERR_SECURITY_VIOLATION"
+      );
     }
     if (!fs.existsSync(options.file)) {
       throw new VeeError(`File not found: ${options.file}`, "ERR_FILE_NOT_FOUND");
@@ -64,12 +69,14 @@ export async function handleCaptureCommand(
   const capped = capDiffPayload(redacted, maxPayload);
 
   if (options.showPayload) {
-    console.log(capped);
+    logger.raw(capped);
     return { payload: capped };
   }
 
   if (options.dryRun) {
-    logger.info(`[DRY-RUN] Would send ${capped.length} bytes of redacted content to extraction engine.`);
+    logger.info(
+      `[DRY-RUN] Would send ${capped.length} bytes of redacted content to extraction engine.`
+    );
     return { payload: capped };
   }
 
@@ -78,18 +85,27 @@ export async function handleCaptureCommand(
 
   // Proposal queue (SEC-1)
   const proposal = createProposal("capture", delta, "cli_capture", rootDir);
-  logger.success(`Extracted memory proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
+  logger.success(
+    `Extracted memory proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`
+  );
 
   const hasDecisions = Array.isArray(delta.decisions) && delta.decisions.length > 0;
-  const shouldAutoApply = (options.auto || config.proposals?.auto_apply_low_risk) && proposal.risk === "low" && !hasDecisions;
+  const shouldAutoApply =
+    (options.auto || config.proposals?.auto_apply_low_risk) &&
+    proposal.risk === "low" &&
+    !hasDecisions;
   if (shouldAutoApply) {
     const { reconcileResult } = await acceptProposal(proposal.id, "auto_capture", rootDir);
-    logger.success(`[AUTO] Proposal accepted and applied (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
+    logger.success(
+      `[AUTO] Proposal accepted and applied (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`
+    );
     return { proposal, autoApplied: true };
   }
 
   if (proposal.risk === "high") {
-    logger.warn(`Proposal flagged as HIGH RISK (${proposal.flags.join(", ")}). Human review required.`);
+    logger.warn(
+      `Proposal flagged as HIGH RISK (${proposal.flags.join(", ")}). Human review required.`
+    );
     logger.info(`Run 'vee review' or 'vee accept ${proposal.id}' to inspect and apply.`);
   } else {
     logger.info(`Proposal queued for review. Run 'vee accept ${proposal.id}' to apply.`);

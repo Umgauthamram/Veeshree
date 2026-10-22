@@ -26,9 +26,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Audit & Typecheck & Test
+      - name: Audit & Lint & Typecheck & Test
         run: |
           npm audit --audit-level=high
+          npm run lint
           npx tsc --noEmit
           npm test
 

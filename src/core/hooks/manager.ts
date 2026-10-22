@@ -34,7 +34,9 @@ export function resolveGitHooksDir(rootDir: string = process.cwd()): string | nu
   try {
     const customHooksPath = runCommandSafe("git", ["config", "core.hooksPath"], { cwd: rootDir });
     if (customHooksPath) {
-      return path.isAbsolute(customHooksPath) ? customHooksPath : path.join(rootDir, customHooksPath);
+      return path.isAbsolute(customHooksPath)
+        ? customHooksPath
+        : path.join(rootDir, customHooksPath);
     }
   } catch {
     // ignore
@@ -114,7 +116,10 @@ export function installGitHooks(
 ): string[] {
   const hooksDir = resolveGitHooksDir(rootDir);
   if (!hooksDir) {
-    throw new VeeError("Cannot install Git hooks: repository is not initialized with Git.", "ERR_FILE_NOT_FOUND");
+    throw new VeeError(
+      "Cannot install Git hooks: repository is not initialized with Git.",
+      "ERR_FILE_NOT_FOUND"
+    );
   }
 
   if (!fs.existsSync(hooksDir)) {

@@ -6,14 +6,15 @@ export function handleHooksCommand(
   action: "install" | "uninstall" | "status" = "status",
   rootDir: string = process.cwd(),
   options: { json?: boolean } = {}
-): any {
+): unknown {
   const isJson = options.json || logger.isJson();
   if (isJson) logger.setJson(true);
 
   if (action === "install") {
     const installed = installGitHooks(rootDir);
     if (isJson) {
-      console.log(JSON.stringify({ action: "install", installed }, null, 2));
+      const payload = { action: "install", installed };
+      logger.json(payload);
       return installed;
     }
     logger.success(`Installed Veeshree Git hooks: ${installed.join(", ")}`);
@@ -23,7 +24,8 @@ export function handleHooksCommand(
   if (action === "uninstall") {
     const removed = uninstallGitHooks(rootDir);
     if (isJson) {
-      console.log(JSON.stringify({ action: "uninstall", removed }, null, 2));
+      const payload = { action: "uninstall", removed };
+      logger.json(payload);
       return removed;
     }
     if (removed.length > 0) {
@@ -37,7 +39,7 @@ export function handleHooksCommand(
   if (action === "status") {
     const status = getHooksStatus(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(status, null, 2));
+      logger.json(status);
       return status;
     }
     logger.title("Veeshree Git Hooks Status");
@@ -46,12 +48,21 @@ export function handleHooksCommand(
       return status;
     }
 
-    console.log(`Hooks Directory:  ${logger.dim(status.hooksDir)}`);
-    console.log(`pre-commit:       ${status.preCommitInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
-    console.log(`post-checkout:    ${status.postCheckoutInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
-    console.log(`post-merge:       ${status.postMergeInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
+    logger.log(`Hooks Directory:  ${logger.dim(status.hooksDir)}`);
+    logger.log(
+      `pre-commit:       ${status.preCommitInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`
+    );
+    logger.log(
+      `post-checkout:    ${status.postCheckoutInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`
+    );
+    logger.log(
+      `post-merge:       ${status.postMergeInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`
+    );
     return status;
   }
 
-  throw new VeeError(`Unknown hooks action '${action}'. Supported: install, uninstall, status`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown hooks action '${action}'. Supported: install, uninstall, status`,
+    "ERR_INVALID_ARGS"
+  );
 }

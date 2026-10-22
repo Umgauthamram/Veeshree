@@ -4,7 +4,7 @@ import { OpenAIExtractor } from "./openai.js";
 import { AnthropicExtractor } from "./anthropic.js";
 import { OllamaExtractor } from "./ollama.js";
 import { LmStudioExtractor } from "./lmstudio.js";
-import { getApiKey } from "../core/auth.js";
+import { getApiKey, type KeyProvider } from "../core/auth.js";
 import { loadConfig } from "../core/config.js";
 import { assertCloudConsent } from "../core/redact/redactor.js";
 import { DEFAULT_MODELS } from "../utils/constants.js";
@@ -34,7 +34,7 @@ export async function resolveEngine(
   ).toLowerCase();
 
   let extractor: Extractor;
-  let defaultModel: string = DEFAULT_MODELS.gemini || "gemini-2.0-flash";
+  let defaultModel: string;
 
   switch (provider) {
     case "gemini":
@@ -71,10 +71,7 @@ export async function resolveEngine(
 
   // Model resolution
   const model =
-    customModel ||
-    config.extractor?.model ||
-    config.default_extractor?.model ||
-    defaultModel;
+    customModel || config.extractor?.model || config.default_extractor?.model || defaultModel;
 
   const validation = validateModel(provider, model);
   if (!validation.valid) {
@@ -88,7 +85,7 @@ export async function resolveEngine(
 
   let apiKey: string | undefined;
   if (!extractor.isLocal) {
-    apiKey = getApiKey(provider as any, rootDir);
+    apiKey = getApiKey(provider as KeyProvider, rootDir);
 
     // SEC-2: Cloud Consent check
     await assertCloudConsent(config, undefined, rootDir);

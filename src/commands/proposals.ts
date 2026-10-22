@@ -12,7 +12,7 @@ export function handleProposalsCommand(
   const list = listProposals(rootDir, statusFilter);
 
   if (isJson) {
-    console.log(JSON.stringify(list, null, 2));
+    logger.json(list);
     return list;
   }
 
@@ -27,15 +27,14 @@ export function handleProposalsCommand(
       p.status === "accepted"
         ? logger.green("[ACCEPTED]")
         : p.status === "rejected"
-        ? logger.dim("[REJECTED]")
-        : logger.cyan("[PENDING]");
+          ? logger.dim("[REJECTED]")
+          : logger.cyan("[PENDING]");
 
-    const riskBadge =
-      p.risk === "high" ? logger.red("[HIGH RISK]") : logger.green("[LOW RISK]");
+    const riskBadge = p.risk === "high" ? logger.red("[HIGH RISK]") : logger.green("[LOW RISK]");
 
-    console.log(`${logger.bold(p.id)} ${statusBadge} ${riskBadge} (${p.source} at ${p.created_at})`);
+    logger.log(`${logger.bold(p.id)} ${statusBadge} ${riskBadge} (${p.source} at ${p.created_at})`);
     if (p.flags.length > 0) {
-      console.log(`  Flags: ${logger.yellow(p.flags.join(", "))}`);
+      logger.log(`  Flags: ${logger.yellow(p.flags.join(", "))}`);
     }
   }
 

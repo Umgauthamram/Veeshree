@@ -830,6 +830,8 @@ declare class Logger {
     warn(msg: string, meta?: unknown): void;
     error(msg: string, meta?: unknown): void;
     log(msg: string): void;
+    raw(msg: string): void;
+    json(data: unknown): void;
     title(msg: string): void;
     dim(msg: string): string;
     bold(msg: string): string;
@@ -1107,7 +1109,7 @@ declare function restoreSnapshot(step?: number, rootDir?: string): {
 
 interface MemoryExportBundle {
     manifest: {
-        format: "veeshree-memory-export";
+        format: "veeshree-memory-export" | "veeshree-memory-markdown-export";
         version: string;
         exported_at: string;
     };

@@ -76,7 +76,13 @@ function detectProjectPurpose(targetDir: string, result: ScannedProjectInfo): vo
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          if (trimmed.startsWith("#") || trimmed.startsWith("[!") || trimmed.startsWith("<img") || trimmed.startsWith("[![")) continue;
+          if (
+            trimmed.startsWith("#") ||
+            trimmed.startsWith("[!") ||
+            trimmed.startsWith("<img") ||
+            trimmed.startsWith("[![")
+          )
+            continue;
           if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
             paragraphs.push(`Project Reference: ${trimmed}`);
             break;
@@ -201,20 +207,29 @@ function detectRustStack(targetDir: string, result: ScannedProjectInfo): void {
 }
 
 function detectInfra(targetDir: string, result: ScannedProjectInfo): void {
-  if (fs.existsSync(path.join(targetDir, "docker-compose.yml")) || fs.existsSync(path.join(targetDir, "docker-compose.yaml"))) {
+  if (
+    fs.existsSync(path.join(targetDir, "docker-compose.yml")) ||
+    fs.existsSync(path.join(targetDir, "docker-compose.yaml"))
+  ) {
     result.infrastructure.push("Docker Compose");
   }
   if (fs.existsSync(path.join(targetDir, "Dockerfile"))) {
     result.infrastructure.push("Dockerfile");
   }
-  if (fs.existsSync(path.join(targetDir, ".env.example")) || fs.existsSync(path.join(targetDir, ".env"))) {
+  if (
+    fs.existsSync(path.join(targetDir, ".env.example")) ||
+    fs.existsSync(path.join(targetDir, ".env"))
+  ) {
     result.infrastructure.push("Environment Variables Configured");
   }
 }
 
 function detectDomainEntities(targetDir: string, result: ScannedProjectInfo): void {
   // Prisma schema
-  const prismaFiles = [path.join(targetDir, "schema.prisma"), path.join(targetDir, "prisma", "schema.prisma")];
+  const prismaFiles = [
+    path.join(targetDir, "schema.prisma"),
+    path.join(targetDir, "prisma", "schema.prisma"),
+  ];
   for (const p of prismaFiles) {
     if (fs.existsSync(p)) {
       try {
@@ -222,7 +237,10 @@ function detectDomainEntities(targetDir: string, result: ScannedProjectInfo): vo
         const modelMatches = content.match(/model\s+([A-Za-z0-9_]+)\s+\{/g);
         if (modelMatches) {
           for (const m of modelMatches) {
-            const name = m.replace(/model\s+/, "").replace(/\s+\{/, "").trim();
+            const name = m
+              .replace(/model\s+/, "")
+              .replace(/\s+\{/, "")
+              .trim();
             result.domainEntities.push(name);
           }
         }
@@ -240,7 +258,10 @@ function detectDomainEntities(targetDir: string, result: ScannedProjectInfo): vo
       const classMatches = content.match(/class\s+([A-Za-z0-9_]+)\s*\(/g);
       if (classMatches) {
         for (const c of classMatches) {
-          const name = c.replace(/class\s+/, "").replace(/\s*\(/, "").trim();
+          const name = c
+            .replace(/class\s+/, "")
+            .replace(/\s*\(/, "")
+            .trim();
           if (name !== "Meta") result.domainEntities.push(name);
         }
       }
@@ -271,7 +292,11 @@ function scanRouteDirs(dir: string, baseRoute: string, endpoints: string[]): voi
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         scanRouteDirs(fullPath, `${baseRoute}/${entry.name}`, endpoints);
-      } else if (entry.name.startsWith("route.") || entry.name.endsWith(".ts") || entry.name.endsWith(".js")) {
+      } else if (
+        entry.name.startsWith("route.") ||
+        entry.name.endsWith(".ts") ||
+        entry.name.endsWith(".js")
+      ) {
         endpoints.push(baseRoute);
       }
     }
@@ -283,7 +308,7 @@ function scanRouteDirs(dir: string, baseRoute: string, endpoints: string[]): voi
 function detectGitContext(targetDir: string, result: ScannedProjectInfo): void {
   try {
     // Active branch
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
       cwd: targetDir,
       stdio: ["pipe", "pipe", "ignore"],
       encoding: "utf-8",

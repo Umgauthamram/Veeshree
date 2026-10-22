@@ -40,7 +40,10 @@ export function runCommandSafe(
     return (result || "").toString().trim();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new VeeError(`Command failed: ${file} ${args.join(" ")} (${message})`, "ERR_PROVIDER_FAILURE");
+    throw new VeeError(
+      `Command failed: ${file} ${args.join(" ")} (${message})`,
+      "ERR_PROVIDER_FAILURE"
+    );
   }
 }
 
@@ -58,9 +61,16 @@ export function runCommandInteractive(
     windowsHide: true,
   });
   if (result.error) {
-    throw new VeeError(`Failed to run command ${file}: ${result.error.message}`, "ERR_PROVIDER_FAILURE");
+    throw new VeeError(
+      `Failed to run command ${file}: ${result.error.message}`,
+      "ERR_PROVIDER_FAILURE"
+    );
   }
   if (result.status !== 0) {
-    throw new VeeError(`Command ${file} exited with code ${result.status}`, "ERR_PROVIDER_FAILURE", result.status || 1);
+    throw new VeeError(
+      `Command ${file} exited with code ${result.status}`,
+      "ERR_PROVIDER_FAILURE",
+      result.status || 1
+    );
   }
 }

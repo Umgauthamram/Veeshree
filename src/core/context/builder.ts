@@ -54,7 +54,9 @@ export interface ContextBuildResult {
 /**
  * Parses constraints into prioritized list (pinned first, then hard, then soft).
  */
-function parsePrioritizedConstraints(rawMarkdown: string): { rule: string; isPinned: boolean; isHard: boolean }[] {
+function parsePrioritizedConstraints(
+  rawMarkdown: string
+): { rule: string; isPinned: boolean; isHard: boolean }[] {
   const lines = rawMarkdown.split("\n");
   const result: { rule: string; isPinned: boolean; isHard: boolean }[] = [];
 
@@ -221,7 +223,9 @@ You are operating within a project utilizing Veeshree for model-independent memo
   for (const r of driftReport.records) {
     if (r.isDrifted) {
       const driftedFiles = r.files.filter((f) => f.status !== "ok").map((f) => f.path);
-      staleWarnings.push(`STALE ADR [${r.id}]: '${r.title}' (drifted files: ${driftedFiles.join(", ")})`);
+      staleWarnings.push(
+        `STALE ADR [${r.id}]: '${r.title}' (drifted files: ${driftedFiles.join(", ")})`
+      );
     }
   }
 
@@ -262,7 +266,9 @@ You are operating within a project utilizing Veeshree for model-independent memo
 
     for (const dec of activeDecisions) {
       const isStale = driftReport.records.some((r) => r.id === dec.id && r.isDrifted);
-      const stalePrefix = isStale ? "> [!WARNING] STALE RECORD NOTICE: Code has drifted from this decision!\n\n" : "";
+      const stalePrefix = isStale
+        ? "> [!WARNING] STALE RECORD NOTICE: Code has drifted from this decision!\n\n"
+        : "";
       const decBlock = `### ${dec.title}\n${stalePrefix}${dec.content}`;
       const blockTokens = estimateTokens(decBlock + "\n\n");
 
@@ -350,8 +356,5 @@ You are operating within a project utilizing Veeshree for model-independent memo
 }
 
 function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

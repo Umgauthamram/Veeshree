@@ -24,9 +24,10 @@ export function installAgentRules(
   rootDir: string = process.cwd(),
   selectedAgentNames?: string[]
 ): string[] {
-  const targets = selectedAgentNames && selectedAgentNames.length > 0
-    ? KNOWN_AGENT_TARGETS.filter((t) => selectedAgentNames.includes(t.name))
-    : KNOWN_AGENT_TARGETS;
+  const targets =
+    selectedAgentNames && selectedAgentNames.length > 0
+      ? KNOWN_AGENT_TARGETS.filter((t) => selectedAgentNames.includes(t.name))
+      : KNOWN_AGENT_TARGETS;
 
   const ruleBlock = generateVeeshreeAgentRuleBlock();
   const modifiedFiles: string[] = [];
@@ -67,9 +68,10 @@ export function uninstallAgentRules(
   rootDir: string = process.cwd(),
   selectedAgentNames?: string[]
 ): string[] {
-  const targets = selectedAgentNames && selectedAgentNames.length > 0
-    ? KNOWN_AGENT_TARGETS.filter((t) => selectedAgentNames.includes(t.name))
-    : KNOWN_AGENT_TARGETS;
+  const targets =
+    selectedAgentNames && selectedAgentNames.length > 0
+      ? KNOWN_AGENT_TARGETS.filter((t) => selectedAgentNames.includes(t.name))
+      : KNOWN_AGENT_TARGETS;
 
   const modifiedFiles: string[] = [];
 

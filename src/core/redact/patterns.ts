@@ -31,13 +31,13 @@ export const SECRET_PATTERNS: RedactionPattern[] = [
   // OpenAI API Key
   {
     name: "openai_key",
-    regex: /sk-(?:proj-|live-|test-)?[A-Za-z0-9_\-]{20,}/g,
+    regex: /sk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{20,}/g,
     replacement: "[REDACTED:openai_key]",
   },
   // Anthropic API Key
   {
     name: "anthropic_key",
-    regex: /sk-ant-[A-Za-z0-9_\-]{20,}/g,
+    regex: /sk-ant-[A-Za-z0-9_-]{20,}/g,
     replacement: "[REDACTED:anthropic_key]",
   },
   // GitHub Tokens (classic and fine-grained)
@@ -55,19 +55,19 @@ export const SECRET_PATTERNS: RedactionPattern[] = [
   // Slack Tokens
   {
     name: "slack_token",
-    regex: /xox[baprs]-[0-9A-Za-z\-]{10,}/g,
+    regex: /xox[baprs]-[0-9A-Za-z-]{10,}/g,
     replacement: "[REDACTED:slack_token]",
   },
   // JWT tokens
   {
     name: "jwt_token",
-    regex: /ey[A-Za-z0-9_\-]{10,}\.ey[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}/g,
+    regex: /ey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
     replacement: "[REDACTED:jwt_token]",
   },
   // Database / Service URI with username:password@host (any scheme)
   {
     name: "uri_password",
-    regex: /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s\/]+:)([^@\s\/]+)(@[^\s"']+)/gi,
+    regex: /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s/]+:)([^@\s/]+)(@[^\s"']+)/gi,
     replacement: "$1[REDACTED:password]$3",
   },
   // Stripe API Keys (secret, restricted, test, live)
@@ -79,13 +79,14 @@ export const SECRET_PATTERNS: RedactionPattern[] = [
   // Authorization Headers (Bearer, Basic, token)
   {
     name: "auth_header",
-    regex: /Authorization:\s*(?:Bearer\s+[A-Za-z0-9_\-\.+=~]{6,}|Basic\s+[A-Za-z0-9+/=]{6,}|[^\r\n]{6,})/gi,
+    regex:
+      /Authorization:\s*(?:Bearer\s+[A-Za-z0-9_.+=~-]{6,}|Basic\s+[A-Za-z0-9+/=]{6,}|[^\r\n]{6,})/gi,
     replacement: "Authorization: [REDACTED:auth_header]",
   },
   // Standalone Bearer tokens (not preceded by Authorization:)
   {
     name: "bearer_token",
-    regex: /\bBearer\s+[A-Za-z0-9_\-\.+=~]{6,}/gi,
+    regex: /\bBearer\s+[A-Za-z0-9_.+=~-]{6,}/gi,
     replacement: "Bearer [REDACTED:bearer_token]",
   },
   // Azure Secrets & Connection Keys
@@ -123,7 +124,8 @@ export const SECRET_PATTERNS: RedactionPattern[] = [
 /**
  * Generic assignment pattern for high entropy values assigned to key/token/secret variables
  */
-const HIGH_ENTROPY_ASSIGNMENT = /((?:api_?key|token|secret|access_?key|private_?key)\s*[:=]\s*["']?)([A-Za-z0-9_\-+/]{16,})(["']?)/gi;
+const HIGH_ENTROPY_ASSIGNMENT =
+  /((?:api_?key|token|secret|access_?key|private_?key)\s*[:=]\s*["']?)([A-Za-z0-9_\-+/]{16,})(["']?)/gi;
 
 /**
  * Redacts known sensitive patterns and high-entropy secret assignments.

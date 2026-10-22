@@ -23,7 +23,11 @@ const SearchMemorySchema = z.object({
 });
 
 const GetDecisionSchema = z.object({
-  id: z.string().min(1, "ADR id is required").max(100).regex(/^[A-Za-z0-9._-]+$/, "Invalid decision ID format"),
+  id: z
+    .string()
+    .min(1, "ADR id is required")
+    .max(100)
+    .regex(/^[A-Za-z0-9._-]+$/, "Invalid decision ID format"),
 });
 
 const ListDecisionsSchema = z.object({
@@ -31,13 +35,23 @@ const ListDecisionsSchema = z.object({
 });
 
 const CheckDriftSchema = z.object({
-  id: z.string().max(100).regex(/^[A-Za-z0-9._-]+$/).optional(),
+  id: z
+    .string()
+    .max(100)
+    .regex(/^[A-Za-z0-9._-]+$/)
+    .optional(),
 });
 
 const ProposeDecisionSchema = z.object({
   title: z.string().min(1, "title is required").max(200, "title too long (max 200 characters)"),
-  decision: z.string().min(1, "decision is required").max(10000, "decision too long (max 10000 characters)"),
-  reason: z.string().min(1, "reason is required").max(10000, "reason too long (max 10000 characters)"),
+  decision: z
+    .string()
+    .min(1, "decision is required")
+    .max(10000, "decision too long (max 10000 characters)"),
+  reason: z
+    .string()
+    .min(1, "reason is required")
+    .max(10000, "reason too long (max 10000 characters)"),
   alternatives: z.array(z.string().max(1000)).max(20, "too many alternatives (max 20)").optional(),
   linked_files: z.array(z.string().max(500)).max(50, "too many linked files (max 50)").optional(),
 });
@@ -48,18 +62,25 @@ const ProposeConstraintSchema = z.object({
 });
 
 const UpdateTaskSchema = z.object({
-  name: z.string().min(1, "task name is required").max(500, "task name too long (max 500 characters)"),
+  name: z
+    .string()
+    .min(1, "task name is required")
+    .max(500, "task name too long (max 500 characters)"),
   action: z.enum(["add", "complete", "remove"]),
 });
 
 export const MCP_TOOLS = [
   {
     name: "get_context",
-    description: "Get token-budgeted system prompt context payload from active memory with stale drift alerts.",
+    description:
+      "Get token-budgeted system prompt context payload from active memory with stale drift alerts.",
     inputSchema: {
       type: "object",
       properties: {
-        task: { type: "string", description: "Optional current task or focus query to prioritize relevant decisions" },
+        task: {
+          type: "string",
+          description: "Optional current task or focus query to prioritize relevant decisions",
+        },
         max_tokens: { type: "number", description: "Maximum token budget (default: 2000)" },
       },
     },
@@ -71,29 +92,41 @@ export const MCP_TOOLS = [
       type: "object",
       properties: {
         query: { type: "string", description: "Keywords or terms to search for" },
-        include_archived: { type: "boolean", description: "Whether to include superseded/archived records" },
+        include_archived: {
+          type: "boolean",
+          description: "Whether to include superseded/archived records",
+        },
       },
       required: ["query"],
     },
   },
   {
     name: "get_decision",
-    description: "Retrieve a complete Architectural Decision Record (ADR) including its full supersede chain.",
+    description:
+      "Retrieve a complete Architectural Decision Record (ADR) including its full supersede chain.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "ADR identifier or filename (e.g. '0001-database' or 'database')" },
+        id: {
+          type: "string",
+          description: "ADR identifier or filename (e.g. '0001-database' or 'database')",
+        },
       },
       required: ["id"],
     },
   },
   {
     name: "list_decisions",
-    description: "List all architectural decisions with their active status, tags, and linked files.",
+    description:
+      "List all architectural decisions with their active status, tags, and linked files.",
     inputSchema: {
       type: "object",
       properties: {
-        status: { type: "string", enum: ["active", "superseded", "proposed", "all"], description: "Filter by status" },
+        status: {
+          type: "string",
+          enum: ["active", "superseded", "proposed", "all"],
+          description: "Filter by status",
+        },
       },
     },
   },
@@ -116,20 +149,33 @@ export const MCP_TOOLS = [
         title: { type: "string", description: "Short title of the architectural choice" },
         decision: { type: "string", description: "Concrete decision decided upon" },
         reason: { type: "string", description: "Rationale explaining why this choice was made" },
-        alternatives: { type: "array", items: { type: "string" }, description: "Alternatives considered" },
-        linked_files: { type: "array", items: { type: "string" }, description: "Code files implementing this decision" },
+        alternatives: {
+          type: "array",
+          items: { type: "string" },
+          description: "Alternatives considered",
+        },
+        linked_files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Code files implementing this decision",
+        },
       },
       required: ["title", "decision", "reason"],
     },
   },
   {
     name: "propose_constraint",
-    description: "Propose an architectural constraint or security rule (always flagged high-risk for review).",
+    description:
+      "Propose an architectural constraint or security rule (always flagged high-risk for review).",
     inputSchema: {
       type: "object",
       properties: {
         rule: { type: "string", description: "Constraint rule or guideline statement" },
-        type: { type: "string", enum: ["hard", "soft"], description: "Constraint severity (hard or soft)" },
+        type: {
+          type: "string",
+          enum: ["hard", "soft"],
+          description: "Constraint severity (hard or soft)",
+        },
       },
       required: ["rule"],
     },
@@ -141,7 +187,11 @@ export const MCP_TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "Task title or description" },
-        action: { type: "string", enum: ["add", "complete", "remove"], description: "Action to perform" },
+        action: {
+          type: "string",
+          enum: ["add", "complete", "remove"],
+          description: "Action to perform",
+        },
       },
       required: ["name", "action"],
     },
@@ -160,7 +210,10 @@ export async function handleMcpToolCall(
     case "get_context": {
       const parsed = GetContextSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for get_context", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for get_context",
+          "ERR_INVALID_ARGS"
+        );
       }
       const task = parsed.data.task;
       const maxTokens = parsed.data.max_tokens;
@@ -171,7 +224,10 @@ export async function handleMcpToolCall(
     case "search_memory": {
       const parsed = SearchMemorySchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for search_memory", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for search_memory",
+          "ERR_INVALID_ARGS"
+        );
       }
       const query = parsed.data.query;
       const includeArchived = Boolean(parsed.data.include_archived);
@@ -182,7 +238,10 @@ export async function handleMcpToolCall(
     case "get_decision": {
       const parsed = GetDecisionSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for get_decision", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for get_decision",
+          "ERR_INVALID_ARGS"
+        );
       }
       const id = parsed.data.id;
       const dirs = [
@@ -223,7 +282,10 @@ export async function handleMcpToolCall(
     case "list_decisions": {
       const parsed = ListDecisionsSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for list_decisions", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for list_decisions",
+          "ERR_INVALID_ARGS"
+        );
       }
       const statusFilter = parsed.data.status || "all";
       const index = loadOrBuildIndex(rootDir);
@@ -251,7 +313,10 @@ export async function handleMcpToolCall(
     case "check_drift": {
       const parsed = CheckDriftSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for check_drift", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for check_drift",
+          "ERR_INVALID_ARGS"
+        );
       }
       const specificId = parsed.data.id;
       const report = checkWorkspaceDrift(rootDir, specificId);
@@ -261,7 +326,10 @@ export async function handleMcpToolCall(
     case "propose_decision": {
       const parsed = ProposeDecisionSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for propose_decision", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for propose_decision",
+          "ERR_INVALID_ARGS"
+        );
       }
       const title = parsed.data.title;
       const decision = parsed.data.decision;
@@ -314,7 +382,10 @@ export async function handleMcpToolCall(
     case "propose_constraint": {
       const parsed = ProposeConstraintSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for propose_constraint", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for propose_constraint",
+          "ERR_INVALID_ARGS"
+        );
       }
       const rule = parsed.data.rule;
       const type = parsed.data.type === "soft" ? "soft" : "hard";
@@ -352,7 +423,10 @@ export async function handleMcpToolCall(
     case "update_task": {
       const parsed = UpdateTaskSchema.safeParse(args);
       if (!parsed.success) {
-        throw new VeeError(parsed.error.issues[0]?.message || "Invalid arguments for update_task", "ERR_INVALID_ARGS");
+        throw new VeeError(
+          parsed.error.issues[0]?.message || "Invalid arguments for update_task",
+          "ERR_INVALID_ARGS"
+        );
       }
       const name = parsed.data.name;
       const action = parsed.data.action;

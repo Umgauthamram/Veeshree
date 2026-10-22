@@ -5,8 +5,6 @@ import { writeAtomic } from "../memory/atomic.js";
 import { withLock } from "../memory/lock.js";
 import { parseDecisionFrontmatter, stringifyMarkdownFrontmatter } from "../memory/frontmatter.js";
 import {
-  parseSections,
-  serializeSections,
   slugifyTitle,
   getNextAdrNumber,
   updateSectionBody,
@@ -59,7 +57,9 @@ export async function reconcileExtractionSafe(
 
     const updatedFiles: string[] = [];
     const newDecisions: string[] = [];
-    const isAutoMode = Boolean(options.isAuto || (options.acceptedBy && options.acceptedBy.includes("auto")));
+    const isAutoMode = Boolean(
+      options.isAuto || (options.acceptedBy && options.acceptedBy.includes("auto"))
+    );
 
     // 2. Process Decisions (Never auto-apply ADR bodies under --auto; only tasks and state)
     if (!isAutoMode && Array.isArray(delta.decisions) && delta.decisions.length > 0) {
@@ -164,7 +164,10 @@ ${linkedFilesBlock}
         }
 
         // Section 3: Recent Progress (prepend completed items)
-        if (delta.current_state.completed_in_session && delta.current_state.completed_in_session.length > 0) {
+        if (
+          delta.current_state.completed_in_session &&
+          delta.current_state.completed_in_session.length > 0
+        ) {
           const newProgress = delta.current_state.completed_in_session
             .map((c) => `- ${c}`)
             .join("\n");
@@ -180,7 +183,10 @@ ${linkedFilesBlock}
         }
 
         // Section 4: Next Immediate Steps (replace only section 4 body)
-        if (delta.current_state.next_immediate_steps && delta.current_state.next_immediate_steps.length > 0) {
+        if (
+          delta.current_state.next_immediate_steps &&
+          delta.current_state.next_immediate_steps.length > 0
+        ) {
           const nextStepsList = delta.current_state.next_immediate_steps
             .map((s) => `- [ ] ${s}`)
             .join("\n");
@@ -266,7 +272,10 @@ ${linkedFilesBlock}
 
         for (const c of delta.constraints) {
           const sourceMeta = c.source ? ` (source: ${c.source})` : "";
-          const acceptedMeta = c.accepted_by || options.acceptedBy ? ` [accepted_by: ${c.accepted_by || options.acceptedBy}]` : "";
+          const acceptedMeta =
+            c.accepted_by || options.acceptedBy
+              ? ` [accepted_by: ${c.accepted_by || options.acceptedBy}]`
+              : "";
           const formatted = `- **${c.type === "hard" ? "Rule" : "Guideline"}**: ${c.rule}${sourceMeta}${acceptedMeta}`;
 
           // Normalized dedupe
@@ -289,7 +298,11 @@ ${linkedFilesBlock}
     }
 
     // 6. Process Rejected Approaches (Never auto-apply under --auto; only tasks and state)
-    if (!isAutoMode && Array.isArray(delta.rejected_approaches) && delta.rejected_approaches.length > 0) {
+    if (
+      !isAutoMode &&
+      Array.isArray(delta.rejected_approaches) &&
+      delta.rejected_approaches.length > 0
+    ) {
       const rejectedPath = path.join(rootDir, REJECTED_FILE_REL);
       if (fs.existsSync(rejectedPath)) {
         let rejectedContent = fs.readFileSync(rejectedPath, "utf-8");
@@ -350,7 +363,10 @@ function markAdrSuperseded(oldAdrIdentifier: string, newAdrId: string, rootDir: 
       if (data.id === oldAdrIdentifier || path.basename(f, ".md") === oldAdrIdentifier) {
         data.status = "superseded";
         data.superseded_by = newAdrId;
-        const updatedContent = stringifyMarkdownFrontmatter(data as any, content);
+        const updatedContent = stringifyMarkdownFrontmatter(
+          data as unknown as Record<string, unknown>,
+          content
+        );
         writeAtomic(fullPath, updatedContent);
       }
     }
@@ -358,4 +374,3 @@ function markAdrSuperseded(oldAdrIdentifier: string, newAdrId: string, rootDir: 
 }
 
 export const reconcileExtraction = reconcileExtractionSafe;
-

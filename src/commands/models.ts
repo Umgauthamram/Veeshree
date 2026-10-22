@@ -3,6 +3,9 @@ import { loadConfig, saveConfig } from "../core/config.js";
 import { logger } from "../utils/logger.js";
 import { validateModelName, runCommandInteractive } from "../utils/process.js";
 import { VeeError } from "../utils/errors.js";
+import type { VeeshreeConfig } from "../schemas/config.schema.js";
+
+type ProviderType = VeeshreeConfig["extractor"]["provider"];
 
 export async function handleModelsCommand(rootDir: string = process.cwd()): Promise<void> {
   logger.title("Veeshree Model Runtimes & Providers");
@@ -10,7 +13,7 @@ export async function handleModelsCommand(rootDir: string = process.cwd()): Prom
   const runtimes = await detectAvailableModels(rootDir);
 
   for (const r of runtimes) {
-    let statusBadge = "";
+    let statusBadge: string;
     if (r.status === "available") {
       const lat = r.latencyMs ? ` (${r.latencyMs}ms)` : "";
       statusBadge = logger.green(`READY${lat}`);
@@ -20,31 +23,46 @@ export async function handleModelsCommand(rootDir: string = process.cwd()): Prom
       statusBadge = logger.dim("Engine Offline");
     }
 
-    console.log(`${logger.bold(r.name.padEnd(28))} [${statusBadge}]`);
+    logger.log(`${logger.bold(r.name.padEnd(28))} [${statusBadge}]`);
     if (r.endpoint) {
-      console.log(`  Endpoint: ${logger.dim(r.endpoint)}`);
+      logger.log(`  Endpoint: ${logger.dim(r.endpoint)}`);
     }
     if (r.models.length > 0) {
-      console.log(`  Models:   ${logger.dim(r.models.slice(0, 4).join(", "))}`);
+      logger.log(`  Models:   ${logger.dim(r.models.slice(0, 4).join(", "))}`);
     }
-    console.log("");
+    logger.log("");
   }
 }
 
-export function handleModelsUseCommand(provider: string, model: string, rootDir: string = process.cwd()): void {
-  const validProviders = ["gemini", "openai", "anthropic", "groq", "nvidia", "ollama", "lmstudio"];
-  const p = provider.toLowerCase();
+export function handleModelsUseCommand(
+  provider: string,
+  model: string,
+  rootDir: string = process.cwd()
+): void {
+  const validProviders: ProviderType[] = [
+    "gemini",
+    "openai",
+    "anthropic",
+    "groq",
+    "nvidia",
+    "ollama",
+    "lmstudio",
+  ];
+  const p = provider.toLowerCase() as ProviderType;
 
   if (!validProviders.includes(p)) {
-    throw new VeeError(`Invalid provider '${provider}'. Supported: ${validProviders.join(", ")}`, "ERR_INVALID_ARGS");
+    throw new VeeError(
+      `Invalid provider '${provider}'. Supported: ${validProviders.join(", ")}`,
+      "ERR_INVALID_ARGS"
+    );
   }
 
   const safeModel = validateModelName(model);
   const config = loadConfig(rootDir);
   if (!config.extractor) {
-    config.extractor = { provider: p as any, model: safeModel };
+    config.extractor = { provider: p, model: safeModel };
   } else {
-    config.extractor.provider = p as any;
+    config.extractor.provider = p;
     config.extractor.model = safeModel;
   }
 
@@ -62,7 +80,10 @@ export function handleModelsUseCommand(provider: string, model: string, rootDir:
 
 export function handleModelsPullCommand(modelName: string): void {
   if (!modelName || !modelName.trim()) {
-    throw new VeeError("Usage: vee models pull <model> (e.g. vee models pull llama3.2)", "ERR_INVALID_ARGS");
+    throw new VeeError(
+      "Usage: vee models pull <model> (e.g. vee models pull llama3.2)",
+      "ERR_INVALID_ARGS"
+    );
   }
 
   // SEC-4: Validate against shell injection

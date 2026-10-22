@@ -1,4 +1,8 @@
-import { installAgentRules, uninstallAgentRules, updateAgentRules, KNOWN_AGENT_TARGETS } from "../core/rules/manager.js";
+import {
+  uninstallAgentRules,
+  updateAgentRules,
+  KNOWN_AGENT_TARGETS,
+} from "../core/rules/manager.js";
 import { logger } from "../utils/logger.js";
 import { VeeError } from "../utils/errors.js";
 
@@ -8,14 +12,17 @@ export function handleRulesCommand(
   rootDir: string = process.cwd()
 ): void {
   const selectedAgents = options.agents
-    ? options.agents.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean)
+    ? options.agents
+        .split(",")
+        .map((a) => a.trim().toLowerCase())
+        .filter(Boolean)
     : undefined;
 
   if (action === "update" || action === "list") {
     if (action === "list") {
       logger.title("Veeshree Agent Rule Targets");
       for (const t of KNOWN_AGENT_TARGETS) {
-        console.log(`- ${logger.bold(t.name.padEnd(12))}: ${t.relPath}`);
+        logger.log(`- ${logger.bold(t.name.padEnd(12))}: ${t.relPath}`);
       }
       return;
     }
@@ -35,5 +42,8 @@ export function handleRulesCommand(
     return;
   }
 
-  throw new VeeError(`Unknown rules action '${action}'. Supported: list, update, uninstall`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown rules action '${action}'. Supported: list, update, uninstall`,
+    "ERR_INVALID_ARGS"
+  );
 }

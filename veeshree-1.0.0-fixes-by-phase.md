@@ -68,22 +68,22 @@ Clean `npm ci`, strict `tsc`, CI and release workflows, MCP traversal fix, MCP z
 
 ---
 
-## Phase C: Code quality
+## Phase C: Code quality [COMPLETED]
 
-### C1. Types, errors and logging (P1)
+### C1. Types, errors and logging (P1) [COMPLETED]
 - **Problem:** `any` is 52 (was 47), empty `catch {` is 67 (was 61), `console.log` is 85 and bypasses the logger.
 - **Fix:** replace `any` with proper types or `unknown` plus zod; every `catch` either logs through the logger at debug level or rethrows `VeeError`; route output through the logger/CLI layer.
 - **Done when:** ESLint passes with the rules below.
 
-### C2. Add ESLint, Prettier, editorconfig (P1)
+### C2. Add ESLint, Prettier, editorconfig (P1) [COMPLETED]
 - **Problem:** none exist, and there is no `lint` script.
 - **Fix:** add `eslint.config.js` (typescript-eslint strict: `no-explicit-any`, `no-empty`, `no-console`, `no-floating-promises`), `.prettierrc`, `.editorconfig`, scripts `lint` and `format:check`, and run lint in CI and `prepublishOnly`.
 
-### C3. Upgrade dependencies (P1)
+### C3. Upgrade dependencies (P1) [COMPLETED]
 - **Problem:** zod 3, commander 12, tsup 8, TypeScript 5 are behind; one low esbuild advisory remains.
 - **Fix:** upgrade each major with its migration notes, rebuild, and re-run all tests; keep `npm audit` at zero high or critical. Add Dependabot or Renovate config.
 
-### C4. Repo hygiene (P2)
+### C4. Repo hygiene (P2) [COMPLETED]
 - Move `veeshree-1.0.0-fixes-by-phase.md` and this file to `docs/internal/`.
 - Make `id` match the filename after `vee migrate` (migrated ADR got `id: auth` in `0001-auth.md`).
 - Wire automatic gc after `accept` when thresholds are exceeded (blueprint 3.4), or remove it from the docs.

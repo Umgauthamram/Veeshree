@@ -1,4 +1,8 @@
-import { buildContext, explainContextBudget, type ContextBuildResult } from "../core/context/index.js";
+import {
+  buildContext,
+  explainContextBudget,
+  type ContextBuildResult,
+} from "../core/context/index.js";
 import { logger } from "../utils/logger.js";
 
 export interface ContextCommandOptions {
@@ -30,9 +34,9 @@ export function generateContext(
 
   if (options.explain) {
     if (isJson) {
-      console.log(JSON.stringify(result, null, 2));
+      logger.json(result);
     } else {
-      console.log(explainContextBudget(result));
+      logger.raw(explainContextBudget(result));
     }
     return result;
   }
@@ -47,7 +51,9 @@ export function generateContext(
   }
 
   if (result.staleWarnings.length > 0) {
-    logger.warn(`Stale Drift Detected: ${result.staleWarnings.length} decision(s) reference drifted code:`);
+    logger.warn(
+      `Stale Drift Detected: ${result.staleWarnings.length} decision(s) reference drifted code:`
+    );
     for (const w of result.staleWarnings) {
       console.error(logger.dim(`  * ${w}`));
     }

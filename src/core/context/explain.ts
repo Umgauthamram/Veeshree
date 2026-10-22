@@ -8,7 +8,9 @@ export function explainContextBudget(result: ContextBuildResult): string {
   const lines: string[] = [];
 
   lines.push(pc.bold(pc.cyan("=== Veeshree Context Token Allocation Breakdown ===")));
-  lines.push(`Total Tokens: ${pc.bold(String(result.totalTokens))} / ${result.maxTokens} cap (${Math.round((result.totalTokens / result.maxTokens) * 100)}% utilized)\n`);
+  lines.push(
+    `Total Tokens: ${pc.bold(String(result.totalTokens))} / ${result.maxTokens} cap (${Math.round((result.totalTokens / result.maxTokens) * 100)}% utilized)\n`
+  );
 
   for (const tier of result.tiers) {
     const pct = Math.round((tier.tokens / result.maxTokens) * 100);

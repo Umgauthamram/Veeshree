@@ -6,11 +6,7 @@ import { parseDecisionFrontmatter } from "./memory/frontmatter.js";
 import { calculateNormalizedFileHash } from "./drift/hasher.js";
 import { sanitizeRelativePath, normalizePosix } from "../utils/paths.js";
 import { writeAtomic } from "./memory/atomic.js";
-import {
-  MEMORY_DIR_REL,
-  INDEX_FILE_REL,
-  VEE_DIR_REL,
-} from "../utils/constants.js";
+import { MEMORY_DIR_REL, INDEX_FILE_REL, VEE_DIR_REL } from "../utils/constants.js";
 
 /**
  * Calculates normalized SHA-256 hash of a file on disk
@@ -184,7 +180,17 @@ export function buildIndex(rootDir: string = process.cwd()): VeeshreeIndexData {
 export function createSearchEngine(documents: IndexDocument[]): MiniSearch<IndexDocument> {
   const miniSearch = new MiniSearch<IndexDocument>({
     fields: ["title", "content", "tags", "path"],
-    storeFields: ["id", "title", "path", "type", "status", "tags", "linked_files", "stale", "content"],
+    storeFields: [
+      "id",
+      "title",
+      "path",
+      "type",
+      "status",
+      "tags",
+      "linked_files",
+      "stale",
+      "content",
+    ],
     searchOptions: {
       boost: { title: 2, tags: 1.5, content: 1 },
       prefix: true,

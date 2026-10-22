@@ -20,7 +20,10 @@ export function initializeVeeshree(
   }
 
   const selectedAgents = options.agents
-    ? options.agents.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean)
+    ? options.agents
+        .split(",")
+        .map((a) => a.trim().toLowerCase())
+        .filter(Boolean)
     : undefined;
 
   const report = moderateAndBootstrap(targetDir, {
@@ -30,7 +33,9 @@ export function initializeVeeshree(
   });
 
   if (options.dryRun) {
-    logger.info(`[DRY-RUN] Would seed ${report.seededFiles.length} memory files: ${report.seededFiles.join(", ")}`);
+    logger.info(
+      `[DRY-RUN] Would seed ${report.seededFiles.length} memory files: ${report.seededFiles.join(", ")}`
+    );
     return report;
   }
 
@@ -54,11 +59,15 @@ export function initializeVeeshree(
   }
 
   if (report.installedRules.length > 0) {
-    logger.info(`Injected IDE context instructions: ${logger.bold(report.installedRules.join(", "))}`);
+    logger.info(
+      `Injected IDE context instructions: ${logger.bold(report.installedRules.join(", "))}`
+    );
   }
 
   if (report.gitIgnoreUpdated) {
-    logger.success("Protected local secrets: added /.vee/config.json and /.vee/index.json to .gitignore");
+    logger.success(
+      "Protected local secrets: added /.vee/config.json and /.vee/index.json to .gitignore"
+    );
   }
 
   // Offer/install git hooks if git repo exists
@@ -73,7 +82,9 @@ export function initializeVeeshree(
   }
 
   logger.log("");
-  logger.success("Veeshree initialized successfully! Version-controlled memory is active at /docs/memory/");
+  logger.success(
+    "Veeshree initialized successfully! Version-controlled memory is active at /docs/memory/"
+  );
 
   if (report.seededFiles.length > 0 && !options.dryRun) {
     logger.log("");

@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadOrBuildIndex, buildIndex } from "../core/indexer.js";
-import { parseDecisionFrontmatter, stringifyMarkdownFrontmatter } from "../core/memory/frontmatter.js";
+import {
+  parseDecisionFrontmatter,
+  stringifyMarkdownFrontmatter,
+} from "../core/memory/frontmatter.js";
 import { writeAtomic } from "../core/memory/atomic.js";
 import { slugifyTitle, getNextAdrNumber } from "../core/memory/section-editor.js";
 import { calculateNormalizedFileHash } from "../core/drift/hasher.js";
@@ -23,7 +26,7 @@ export interface DecisionsOptions {
 export function handleDecisionsCommand(
   options: DecisionsOptions = {},
   rootDir: string = process.cwd()
-): any {
+): unknown {
   const isJson = options.json || logger.isJson();
   if (isJson) logger.setJson(true);
   const sub = options.subcommand || "list";
@@ -81,21 +84,21 @@ Why this choice was selected.
     }
 
     logger.title(`ADR: ${adr.data.title || adr.id}`);
-    console.log(`ID:           ${adr.id}`);
-    console.log(`Status:       ${adr.data.status}`);
-    console.log(`Date:         ${adr.data.date}`);
-    console.log(`File:         ${adr.relPath}`);
+    logger.log(`ID:           ${adr.id}`);
+    logger.log(`Status:       ${adr.data.status}`);
+    logger.log(`Date:         ${adr.data.date}`);
+    logger.log(`File:         ${adr.relPath}`);
 
     // Walk supersede chain
     if (adr.data.supersedes) {
-      console.log(`Supersedes:   ${logger.yellow(adr.data.supersedes)}`);
+      logger.log(`Supersedes:   ${logger.yellow(adr.data.supersedes)}`);
     }
     if (adr.data.superseded_by) {
-      console.log(`Superseded By:${logger.yellow(adr.data.superseded_by)}`);
+      logger.log(`Superseded By:${logger.yellow(adr.data.superseded_by)}`);
     }
 
-    console.log("\n" + "-".repeat(60) + "\n");
-    console.log(adr.content);
+    logger.log("\n" + "-".repeat(60) + "\n");
+    logger.log(adr.content);
     return;
   }
 
@@ -117,7 +120,13 @@ Why this choice was selected.
     // Update old ADR
     oldAdr.data.status = "superseded";
     oldAdr.data.superseded_by = newId;
-    writeAtomic(oldAdr.fullPath, stringifyMarkdownFrontmatter(oldAdr.data, oldAdr.content));
+    writeAtomic(
+      oldAdr.fullPath,
+      stringifyMarkdownFrontmatter(
+        oldAdr.data as unknown as Record<string, unknown>,
+        oldAdr.content
+      )
+    );
 
     // Create new ADR
     const newFrontmatter = {
@@ -175,8 +184,8 @@ Why the previous approach was superseded.
     }
 
     // Check if already linked
-    const existingIdx = adr.data.linked_files.findIndex((item: any) => {
-      const p = typeof item === "string" ? item : item.path;
+    const existingIdx = adr.data.linked_files.findIndex((item: unknown) => {
+      const p = typeof item === "string" ? item : (item as { path?: string })?.path;
       return p === safeRel;
     });
 
@@ -187,10 +196,15 @@ Why the previous approach was superseded.
       adr.data.linked_files.push(newEntry);
     }
 
-    writeAtomic(adr.fullPath, stringifyMarkdownFrontmatter(adr.data, adr.content));
+    writeAtomic(
+      adr.fullPath,
+      stringifyMarkdownFrontmatter(adr.data as unknown as Record<string, unknown>, adr.content)
+    );
     buildIndex(rootDir);
 
-    logger.success(`Linked '${safeRel}' (${hash ? hash.slice(0, 12) + "..." : "missing"}) to ADR [${adr.id}].`);
+    logger.success(
+      `Linked '${safeRel}' (${hash ? hash.slice(0, 12) + "..." : "missing"}) to ADR [${adr.id}].`
+    );
     return;
   }
 
@@ -207,7 +221,7 @@ Why the previous approach was superseded.
   }
 
   if (isJson) {
-    console.log(JSON.stringify(decisions, null, 2));
+    logger.json(decisions);
     return decisions;
   }
 
@@ -223,28 +237,34 @@ Why the previous approach was superseded.
       doc.status === "active"
         ? logger.cyan("[ACTIVE]")
         : doc.status === "superseded"
-        ? logger.yellow("[SUPERSEDED]")
-        : logger.dim(`[${doc.status.toUpperCase()}]`);
+          ? logger.yellow("[SUPERSEDED]")
+          : logger.dim(`[${doc.status.toUpperCase()}]`);
 
-    const driftBadge = doc.stale ? logger.warn(" [STALE CODE DRIFT]") : "";
+    const driftBadge = doc.stale ? logger.yellow(" [STALE CODE DRIFT]") : "";
 
-    console.log(`${logger.bold(doc.title)} ${statusBadge}${driftBadge}`);
-    console.log(`  ID:     ${logger.bold(doc.id)}`);
-    console.log(`  File:   ${logger.dim(doc.path)}`);
+    logger.log(`${logger.bold(doc.title)} ${statusBadge}${driftBadge}`);
+    logger.log(`  ID:     ${logger.bold(doc.id)}`);
+    logger.log(`  File:   ${logger.dim(doc.path)}`);
     if (doc.tags.length > 0) {
-      console.log(`  Tags:   ${logger.dim(doc.tags.join(", "))}`);
+      logger.log(`  Tags:   ${logger.dim(doc.tags.join(", "))}`);
     }
     if (doc.linked_files.length > 0) {
-      console.log(`  Linked: ${logger.dim(doc.linked_files.join(", "))}`);
+      logger.log(`  Linked: ${logger.dim(doc.linked_files.join(", "))}`);
     }
-    console.log("");
+    logger.log("");
   }
 }
 
 function findAdr(
   identifier: string,
   rootDir: string
-): { id: string; fullPath: string; relPath: string; data: any; content: string } | null {
+): {
+  id: string;
+  fullPath: string;
+  relPath: string;
+  data: ReturnType<typeof parseDecisionFrontmatter>["data"];
+  content: string;
+} | null {
   const dirs = [
     path.join(rootDir, DECISIONS_DIR_REL),
     path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL),

@@ -18,9 +18,15 @@ export interface WatchState {
 export function splitDiffIntoHunks(diff: string): string[] {
   if (!diff || !diff.trim()) return [];
   if (diff.includes("diff --git ")) {
-    return diff.split(/(?=^diff --git )/m).map((h) => h.trim()).filter((h) => h.length > 0);
+    return diff
+      .split(/(?=^diff --git )/m)
+      .map((h) => h.trim())
+      .filter((h) => h.length > 0);
   }
-  return diff.split(/(?=^--- )/m).map((h) => h.trim()).filter((h) => h.length > 0);
+  return diff
+    .split(/(?=^--- )/m)
+    .map((h) => h.trim())
+    .filter((h) => h.length > 0);
 }
 
 /**
@@ -68,9 +74,12 @@ export function loadWatchState(rootDir: string = process.cwd()): WatchState {
     const parsed = JSON.parse(raw);
     return {
       lastDiffFingerprint: parsed.lastDiffFingerprint || "",
-      processedHunkHashes: Array.isArray(parsed.processedHunkHashes) ? parsed.processedHunkHashes : [],
+      processedHunkHashes: Array.isArray(parsed.processedHunkHashes)
+        ? parsed.processedHunkHashes
+        : [],
       callsThisHour: typeof parsed.callsThisHour === "number" ? parsed.callsThisHour : 0,
-      hourWindowStart: typeof parsed.hourWindowStart === "number" ? parsed.hourWindowStart : Date.now(),
+      hourWindowStart:
+        typeof parsed.hourWindowStart === "number" ? parsed.hourWindowStart : Date.now(),
       lastProcessedAt: parsed.lastProcessedAt,
     };
   } catch {
@@ -137,10 +146,7 @@ export function shouldProcessDiff(
 /**
  * Updates last processed diff fingerprint in .vee/watch-state.json
  */
-export function updateDiffFingerprint(
-  diff: string,
-  rootDir: string = process.cwd()
-): void {
+export function updateDiffFingerprint(diff: string, rootDir: string = process.cwd()): void {
   const state = loadWatchState(rootDir);
   state.lastDiffFingerprint = computeDiffFingerprint(diff);
   state.lastProcessedAt = new Date().toISOString();

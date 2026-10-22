@@ -7,7 +7,13 @@ import { logger } from "../utils/logger.js";
 
 export type KeyProvider = "gemini" | "groq" | "nvidia" | "openai" | "anthropic";
 
-export const SUPPORTED_KEY_PROVIDERS: KeyProvider[] = ["gemini", "openai", "anthropic", "groq", "nvidia"];
+export const SUPPORTED_KEY_PROVIDERS: KeyProvider[] = [
+  "gemini",
+  "openai",
+  "anthropic",
+  "groq",
+  "nvidia",
+];
 
 export function maskKey(key: string): string {
   if (!key) return "(not set)";
@@ -113,7 +119,9 @@ export function setApiKey(
   }
 
   // Local repository config (.vee/config.json)
-  logger.warn("Project-local key storage detected. For better security, consider using global keystore or environment variables.");
+  logger.warn(
+    "Project-local key storage detected. For better security, consider using global keystore or environment variables."
+  );
   const config = loadConfig(rootDir);
   if (!config.keys) {
     config.keys = {};
@@ -144,7 +152,10 @@ export function removeApiKey(
   }
 }
 
-export function getApiKey(provider: KeyProvider, rootDir: string = process.cwd()): string | undefined {
+export function getApiKey(
+  provider: KeyProvider,
+  rootDir: string = process.cwd()
+): string | undefined {
   const envVarName = `${provider.toUpperCase()}_API_KEY`;
 
   // 1. Check process.env first

@@ -1,4 +1,4 @@
-import { startMemoryWatcher, type WatcherOptions } from "../core/watch/watcher.js";
+import { startMemoryWatcher } from "../core/watch/watcher.js";
 import { startDaemon, stopDaemon, getDaemonStatus } from "../core/watch/daemon.js";
 import { logger } from "../utils/logger.js";
 
@@ -15,14 +15,14 @@ export interface WatchCommandOptions {
 export async function handleWatchCommand(
   options: WatchCommandOptions = {},
   rootDir: string = process.cwd()
-): Promise<any> {
+): Promise<unknown> {
   const isJson = options.json || logger.isJson();
   if (isJson) logger.setJson(true);
 
   if (options.subcommand === "status") {
     const status = getDaemonStatus(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(status, null, 2));
+      logger.json(status);
       return status;
     }
     if (status.running) {
@@ -36,7 +36,7 @@ export async function handleWatchCommand(
   if (options.subcommand === "stop") {
     const result = stopDaemon(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(result, null, 2));
+      logger.json(result);
       return result;
     }
     if (result.stopped) {

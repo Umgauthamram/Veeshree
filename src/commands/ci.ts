@@ -26,10 +26,7 @@ jobs:
         run: npx --yes veeshree status --check --json
 `;
 
-export function handleCiCommand(
-  action: "init" = "init",
-  rootDir: string = process.cwd()
-): void {
+export function handleCiCommand(_action: "init" = "init", rootDir: string = process.cwd()): void {
   const workflowPath = path.join(rootDir, ".github", "workflows", "veeshree.yml");
   writeAtomic(workflowPath, GITHUB_WORKFLOW_TEMPLATE);
   logger.success(`Created GitHub Actions CI workflow: .github/workflows/veeshree.yml`);

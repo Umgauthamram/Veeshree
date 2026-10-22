@@ -14,15 +14,19 @@ export function handleGcCommand(
   const result = runGarbageCollection(rootDir, { dryRun: options.dryRun });
 
   if (result.archivedTasksCount > 0) {
-    logger.success(`${options.dryRun ? "Would archive" : "Archived"} ${result.archivedTasksCount} old progress item(s) to docs/memory/archive/completed-tasks.md`);
+    logger.success(
+      `${options.dryRun ? "Would archive" : "Archived"} ${result.archivedTasksCount} old progress item(s) to docs/memory/archive/completed-tasks.md`
+    );
   } else {
     logger.info("Progress buffer within limit. No task archiving needed.");
   }
 
   if (result.supersededDecisionsCount > 0) {
-    logger.success(`${options.dryRun ? "Would relocate" : "Relocated"} ${result.supersededDecisionsCount} superseded decision(s) to docs/memory/archive/decisions/:`);
+    logger.success(
+      `${options.dryRun ? "Would relocate" : "Relocated"} ${result.supersededDecisionsCount} superseded decision(s) to docs/memory/archive/decisions/:`
+    );
     for (const d of result.relocatedDecisions) {
-      console.log(`  - ${logger.dim(d)}`);
+      logger.log(`  - ${logger.dim(d)}`);
     }
   } else {
     logger.info("No superseded decision records found.");

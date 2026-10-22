@@ -1,4 +1,3 @@
-import type { IndexDocument } from "../types/index.js";
 import { loadOrBuildIndex, createSearchEngine } from "./indexer.js";
 
 export interface SearchResultItem {
@@ -24,9 +23,7 @@ export function searchMemory(
 
   if (!options.includeArchived) {
     // Filter out archived decisions and completed tasks
-    docs = docs.filter(
-      (d) => d.type !== "archived_decision" && !d.path.includes("archive")
-    );
+    docs = docs.filter((d) => d.type !== "archived_decision" && !d.path.includes("archive"));
   }
 
   if (docs.length === 0) return [];

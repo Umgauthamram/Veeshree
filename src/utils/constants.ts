@@ -44,7 +44,12 @@ export const TASKS_FILE_REL = path.join("docs", "memory", "tasks.md");
 export const CONSTRAINTS_FILE_REL = path.join("docs", "memory", "constraints.md");
 export const REJECTED_FILE_REL = path.join("docs", "memory", "rejected.md");
 export const DISCOVERIES_FILE_REL = path.join("docs", "memory", "discoveries.md");
-export const COMPLETED_TASKS_FILE_REL = path.join("docs", "memory", "archive", "completed-tasks.md");
+export const COMPLETED_TASKS_FILE_REL = path.join(
+  "docs",
+  "memory",
+  "archive",
+  "completed-tasks.md"
+);
 
 import { getDefaultModels } from "../providers/models.js";
 

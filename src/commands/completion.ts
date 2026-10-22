@@ -1,3 +1,5 @@
+import { logger } from "../utils/logger.js";
+
 export function handleCompletionCommand(shell: string = "bash"): void {
   const commands = [
     "init",
@@ -29,7 +31,7 @@ export function handleCompletionCommand(shell: string = "bash"): void {
   ];
 
   if (shell === "powershell") {
-    console.log(`Register-ArgumentCompleter -Native -CommandName vee,veeshree -ScriptBlock {
+    logger.raw(`Register-ArgumentCompleter -Native -CommandName vee,veeshree -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
   $commands = @(${commands.map((c) => `"${c}"`).join(",")})
   $commands | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
@@ -40,7 +42,7 @@ export function handleCompletionCommand(shell: string = "bash"): void {
   }
 
   if (shell === "zsh") {
-    console.log(`#compdef vee veeshree
+    logger.raw(`#compdef vee veeshree
 _vee() {
   local -a commands
   commands=(${commands.join(" ")})
@@ -51,13 +53,13 @@ compdef _vee vee veeshree`);
   }
 
   if (shell === "fish") {
-    console.log(`complete -c vee -f -a "${commands.join(" ")}"
+    logger.raw(`complete -c vee -f -a "${commands.join(" ")}"
 complete -c veeshree -f -a "${commands.join(" ")}"`);
     return;
   }
 
   // Default: bash
-  console.log(`_vee_completions() {
+  logger.raw(`_vee_completions() {
   local cur="\${COMP_WORDS[COMP_CWORD]}"
   local commands="${commands.join(" ")}"
   COMPREPLY=($(compgen -W "\${commands}" -- "\${cur}"))

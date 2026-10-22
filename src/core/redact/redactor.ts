@@ -4,6 +4,7 @@ import path from "node:path";
 import { redactSecrets } from "./patterns.js";
 import { DEFAULT_MAX_PAYLOAD_BYTES, CONFIG_FILE_REL } from "../../utils/constants.js";
 import { VeeError } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 import type { VeeshreeConfig } from "../../schemas/config.schema.js";
 import { loadConfig, saveConfig } from "../config.js";
 
@@ -67,8 +68,11 @@ export async function assertCloudConsent(
           "ERR_CLOUD_CONSENT_REQUIRED"
         );
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (e instanceof VeeError) throw e;
+      logger.debug(
+        `Failed to read raw config in ensureCloudConsent: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
   }
 
@@ -96,13 +100,10 @@ export async function assertCloudConsent(
   });
 
   const remember = await new Promise<string>((resolve) => {
-    rl.question(
-      "Remember this choice and save to .vee/config.json? (Y/n): ",
-      (ans) => {
-        rl.close();
-        resolve(ans.trim().toLowerCase());
-      }
-    );
+    rl.question("Remember this choice and save to .vee/config.json? (Y/n): ", (ans) => {
+      rl.close();
+      resolve(ans.trim().toLowerCase());
+    });
   });
 
   const isGranted = answer === "y" || answer === "yes";
@@ -112,7 +113,10 @@ export async function assertCloudConsent(
     try {
       const currentConfig = loadConfig(rootDir);
       if (!currentConfig.privacy) {
-        currentConfig.privacy = { allow_cloud: isGranted, max_payload_bytes: DEFAULT_MAX_PAYLOAD_BYTES };
+        currentConfig.privacy = {
+          allow_cloud: isGranted,
+          max_payload_bytes: DEFAULT_MAX_PAYLOAD_BYTES,
+        };
       } else {
         currentConfig.privacy.allow_cloud = isGranted;
       }

@@ -6,6 +6,7 @@ import { calculateNormalizedFileHash } from "./hasher.js";
 import { sanitizeRelativePath } from "../../utils/paths.js";
 import { DECISIONS_DIR_REL, ARCHIVE_DECISIONS_DIR_REL } from "../../utils/constants.js";
 import { VeeError } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 export interface BaselineAcceptResult {
   updatedAdrs: string[];
@@ -69,14 +70,20 @@ export function acceptBaselines(
           }
 
           return { path: safeRel, sha256: currentHash || existingHash };
-        } catch {
+        } catch (err: unknown) {
+          logger.debug(
+            `Failed to calculate hash for ${entryPath}: ${err instanceof Error ? err.message : String(err)}`
+          );
           return entry;
         }
       });
 
       if (adrChanged) {
         data.linked_files = newLinkedFiles;
-        const serialized = stringifyMarkdownFrontmatter(data as any, content);
+        const serialized = stringifyMarkdownFrontmatter(
+          data as unknown as Record<string, unknown>,
+          content
+        );
         writeAtomic(fullPath, serialized);
         updatedAdrs.push(adrId);
       }
@@ -84,7 +91,10 @@ export function acceptBaselines(
   }
 
   if (!acceptAll && updatedAdrs.length === 0) {
-    throw new VeeError(`ADR '${target}' not found or has no drifted files to accept.`, "ERR_FILE_NOT_FOUND");
+    throw new VeeError(
+      `ADR '${target}' not found or has no drifted files to accept.`,
+      "ERR_FILE_NOT_FOUND"
+    );
   }
 
   return {

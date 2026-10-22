@@ -31,7 +31,10 @@ export interface GCOptions {
  * 3. Moves decisions with status: "superseded" from decisions/ to archive/decisions/
  * 4. Re-indexes memory so index.json reflects the clean state
  */
-export function runGarbageCollection(rootDir: string = process.cwd(), options: GCOptions = {}): GCResult {
+export function runGarbageCollection(
+  rootDir: string = process.cwd(),
+  options: GCOptions = {}
+): GCResult {
   const config = loadConfig(rootDir);
   const maxProgress = config.gc?.max_progress || DEFAULT_GC_MAX_PROGRESS;
 

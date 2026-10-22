@@ -36,8 +36,8 @@ export function writeWatchLog(rootDir: string, level: string, message: string): 
     const logPath = path.join(rootDir, WATCH_LOG_FILE_REL);
     const line = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}\n`;
     fs.appendFileSync(logPath, line, "utf-8");
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(`Failed to append watch log: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -52,7 +52,7 @@ export async function startMemoryWatcher(
   const config = loadConfig(rootDir);
   const debounceTimeMs = (options.debounceSeconds || config.watch?.debounce_seconds || 5) * 1000;
   const maxCallsPerHour = config.watch?.max_calls_per_hour || 30;
-  const isAuto = options.auto !== undefined ? options.auto : (config.watch?.auto || false);
+  const isAuto = options.auto !== undefined ? options.auto : config.watch?.auto || false;
 
   let debounceTimer: NodeJS.Timeout | null = null;
   let pollingInterval: NodeJS.Timeout | null = null;
@@ -60,10 +60,18 @@ export async function startMemoryWatcher(
   let backoffAttempts = 0;
   let nextAllowedTime = 0;
 
-  writeWatchLog(rootDir, "info", `Watcher started (debounce: ${debounceTimeMs / 1000}s, auto: ${isAuto})`);
+  writeWatchLog(
+    rootDir,
+    "info",
+    `Watcher started (debounce: ${debounceTimeMs / 1000}s, auto: ${isAuto})`
+  );
   logger.title("Veeshree Ambient Memory Watcher");
-  logger.info(`Watching workspace for code modifications (settle debounce: ${debounceTimeMs / 1000}s)...`);
-  logger.info(`Auto-apply low risk deltas: ${isAuto ? logger.green("ENABLED") : logger.dim("DISABLED (proposals only)")}`);
+  logger.info(
+    `Watching workspace for code modifications (settle debounce: ${debounceTimeMs / 1000}s)...`
+  );
+  logger.info(
+    `Auto-apply low risk deltas: ${isAuto ? logger.green("ENABLED") : logger.dim("DISABLED (proposals only)")}`
+  );
   logger.info("Press Ctrl+C to stop.\n");
 
   async function processCodeModifications() {
@@ -83,18 +91,29 @@ export async function startMemoryWatcher(
         let rawTracked = "";
         try {
           rawTracked = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
-        } catch {
+        } catch (err: unknown) {
+          logger.debug(
+            `git diff HEAD failed, falling back to git diff: ${err instanceof Error ? err.message : String(err)}`
+          );
           rawTracked = runCommandSafe("git", ["diff"], { cwd: rootDir });
         }
         diff = filterDiffByDenylist(rawTracked, rootDir);
-      } catch (err: any) {
-        writeWatchLog(rootDir, "debug", `git diff error: ${err?.message || err}`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeWatchLog(rootDir, "debug", `git diff error: ${msg}`);
       }
 
       // 2. Collect untracked files respecting denylist
       try {
-        const untrackedOutput = runCommandSafe("git", ["ls-files", "--others", "--exclude-standard"], { cwd: rootDir });
-        const untrackedFiles = untrackedOutput.split("\n").map((f) => f.trim()).filter(Boolean);
+        const untrackedOutput = runCommandSafe(
+          "git",
+          ["ls-files", "--others", "--exclude-standard"],
+          { cwd: rootDir }
+        );
+        const untrackedFiles = untrackedOutput
+          .split("\n")
+          .map((f) => f.trim())
+          .filter(Boolean);
 
         for (const file of untrackedFiles.slice(0, 5)) {
           const filePath = path.join(rootDir, file);
@@ -102,13 +121,16 @@ export async function startMemoryWatcher(
             try {
               const fileContent = fs.readFileSync(filePath, "utf-8");
               diff += `\n--- /dev/null\n+++ b/${file}\n@@ -0,0 +1,50 @@\n${fileContent.slice(0, 3000)}\n`;
-            } catch {
-              // ignore
+            } catch (err: unknown) {
+              logger.debug(
+                `Failed to read untracked file ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+              );
             }
           }
         }
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.debug(`Failed to list untracked files: ${msg}`);
       }
 
       if (!diff || diff.trim().length < 20) {
@@ -118,19 +140,32 @@ export async function startMemoryWatcher(
       // 3. Diff fingerprint deduplication (BUG-8 fix)
       const fingerprint = computeDiffFingerprint(diff);
       if (fingerprint === state.lastDiffFingerprint) {
-        writeWatchLog(rootDir, "debug", `Diff fingerprint unchanged (${fingerprint}). Skipping extraction.`);
+        writeWatchLog(
+          rootDir,
+          "debug",
+          `Diff fingerprint unchanged (${fingerprint}). Skipping extraction.`
+        );
         return;
       }
 
       // 4. Rate limiting
       if (!canMakeWatchCall(maxCallsPerHour, state)) {
-        writeWatchLog(rootDir, "warn", `Hourly API ceiling reached (${maxCallsPerHour} calls/hr). Skipping.`);
-        logger.warn(`[WATCH] Hourly API limit reached (${maxCallsPerHour} calls/hr). Skipping extraction.`);
+        writeWatchLog(
+          rootDir,
+          "warn",
+          `Hourly API ceiling reached (${maxCallsPerHour} calls/hr). Skipping.`
+        );
+        logger.warn(
+          `[WATCH] Hourly API limit reached (${maxCallsPerHour} calls/hr). Skipping extraction.`
+        );
         return;
       }
 
       // 5. Incremental diff: send only new hunks since last processed state (Phase 1.9)
-      const { filteredDiff: newHunksDiff, newHashes } = filterOutProcessedHunks(diff, state.processedHunkHashes);
+      const { filteredDiff: newHunksDiff, newHashes } = filterOutProcessedHunks(
+        diff,
+        state.processedHunkHashes
+      );
       const diffToSend = newHunksDiff.trim() ? newHunksDiff : diff;
 
       // 6. Redaction and size cap
@@ -138,16 +173,29 @@ export async function startMemoryWatcher(
       const redactedDiff = redactContent(diffToSend);
       const cappedDiff = capDiffPayload(redactedDiff, maxPayload);
 
-      writeWatchLog(rootDir, "info", `Extracting memory for changed code (${diffToSend.split("\n").length} lines)...`);
-      logger.info(`[WATCH] Detected code changes (${diffToSend.split("\n").length} diff lines). Extracting memory...`);
+      writeWatchLog(
+        rootDir,
+        "info",
+        `Extracting memory for changed code (${diffToSend.split("\n").length} lines)...`
+      );
+      logger.info(
+        `[WATCH] Detected code changes (${diffToSend.split("\n").length} diff lines). Extracting memory...`
+      );
 
       // 7. Extraction
-      const delta = await extractMemoryFromContent(cappedDiff, rootDir, options.provider, options.model);
+      const delta = await extractMemoryFromContent(
+        cappedDiff,
+        rootDir,
+        options.provider,
+        options.model
+      );
 
       // Increment call count & update processed hunks
       state.callsThisHour++;
       state.lastDiffFingerprint = fingerprint;
-      state.processedHunkHashes = Array.from(new Set([...(state.processedHunkHashes || []), ...newHashes]));
+      state.processedHunkHashes = Array.from(
+        new Set([...(state.processedHunkHashes || []), ...newHashes])
+      );
       state.lastProcessedAt = new Date().toISOString();
       saveWatchState(state, rootDir);
 
@@ -159,24 +207,35 @@ export async function startMemoryWatcher(
       if (isAuto && proposal.risk === "low" && !hasDecisions) {
         const { reconcileResult } = await acceptProposal(proposal.id, "watch_auto", rootDir);
         const total = reconcileResult.newDecisions.length + reconcileResult.updatedFiles.length;
-        logger.success(`[WATCH] Auto-applied low-risk proposal ${proposal.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
+        logger.success(
+          `[WATCH] Auto-applied low-risk proposal ${proposal.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`
+        );
         writeWatchLog(rootDir, "info", `Auto-applied proposal ${proposal.id} (${total} updates)`);
       } else {
         if (proposal.risk === "high") {
-          logger.warn(`[WATCH] Generated HIGH-RISK proposal ${logger.bold(proposal.id)}. Requires human review: run 'vee review'`);
+          logger.warn(
+            `[WATCH] Generated HIGH-RISK proposal ${logger.bold(proposal.id)}. Requires human review: run 'vee review'`
+          );
         } else {
-          logger.info(`[WATCH] Generated pending proposal ${logger.bold(proposal.id)}. Review with 'vee review' or 'vee accept ${proposal.id}'`);
+          logger.info(
+            `[WATCH] Generated pending proposal ${logger.bold(proposal.id)}. Review with 'vee review' or 'vee accept ${proposal.id}'`
+          );
         }
       }
 
       backoffAttempts = 0;
       nextAllowedTime = 0;
-    } catch (err: any) {
+    } catch (err: unknown) {
       backoffAttempts++;
       const backoffSec = Math.min(60, Math.pow(2, backoffAttempts));
       nextAllowedTime = Date.now() + backoffSec * 1000;
-      writeWatchLog(rootDir, "error", `Watch extraction failure: ${err?.message || err} (backing off ${backoffSec}s)`);
-      logger.warn(`[WATCH] Extraction failed: ${err?.message || err} (retrying in ${backoffSec}s)`);
+      const msg = err instanceof Error ? err.message : String(err);
+      writeWatchLog(
+        rootDir,
+        "error",
+        `Watch extraction failure: ${msg} (backing off ${backoffSec}s)`
+      );
+      logger.warn(`[WATCH] Extraction failed: ${msg} (retrying in ${backoffSec}s)`);
     } finally {
       isProcessing = false;
     }
@@ -185,39 +244,37 @@ export async function startMemoryWatcher(
   // Node 20+ recursive watch
   let watcher: fs.FSWatcher | null = null;
   try {
-    watcher = fs.watch(
-      rootDir,
-      { recursive: true },
-      (_eventType, filename) => {
-        if (!filename) return;
-        const normalized = filename.replace(/\\/g, "/");
+    watcher = fs.watch(rootDir, { recursive: true }, (_eventType, filename) => {
+      if (!filename) return;
+      const normalized = filename.replace(/\\/g, "/");
 
-        // Segment-based path matching (Phase 2.5)
-        const segments = normalized.split("/");
-        const ignoredDirs = new Set([".git", "node_modules", "dist", ".next", ".vee"]);
-        if (segments.some((s) => ignoredDirs.has(s)) || normalized.startsWith("docs/memory")) {
-          return;
-        }
-
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          processCodeModifications();
-        }, debounceTimeMs);
+      // Segment-based path matching (Phase 2.5)
+      const segments = normalized.split("/");
+      const ignoredDirs = new Set([".git", "node_modules", "dist", ".next", ".vee"]);
+      if (segments.some((s) => ignoredDirs.has(s)) || normalized.startsWith("docs/memory")) {
+        return;
       }
-    );
 
-    watcher.on("error", (err: any) => {
-      writeWatchLog(rootDir, "error", `fs.watch error event: ${err?.message || err}. Falling back to polling.`);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        void processCodeModifications();
+      }, debounceTimeMs);
+    });
+
+    watcher.on("error", (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      writeWatchLog(rootDir, "error", `fs.watch error event: ${msg}. Falling back to polling.`);
       if (!pollingInterval) {
         pollingInterval = setInterval(() => {
-          processCodeModifications();
+          void processCodeModifications();
         }, 3000);
       }
     });
-  } catch (watchErr: any) {
-    writeWatchLog(rootDir, "error", `Recursive fs.watch failed, falling back to polling: ${watchErr.message}`);
+  } catch (watchErr: unknown) {
+    const msg = watchErr instanceof Error ? watchErr.message : String(watchErr);
+    writeWatchLog(rootDir, "error", `Recursive fs.watch failed, falling back to polling: ${msg}`);
     pollingInterval = setInterval(() => {
-      processCodeModifications();
+      void processCodeModifications();
     }, 2000);
 
     return {

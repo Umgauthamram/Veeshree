@@ -5,7 +5,11 @@ import { handleMigrateCommand } from "./commands/migrate.js";
 import { syncVeeshree } from "./commands/sync.js";
 import { generateContext } from "./commands/context.js";
 import { handleKeysCommand } from "./commands/keys.js";
-import { handleModelsCommand, handleModelsUseCommand, handleModelsPullCommand } from "./commands/models.js";
+import {
+  handleModelsCommand,
+  handleModelsUseCommand,
+  handleModelsPullCommand,
+} from "./commands/models.js";
 import { handleCaptureCommand } from "./commands/capture.js";
 import { handleStatusCommand } from "./commands/status.js";
 import { handleSearchCommand } from "./commands/search.js";
@@ -34,7 +38,9 @@ import { VEESHREE_VERSION } from "./utils/constants.js";
 const nodeVersion = process.versions.node.split(".");
 const majorVersion = parseInt(nodeVersion[0] || "0", 10);
 if (majorVersion < 20) {
-  logger.error(`Veeshree ${VEESHREE_VERSION} requires Node.js v20.0.0 or higher. Current version: ${process.version}`);
+  logger.error(
+    `Veeshree ${VEESHREE_VERSION} requires Node.js v20.0.0 or higher. Current version: ${process.version}`
+  );
   process.exit(1);
 }
 
@@ -42,7 +48,9 @@ const program = new Command();
 
 program
   .name("vee")
-  .description("Veeshree: Local-first context persistence layer for multi-model AI software development")
+  .description(
+    "Veeshree: Local-first context persistence layer for multi-model AI software development"
+  )
   .version(VEESHREE_VERSION)
   .option("-q, --quiet", "Suppress non-essential console output")
   .option("--json", "Format supported output as structured JSON")
@@ -59,7 +67,10 @@ program
   .description("Bootstrap Veeshree project memory, heuristic scanner, agent rules, and Git hooks")
   .option("-f, --force", "Overwrite existing memory scaffolds and hooks", false)
   .option("--dry-run", "Preview initialization steps without making filesystem changes", false)
-  .option("--agents <list>", "Comma-separated list of target agent rules (claude, cursor, gemini, etc.)")
+  .option(
+    "--agents <list>",
+    "Comma-separated list of target agent rules (claude, cursor, gemini, etc.)"
+  )
   .action((options) => {
     runSafe(() => initializeVeeshree(process.cwd(), options));
   });
@@ -67,7 +78,9 @@ program
 // 2. migrate
 program
   .command("migrate")
-  .description("Upgrade a 0.3.x project to Veeshree 1.0.0 schema, frontmatter baselines, and numbered ADRs")
+  .description(
+    "Upgrade a 0.3.x project to Veeshree 1.0.0 schema, frontmatter baselines, and numbered ADRs"
+  )
   .option("--dry-run", "Simulate migration plan without writing files", false)
   .action(async (options) => {
     await runSafeAsync(() => handleMigrateCommand(options, process.cwd()));
@@ -77,7 +90,10 @@ program
 program
   .command("sync")
   .description("Re-scan memory, verify SHA-256 code hashes, or explicitly accept drifted baselines")
-  .option("-a, --accept [target]", "Explicitly accept drifted baselines into ADR frontmatter (<id> or all)")
+  .option(
+    "-a, --accept [target]",
+    "Explicitly accept drifted baselines into ADR frontmatter (<id> or all)"
+  )
   .option("--all", "Accept all drifted baselines (can be combined with --accept)", false)
   .option("-j, --json", "Output drift report in structured JSON format", false)
   .option("-q, --quiet", "Quiet output mode", false)
@@ -110,7 +126,10 @@ program
 const watchCmd = program
   .command("watch")
   .description("Start ambient background watcher to observe code diffs and queue memory proposals")
-  .option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)")
+  .option(
+    "-d, --debounce <seconds>",
+    "Debounce settle window in seconds before extracting (default: 5)"
+  )
   .option("-p, --provider <provider>", "Specific model provider override")
   .option("-m, --model <model>", "Specific model name override")
   .option("--auto", "Automatically apply low-risk memory deltas", false)
@@ -124,7 +143,9 @@ watchCmd
   .description("Check if background watcher daemon is currently running")
   .option("-j, --json", "Output daemon status as JSON", false)
   .action(async (options) => {
-    await runSafeAsync(() => handleWatchCommand({ subcommand: "status", ...options }, process.cwd()));
+    await runSafeAsync(() =>
+      handleWatchCommand({ subcommand: "status", ...options }, process.cwd())
+    );
   });
 
 watchCmd
@@ -137,7 +158,9 @@ watchCmd
 // 5. capture
 program
   .command("capture")
-  .description("Extract structured decisions and memory updates from conversation logs or diffs into proposal queue")
+  .description(
+    "Extract structured decisions and memory updates from conversation logs or diffs into proposal queue"
+  )
   .option("-f, --file <path>", "Path to conversation transcript, session log, or diff file")
   .option("--diff", "Capture git diff directly from working tree", false)
   .option("-p, --provider <provider>", "Extraction provider")
@@ -225,21 +248,29 @@ decisionsCmd
   .command("supersede <old-id> <new-title>")
   .description("Mark an ADR superseded and generate a replacement ADR")
   .action((oldId, newTitle) => {
-    runSafe(() => handleDecisionsCommand({ subcommand: "supersede", id: oldId, title: newTitle }, process.cwd()));
+    runSafe(() =>
+      handleDecisionsCommand({ subcommand: "supersede", id: oldId, title: newTitle }, process.cwd())
+    );
   });
 
 decisionsCmd
   .command("link <id> <file-path>")
   .description("Link a source code file to an ADR and record its baseline hash")
   .action((id, filePath) => {
-    runSafe(() => handleDecisionsCommand({ subcommand: "link", id, targetFile: filePath }, process.cwd()));
+    runSafe(() =>
+      handleDecisionsCommand({ subcommand: "link", id, targetFile: filePath }, process.cwd())
+    );
   });
 
 // 9. status
 program
   .command("status")
   .description("Display memory health dashboard, task progress, and live drift alerts")
-  .option("-c, --check", "Exit with error code 1 if stale drift is detected (for CI / pre-commit)", false)
+  .option(
+    "-c, --check",
+    "Exit with error code 1 if stale drift is detected (for CI / pre-commit)",
+    false
+  )
   .option("-j, --json", "Output status dashboard as JSON", false)
   .option("-q, --quiet", "Quiet output mode", false)
   .action((options) => {
@@ -264,7 +295,9 @@ program
 // 11. gc
 program
   .command("gc")
-  .description("Prune old progress into archive/ and move superseded decisions into archive/decisions/")
+  .description(
+    "Prune old progress into archive/ and move superseded decisions into archive/decisions/"
+  )
   .option("--dry-run", "Simulate archival without modifying files", false)
   .action((options) => {
     runSafe(() => handleGcCommand(options, process.cwd()));
@@ -307,7 +340,9 @@ const mcpCmd = program
 
 mcpCmd
   .command("install")
-  .description("Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)")
+  .description(
+    "Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)"
+  )
   .requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini")
   .option("--root <dir>", "Project or workspace root directory")
   .option("--no-install", "Use local binary instead of npx")
@@ -372,9 +407,7 @@ rulesCmd
   });
 
 // 17. ci
-const ciCmd = program
-  .command("ci")
-  .description("Continuous Integration setup and configuration");
+const ciCmd = program.command("ci").description("Continuous Integration setup and configuration");
 
 ciCmd
   .command("init")
@@ -386,7 +419,9 @@ ciCmd
 // 18. keys
 const keysCmd = program
   .command("keys")
-  .description("Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)");
+  .description(
+    "Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)"
+  );
 
 keysCmd
   .command("list")
@@ -424,14 +459,18 @@ keysCmd
 // 19. models
 const modelsCmd = program
   .command("models")
-  .description("Scan local engine ports (11434, 1234), active LLM runtimes, and configure model versions")
+  .description(
+    "Scan local engine ports (11434, 1234), active LLM runtimes, and configure model versions"
+  )
   .action(async () => {
     await runSafeAsync(() => handleModelsCommand(process.cwd()));
   });
 
 modelsCmd
   .command("use <provider> <model>")
-  .description("Set default extractor model version (e.g. 'vee models use gemini gemini-2.0-flash')")
+  .description(
+    "Set default extractor model version (e.g. 'vee models use gemini gemini-2.0-flash')"
+  )
   .action((provider, model) => {
     runSafe(() => handleModelsUseCommand(provider, model, process.cwd()));
   });
@@ -444,9 +483,7 @@ modelsCmd
   });
 
 // 20. config
-const configCmd = program
-  .command("config")
-  .description("Manage Veeshree configuration settings");
+const configCmd = program.command("config").description("Manage Veeshree configuration settings");
 
 configCmd
   .command("list")
@@ -458,14 +495,18 @@ configCmd
 
 configCmd
   .command("get <key>")
-  .description("Get configuration setting value by dot-notation (e.g. 'vee config get privacy.allow_cloud')")
+  .description(
+    "Get configuration setting value by dot-notation (e.g. 'vee config get privacy.allow_cloud')"
+  )
   .action((key) => {
     runSafe(() => handleConfigCommand("get", key, undefined, {}, process.cwd()));
   });
 
 configCmd
   .command("set <key> <value>")
-  .description("Set configuration setting value by dot-notation (e.g. 'vee config set privacy.allow_cloud true')")
+  .description(
+    "Set configuration setting value by dot-notation (e.g. 'vee config set privacy.allow_cloud true')"
+  )
   .option("-g, --global", "Save to global config (~/.veeshree/config.json)", false)
   .action((key, value, options) => {
     runSafe(() => handleConfigCommand("set", key, value, options, process.cwd()));
@@ -482,8 +523,14 @@ configCmd
 // 21. doctor
 program
   .command("doctor")
-  .description("Run comprehensive repository health, security, and AI engine connectivity diagnostics")
-  .option("--fix", "Automatically repair permissions, missing directories, gitignore, and rules", false)
+  .description(
+    "Run comprehensive repository health, security, and AI engine connectivity diagnostics"
+  )
+  .option(
+    "--fix",
+    "Automatically repair permissions, missing directories, gitignore, and rules",
+    false
+  )
   .option("-j, --json", "Output diagnostics as JSON", false)
   .action(async (options) => {
     await runSafeAsync(async () => {
@@ -503,7 +550,7 @@ program
   });
 
 // Centralized error handling wrappers
-function runSafe(fn: () => any): void {
+function runSafe(fn: () => unknown): void {
   try {
     fn();
   } catch (err: unknown) {
@@ -511,7 +558,7 @@ function runSafe(fn: () => any): void {
   }
 }
 
-async function runSafeAsync(fn: () => Promise<any>): Promise<void> {
+async function runSafeAsync(fn: () => Promise<unknown>): Promise<void> {
   try {
     await fn();
   } catch (err: unknown) {

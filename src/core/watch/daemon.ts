@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { WATCH_PID_FILE_REL, WATCH_LOG_FILE_REL, VEE_DIR_REL } from "../../utils/constants.js";
 import { VeeError } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 export interface DaemonStatus {
   running: boolean;
@@ -17,7 +18,10 @@ function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
+  } catch (err: unknown) {
+    logger.debug(
+      `isProcessAlive failed for PID ${pid}: ${err instanceof Error ? err.message : String(err)}`
+    );
     return false;
   }
 }
@@ -39,15 +43,19 @@ export function getDaemonStatus(rootDir: string = process.cwd()): DaemonStatus {
     if (!isNaN(pid) && isProcessAlive(pid)) {
       return { running: true, pid, logPath };
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(
+      `Failed to read daemon pid file: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   // PID file exists but process is dead -> clean up stale pid file
   try {
     fs.unlinkSync(pidPath);
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(
+      `Failed to unlink stale daemon pid file: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   return { running: false, logPath };
@@ -87,7 +95,10 @@ export async function startDaemon(
 ): Promise<{ pid: number; logPath: string }> {
   const status = getDaemonStatus(rootDir);
   if (status.running && status.pid) {
-    throw new VeeError(`Watcher daemon is already running (PID: ${status.pid}).`, "ERR_INVALID_ARGS");
+    throw new VeeError(
+      `Watcher daemon is already running (PID: ${status.pid}).`,
+      "ERR_INVALID_ARGS"
+    );
   }
 
   const veeDir = path.join(rootDir, VEE_DIR_REL);
@@ -124,7 +135,10 @@ export async function startDaemon(
 
   const pid = child.pid;
   if (!pid) {
-    throw new VeeError("Failed to spawn background watcher daemon process.", "ERR_PROVIDER_FAILURE");
+    throw new VeeError(
+      "Failed to spawn background watcher daemon process.",
+      "ERR_PROVIDER_FAILURE"
+    );
   }
 
   const pidPath = path.join(rootDir, WATCH_PID_FILE_REL);
@@ -133,19 +147,24 @@ export async function startDaemon(
   // Wait ~1 second and confirm the child process is alive before reporting success
   await new Promise((r) => setTimeout(r, 1000));
 
-  let alive = false;
+  let alive: boolean;
   try {
     process.kill(pid, 0);
     alive = true;
-  } catch {
+  } catch (err: unknown) {
+    logger.debug(
+      `Daemon PID ${pid} not alive: ${err instanceof Error ? err.message : String(err)}`
+    );
     alive = false;
   }
 
   if (!alive) {
     try {
       fs.unlinkSync(pidPath);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      logger.debug(
+        `Failed to unlink daemon pidPath: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
 
     let logTail = "";
@@ -179,16 +198,20 @@ export function stopDaemon(rootDir: string = process.cwd()): { stopped: boolean;
     } else {
       process.kill(pid, "SIGTERM");
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(
+      `Failed to kill daemon PID ${pid}: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   const pidPath = path.join(rootDir, WATCH_PID_FILE_REL);
   if (fs.existsSync(pidPath)) {
     try {
       fs.unlinkSync(pidPath);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      logger.debug(
+        `Failed to unlink daemon pidPath: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 

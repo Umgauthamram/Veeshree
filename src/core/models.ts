@@ -1,8 +1,12 @@
 import http from "node:http";
 import type { ModelRuntimeInfo } from "../types/index.js";
-import { getApiKey } from "./auth.js";
+import { getApiKey, type KeyProvider } from "./auth.js";
+import { logger } from "../utils/logger.js";
 
-async function probeHttpJson(url: string, timeoutMs: number = 800): Promise<{ ok: boolean; data?: any; latencyMs?: number }> {
+async function probeHttpJson(
+  url: string,
+  timeoutMs: number = 800
+): Promise<{ ok: boolean; data?: unknown; latencyMs?: number }> {
   return new Promise((resolve) => {
     const startTime = Date.now();
     try {
@@ -23,7 +27,10 @@ async function probeHttpJson(url: string, timeoutMs: number = 800): Promise<{ ok
             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
               try {
                 resolve({ ok: true, data: JSON.parse(data), latencyMs });
-              } catch {
+              } catch (err: unknown) {
+                logger.debug(
+                  `probeHttpJson non-JSON response from ${url}: ${err instanceof Error ? err.message : String(err)}`
+                );
                 resolve({ ok: true, data, latencyMs });
               }
             } else {
@@ -39,19 +46,32 @@ async function probeHttpJson(url: string, timeoutMs: number = 800): Promise<{ ok
         resolve({ ok: false });
       });
       req.end();
-    } catch {
+    } catch (err: unknown) {
+      logger.debug(
+        `probeHttpJson failed to request ${url}: ${err instanceof Error ? err.message : String(err)}`
+      );
       resolve({ ok: false });
     }
   });
 }
 
-export async function detectAvailableModels(rootDir: string = process.cwd()): Promise<ModelRuntimeInfo[]> {
+export async function detectAvailableModels(
+  rootDir: string = process.cwd()
+): Promise<ModelRuntimeInfo[]> {
   const runtimes: ModelRuntimeInfo[] = [];
 
   // 1. Probe Local Ollama (port 11434)
   const ollamaProbe = await probeHttpJson("http://127.0.0.1:11434/api/tags");
-  if (ollamaProbe.ok && ollamaProbe.data && Array.isArray(ollamaProbe.data.models)) {
-    const modelNames = ollamaProbe.data.models.map((m: any) => m.name || m.model);
+  if (
+    ollamaProbe.ok &&
+    ollamaProbe.data &&
+    typeof ollamaProbe.data === "object" &&
+    "models" in ollamaProbe.data &&
+    Array.isArray((ollamaProbe.data as { models: unknown[] }).models)
+  ) {
+    const rawList = (ollamaProbe.data as { models: Array<{ name?: string; model?: string }> })
+      .models;
+    const modelNames = rawList.map((m) => m.name || m.model).filter((n): n is string => Boolean(n));
     runtimes.push({
       name: "Ollama (Local Engine)",
       provider: "ollama",
@@ -72,8 +92,15 @@ export async function detectAvailableModels(rootDir: string = process.cwd()): Pr
 
   // 2. Probe Local LM Studio (port 1234)
   const lmStudioProbe = await probeHttpJson("http://127.0.0.1:1234/v1/models");
-  if (lmStudioProbe.ok && lmStudioProbe.data && Array.isArray(lmStudioProbe.data.data)) {
-    const modelNames = lmStudioProbe.data.data.map((m: any) => m.id);
+  if (
+    lmStudioProbe.ok &&
+    lmStudioProbe.data &&
+    typeof lmStudioProbe.data === "object" &&
+    "data" in lmStudioProbe.data &&
+    Array.isArray((lmStudioProbe.data as { data: unknown[] }).data)
+  ) {
+    const rawList = (lmStudioProbe.data as { data: Array<{ id?: string }> }).data;
+    const modelNames = rawList.map((m) => m.id).filter((id): id is string => Boolean(id));
     runtimes.push({
       name: "LM Studio (Local Engine)",
       provider: "lmstudio",
@@ -174,7 +201,7 @@ export async function resolveActiveEngine(
       };
     }
 
-    const key = getApiKey(cp as any, rootDir);
+    const key = getApiKey(cp as KeyProvider, rootDir);
     if (!key) {
       throw new Error(
         `API key for '${customProvider}' not found. Please set '${cp.toUpperCase()}_API_KEY' or run 'vee keys set ${cp} <KEY>'.`
@@ -224,7 +251,9 @@ export async function resolveActiveEngine(
       };
     }
 
-    throw new Error(`Unsupported provider '${customProvider}'. Supported: gemini, groq, nvidia, openai, ollama, lmstudio`);
+    throw new Error(
+      `Unsupported provider '${customProvider}'. Supported: gemini, groq, nvidia, openai, ollama, lmstudio`
+    );
   }
 
   // 2. Probe Local Engines First
@@ -241,7 +270,9 @@ export async function resolveActiveEngine(
     };
   }
 
-  const lmstudio = availableRuntimes.find((r) => r.provider === "lmstudio" && r.status === "available");
+  const lmstudio = availableRuntimes.find(
+    (r) => r.provider === "lmstudio" && r.status === "available"
+  );
   if (lmstudio && lmstudio.models.length > 0) {
     const selectedModel = lmstudio.models[0] || "default";
     return {
@@ -256,7 +287,7 @@ export async function resolveActiveEngine(
   // 3. Check if user configured a preferred default_extractor and its key is present
   const preferredProvider = config.default_extractor?.provider;
   if (preferredProvider && preferredProvider !== "gemini") {
-    const prefKey = getApiKey(preferredProvider as any, rootDir);
+    const prefKey = getApiKey(preferredProvider as KeyProvider, rootDir);
     if (prefKey) {
       const preferredModel = config.default_extractor?.model;
       if (preferredProvider === "groq") {
@@ -295,10 +326,13 @@ export async function resolveActiveEngine(
   // 4. Check Cloud Providers (Gemini -> Groq -> NVIDIA -> OpenAI)
   const geminiKey = getApiKey("gemini", rootDir);
   if (geminiKey) {
-    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "gemini"
-      ? config.default_extractor.model
-      : "gemini-2.0-flash";
-    const envSource = process.env["GEMINI_API_KEY"] ? "environment ($GEMINI_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
+    const defaultModel =
+      config.default_extractor?.model && config.default_extractor.provider === "gemini"
+        ? config.default_extractor.model
+        : "gemini-2.0-flash";
+    const envSource = process.env["GEMINI_API_KEY"]
+      ? "environment ($GEMINI_API_KEY)"
+      : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "gemini",
       model: defaultModel,
@@ -310,10 +344,13 @@ export async function resolveActiveEngine(
 
   const groqKey = getApiKey("groq", rootDir);
   if (groqKey) {
-    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "groq"
-      ? config.default_extractor.model
-      : "llama-3.3-70b-versatile";
-    const envSource = process.env["GROQ_API_KEY"] ? "environment ($GROQ_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
+    const defaultModel =
+      config.default_extractor?.model && config.default_extractor.provider === "groq"
+        ? config.default_extractor.model
+        : "llama-3.3-70b-versatile";
+    const envSource = process.env["GROQ_API_KEY"]
+      ? "environment ($GROQ_API_KEY)"
+      : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "groq",
       model: defaultModel,
@@ -326,10 +363,13 @@ export async function resolveActiveEngine(
 
   const nvidiaKey = getApiKey("nvidia", rootDir);
   if (nvidiaKey) {
-    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "nvidia"
-      ? config.default_extractor.model
-      : "meta/llama-3.1-70b-instruct";
-    const envSource = process.env["NVIDIA_API_KEY"] ? "environment ($NVIDIA_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
+    const defaultModel =
+      config.default_extractor?.model && config.default_extractor.provider === "nvidia"
+        ? config.default_extractor.model
+        : "meta/llama-3.1-70b-instruct";
+    const envSource = process.env["NVIDIA_API_KEY"]
+      ? "environment ($NVIDIA_API_KEY)"
+      : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "nvidia",
       model: defaultModel,
@@ -342,10 +382,13 @@ export async function resolveActiveEngine(
 
   const openaiKey = getApiKey("openai", rootDir);
   if (openaiKey) {
-    const defaultModel = config.default_extractor?.model && config.default_extractor.provider === "openai"
-      ? config.default_extractor.model
-      : "gpt-4o-mini";
-    const envSource = process.env["OPENAI_API_KEY"] ? "environment ($OPENAI_API_KEY)" : "keystore (~/.veeshree/credentials.json)";
+    const defaultModel =
+      config.default_extractor?.model && config.default_extractor.provider === "openai"
+        ? config.default_extractor.model
+        : "gpt-4o-mini";
+    const envSource = process.env["OPENAI_API_KEY"]
+      ? "environment ($OPENAI_API_KEY)"
+      : "keystore (~/.veeshree/credentials.json)";
     return {
       provider: "openai",
       model: defaultModel,

@@ -76,7 +76,7 @@ import {
   validateModelName,
   verifyModelEndpoint,
   writeAtomic
-} from "./chunk-AEXERJC7.js";
+} from "./chunk-LKJDKT4W.js";
 
 // src/cli.ts
 import path14 from "path";
@@ -137,7 +137,8 @@ function detectProjectPurpose(targetDir, result) {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          if (trimmed.startsWith("#") || trimmed.startsWith("[!") || trimmed.startsWith("<img") || trimmed.startsWith("[![")) continue;
+          if (trimmed.startsWith("#") || trimmed.startsWith("[!") || trimmed.startsWith("<img") || trimmed.startsWith("[!["))
+            continue;
           if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
             paragraphs.push(`Project Reference: ${trimmed}`);
             break;
@@ -255,7 +256,10 @@ function detectInfra(targetDir, result) {
   }
 }
 function detectDomainEntities(targetDir, result) {
-  const prismaFiles = [path.join(targetDir, "schema.prisma"), path.join(targetDir, "prisma", "schema.prisma")];
+  const prismaFiles = [
+    path.join(targetDir, "schema.prisma"),
+    path.join(targetDir, "prisma", "schema.prisma")
+  ];
   for (const p of prismaFiles) {
     if (fs.existsSync(p)) {
       try {
@@ -528,7 +532,11 @@ function moderateAndBootstrap(rootDir = process.cwd(), options = {}) {
       if (!options.dryRun) {
         fs2.writeFileSync(
           dbAdrPath,
-          generateDecisionStubTemplate("Database Architecture", "Database", scan.databases.join(", ")),
+          generateDecisionStubTemplate(
+            "Database Architecture",
+            "Database",
+            scan.databases.join(", ")
+          ),
           "utf-8"
         );
       }
@@ -541,7 +549,11 @@ function moderateAndBootstrap(rootDir = process.cwd(), options = {}) {
       if (!options.dryRun) {
         fs2.writeFileSync(
           frameworkAdrPath,
-          generateDecisionStubTemplate("Application Framework", "Framework", scan.frameworks.join(", ")),
+          generateDecisionStubTemplate(
+            "Application Framework",
+            "Framework",
+            scan.frameworks.join(", ")
+          ),
           "utf-8"
         );
       }
@@ -584,7 +596,9 @@ function initializeVeeshree(targetDir = process.cwd(), options = {}) {
     dryRun: options.dryRun
   });
   if (options.dryRun) {
-    logger.info(`[DRY-RUN] Would seed ${report.seededFiles.length} memory files: ${report.seededFiles.join(", ")}`);
+    logger.info(
+      `[DRY-RUN] Would seed ${report.seededFiles.length} memory files: ${report.seededFiles.join(", ")}`
+    );
     return report;
   }
   if (report.isExistingProject) {
@@ -605,10 +619,14 @@ function initializeVeeshree(targetDir = process.cwd(), options = {}) {
     logger.success(`Seeded ${file}`);
   }
   if (report.installedRules.length > 0) {
-    logger.info(`Injected IDE context instructions: ${logger.bold(report.installedRules.join(", "))}`);
+    logger.info(
+      `Injected IDE context instructions: ${logger.bold(report.installedRules.join(", "))}`
+    );
   }
   if (report.gitIgnoreUpdated) {
-    logger.success("Protected local secrets: added /.vee/config.json and /.vee/index.json to .gitignore");
+    logger.success(
+      "Protected local secrets: added /.vee/config.json and /.vee/index.json to .gitignore"
+    );
   }
   try {
     const hooksDir = resolveGitHooksDir(targetDir);
@@ -619,7 +637,9 @@ function initializeVeeshree(targetDir = process.cwd(), options = {}) {
   } catch {
   }
   logger.log("");
-  logger.success("Veeshree initialized successfully! Version-controlled memory is active at /docs/memory/");
+  logger.success(
+    "Veeshree initialized successfully! Version-controlled memory is active at /docs/memory/"
+  );
   if (report.seededFiles.length > 0 && !options.dryRun) {
     logger.log("");
     logger.info("Initial Environment Diagnostics:");
@@ -692,8 +712,12 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
     } else {
       if (options.fix) {
         for (const f of missing) {
-          fs3.writeFileSync(path3.join(memoryDir, f), `# ${f.replace(".md", "").toUpperCase()}
-`, "utf-8");
+          fs3.writeFileSync(
+            path3.join(memoryDir, f),
+            `# ${f.replace(".md", "").toUpperCase()}
+`,
+            "utf-8"
+          );
         }
         checks.push({
           category: "Memory Scaffold",
@@ -855,7 +879,12 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
   }
   try {
     const engine = await resolveEngine(rootDir);
-    const modelCheck = await verifyModelEndpoint(engine.provider, engine.model, engine.apiKey, engine.baseUrl);
+    const modelCheck = await verifyModelEndpoint(
+      engine.provider,
+      engine.model,
+      engine.apiKey,
+      engine.baseUrl
+    );
     if (!modelCheck.ok) {
       checks.push({
         category: "AI Extraction Engine",
@@ -873,12 +902,13 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
       });
     }
   } catch (err) {
-    if (err.code === "ERR_INVALID_MODEL") {
+    const errorObj = err;
+    if (errorObj?.code === "ERR_INVALID_MODEL") {
       checks.push({
         category: "AI Extraction Engine",
         name: "Model Validation",
         status: "fail",
-        message: err.message,
+        message: errorObj.message || "Invalid model name",
         remedy: "Update extractor.model in .vee/config.json with a supported model name."
       });
     } else {
@@ -915,28 +945,18 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
     if (item.status === "fail") hasFailures = true;
   }
   if (isJson) {
-    console.log(
-      JSON.stringify(
-        {
-          checks,
-          hasFailures,
-          hasWarnings,
-          fixedCount
-        },
-        null,
-        2
-      )
-    );
-    return {
+    const payload = {
       checks,
       hasFailures,
       hasWarnings,
       fixedCount
     };
+    logger.json(payload);
+    return payload;
   }
-  console.log("");
+  logger.log("");
   for (const item of checks) {
-    let icon = "";
+    let icon;
     if (item.status === "ok") {
       icon = logger.green("[PASS]");
     } else if (item.status === "warn") {
@@ -944,12 +964,14 @@ async function handleDoctorCommand(options = {}, rootDir = process.cwd()) {
     } else {
       icon = logger.red("[FAIL]");
     }
-    console.log(`${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`);
+    logger.log(
+      `${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`
+    );
     if (item.remedy && !item.fixed) {
-      console.log(`       ${logger.cyan("-> Remedy: " + item.remedy)}`);
+      logger.log(`       ${logger.cyan("-> Remedy: " + item.remedy)}`);
     }
   }
-  console.log("\n" + "-".repeat(70));
+  logger.log("\n" + "-".repeat(70));
   if (options.fix && fixedCount > 0) {
     logger.success(`Doctor successfully repaired ${fixedCount} issue(s)!`);
   }
@@ -989,7 +1011,10 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
   logger.title("Migrating Project to Veeshree 1.0.0");
   const memoryDir = path4.join(rootDir, MEMORY_DIR_REL);
   if (!fs4.existsSync(memoryDir)) {
-    throw new VeeError("docs/memory directory not found. Nothing to migrate.", "ERR_NOT_INITIALIZED");
+    throw new VeeError(
+      "docs/memory directory not found. Nothing to migrate.",
+      "ERR_NOT_INITIALIZED"
+    );
   }
   if (opts.dryRun) {
     logger.info("[DRY-RUN] Simulating 0.3.x -> 1.0.0 migration plan:");
@@ -1009,7 +1034,7 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
   copyDirSync(memoryDir, backupDir);
   logger.success(`1. Created safe backup of docs/memory/ at .vee/backup-0.3.x/`);
   const indexPath = path4.join(rootDir, INDEX_FILE_REL);
-  let oldHashesMap = {};
+  const oldHashesMap = {};
   if (fs4.existsSync(indexPath)) {
     try {
       const oldIndex = JSON.parse(fs4.readFileSync(indexPath, "utf-8"));
@@ -1020,7 +1045,10 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
           }
         }
       }
-    } catch {
+    } catch (err) {
+      logger.debug(
+        `Failed to read old index.json: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
   let adrsUpdated = 0;
@@ -1036,12 +1064,15 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
       const linked = Array.isArray(data.linked_files) ? data.linked_files : [];
       const newLinkedFiles = linked.map((item) => {
         const p = typeof item === "string" ? item : item.path;
-        let sha256 = typeof item === "object" && item.sha256 ? item.sha256 : cachedHashes[p];
+        let sha256 = typeof item === "object" && item !== null && "sha256" in item ? item.sha256 : cachedHashes[p];
         if (!sha256) {
           try {
             const safeRel = sanitizeRelativePath(p);
             sha256 = calculateNormalizedFileHash(path4.join(rootDir, safeRel)) || void 0;
-          } catch {
+          } catch (err) {
+            logger.debug(
+              `Failed to calculate hash during migration: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         }
         return { path: p, sha256 };
@@ -1055,15 +1086,24 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
         const slug = slugifyTitle(base);
         const newFilename = `${nextNum}-${slug}.md`;
         const newFullPath = path4.join(decisionsDir, newFilename);
-        data.id = data.id || base;
-        writeAtomic(newFullPath, stringifyMarkdownFrontmatter(data, content));
+        data.id = `${nextNum}-${slug}`;
+        writeAtomic(
+          newFullPath,
+          stringifyMarkdownFrontmatter(data, content)
+        );
         try {
           fs4.unlinkSync(fullPath);
-        } catch {
+        } catch (err) {
+          logger.debug(
+            `Failed to unlink old ADR file: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
         logger.info(`   Renamed ADR: ${file} -> ${newFilename}`);
       } else {
-        writeAtomic(fullPath, stringifyMarkdownFrontmatter(data, content));
+        writeAtomic(
+          fullPath,
+          stringifyMarkdownFrontmatter(data, content)
+        );
       }
     }
   }
@@ -1078,7 +1118,10 @@ async function handleMigrateCommand(options = {}, rootDirArg) {
   try {
     const installedHooks = installGitHooks(rootDir);
     logger.success(`6. Installed Git hooks: ${installedHooks.join(", ")}`);
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `Git hooks installation skipped: ${err instanceof Error ? err.message : String(err)}`
+    );
     logger.warn("6. Git hooks skipped (not a Git repository or hooks disabled).");
   }
   buildIndex(rootDir);
@@ -1108,7 +1151,7 @@ function syncVeeshree(rootDir = process.cwd(), options = {}) {
     if (options.dryRun) {
       const rep = checkWorkspaceDrift(rootDir);
       if (isJson) {
-        console.log(JSON.stringify({ dryRun: true, target, report: rep, acceptedCount: 0 }, null, 2));
+        logger.json({ dryRun: true, target, report: rep, acceptedCount: 0 });
       } else {
         logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
       }
@@ -1123,20 +1166,16 @@ function syncVeeshree(rootDir = process.cwd(), options = {}) {
     buildIndex(rootDir);
     const postReport = checkWorkspaceDrift(rootDir);
     if (isJson) {
-      console.log(
-        JSON.stringify(
-          {
-            target,
-            updatedAdrs: result.updatedAdrs,
-            acceptedCount: result.totalUpdatedFiles,
-            report: postReport
-          },
-          null,
-          2
-        )
-      );
+      logger.json({
+        target,
+        updatedAdrs: result.updatedAdrs,
+        acceptedCount: result.totalUpdatedFiles,
+        report: postReport
+      });
     } else {
-      logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
+      logger.success(
+        `Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`
+      );
     }
     return {
       report: postReport,
@@ -1148,13 +1187,15 @@ function syncVeeshree(rootDir = process.cwd(), options = {}) {
   const driftReport = checkWorkspaceDrift(rootDir);
   buildIndex(rootDir);
   if (isJson) {
-    console.log(JSON.stringify(driftReport, null, 2));
+    logger.json(driftReport);
     return {
       report: driftReport,
       exitCode: driftReport.hasDrift ? 1 : 0
     };
   }
-  logger.info(`Inspected ${logger.bold(String(driftReport.totalRecords))} architectural decision records.`);
+  logger.info(
+    `Inspected ${logger.bold(String(driftReport.totalRecords))} architectural decision records.`
+  );
   if (!driftReport.hasDrift) {
     logger.success("All memory records are in sync with live codebase hashes.");
   } else {
@@ -1163,14 +1204,16 @@ function syncVeeshree(rootDir = process.cwd(), options = {}) {
       if (r.isDrifted) {
         for (const f of r.files) {
           if (f.status === "missing") {
-            console.log(`  - ${logger.red("[MISSING]")} ${r.title}: ${f.path}`);
+            logger.log(`  - ${logger.red("[MISSING]")} ${r.title}: ${f.path}`);
           } else if (f.status === "drifted") {
-            console.log(`  - ${logger.yellow("[DRIFTED]")} ${r.title}: ${f.path}`);
+            logger.log(`  - ${logger.yellow("[DRIFTED]")} ${r.title}: ${f.path}`);
           }
         }
       }
     }
-    logger.info(`Run 'vee sync --accept all' or 'vee sync --accept <id>' to accept new baselines into ADR frontmatter.`);
+    logger.info(
+      `Run 'vee sync --accept all' or 'vee sync --accept <id>' to accept new baselines into ADR frontmatter.`
+    );
   }
   return {
     report: driftReport,
@@ -1192,9 +1235,9 @@ function generateContext(request, options = {}, rootDir = process.cwd()) {
   });
   if (options.explain) {
     if (isJson) {
-      console.log(JSON.stringify(result, null, 2));
+      logger.json(result);
     } else {
-      console.log(explainContextBudget(result));
+      logger.raw(explainContextBudget(result));
     }
     return result;
   }
@@ -1206,7 +1249,9 @@ function generateContext(request, options = {}, rootDir = process.cwd()) {
     logger.warn(result.overflowNotice);
   }
   if (result.staleWarnings.length > 0) {
-    logger.warn(`Stale Drift Detected: ${result.staleWarnings.length} decision(s) reference drifted code:`);
+    logger.warn(
+      `Stale Drift Detected: ${result.staleWarnings.length} decision(s) reference drifted code:`
+    );
     for (const w of result.staleWarnings) {
       console.error(logger.dim(`  * ${w}`));
     }
@@ -1222,17 +1267,21 @@ function handleKeysCommand(action, provider, key, options = {}, rootDir = proces
   if (action === "list") {
     const keys = listApiKeys(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(keys, null, 2));
+      logger.json(keys);
       return keys;
     }
     logger.title("Configured AI Provider API Keys");
     for (const [p, info] of Object.entries(keys)) {
       const statusStr = info.configured ? logger.cyan(`Configured via ${info.source}`) : logger.dim("Not Configured");
       const warningStr = info.insecureWarning ? ` ${logger.yellow(`[WARN: ${info.insecureWarning}]`)}` : "";
-      console.log(`- ${logger.bold(p.toUpperCase().padEnd(10))}: ${info.masked} [${statusStr}]${warningStr}`);
+      logger.log(
+        `- ${logger.bold(p.toUpperCase().padEnd(10))}: ${info.masked} [${statusStr}]${warningStr}`
+      );
     }
-    console.log("");
-    logger.info("Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure.");
+    logger.log("");
+    logger.info(
+      "Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure."
+    );
     return keys;
   }
   if (action === "set" || action === "update") {
@@ -1253,7 +1302,9 @@ Supported providers: ${SUPPORTED_KEY_PROVIDERS.join(", ")}`,
     const isGlobal = !options.local;
     setApiKey(p, key, rootDir, isGlobal);
     if (isGlobal) {
-      logger.success(`API key stored securely in global keystore (~/.veeshree/credentials.json) for provider: ${p}`);
+      logger.success(
+        `API key stored securely in global keystore (~/.veeshree/credentials.json) for provider: ${p}`
+      );
     } else {
       logger.success(`API key stored locally in .vee/config.json for provider: ${p}`);
       logger.warn("Project-local key storage detected. Avoid committing .vee/config.json.");
@@ -1262,7 +1313,10 @@ Supported providers: ${SUPPORTED_KEY_PROVIDERS.join(", ")}`,
   }
   if (action === "remove") {
     if (!provider) {
-      throw new VeeError("Usage: vee keys remove <provider> [--local|--global]", "ERR_INVALID_ARGS");
+      throw new VeeError(
+        "Usage: vee keys remove <provider> [--local|--global]",
+        "ERR_INVALID_ARGS"
+      );
     }
     const p = provider.toLowerCase();
     const isGlobal = options.local ? false : options.global ? true : void 0;
@@ -1270,7 +1324,10 @@ Supported providers: ${SUPPORTED_KEY_PROVIDERS.join(", ")}`,
     logger.success(`Removed API key for provider: ${p}`);
     return;
   }
-  throw new VeeError(`Unknown keys action: '${action}'. Supported: list, set, update, remove.`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown keys action: '${action}'. Supported: list, set, update, remove.`,
+    "ERR_INVALID_ARGS"
+  );
 }
 
 // src/core/models.ts
@@ -1296,7 +1353,10 @@ async function probeHttpJson(url, timeoutMs = 800) {
             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
               try {
                 resolve({ ok: true, data: JSON.parse(data), latencyMs });
-              } catch {
+              } catch (err) {
+                logger.debug(
+                  `probeHttpJson non-JSON response from ${url}: ${err instanceof Error ? err.message : String(err)}`
+                );
                 resolve({ ok: true, data, latencyMs });
               }
             } else {
@@ -1311,7 +1371,10 @@ async function probeHttpJson(url, timeoutMs = 800) {
         resolve({ ok: false });
       });
       req.end();
-    } catch {
+    } catch (err) {
+      logger.debug(
+        `probeHttpJson failed to request ${url}: ${err instanceof Error ? err.message : String(err)}`
+      );
       resolve({ ok: false });
     }
   });
@@ -1319,8 +1382,9 @@ async function probeHttpJson(url, timeoutMs = 800) {
 async function detectAvailableModels(rootDir = process.cwd()) {
   const runtimes = [];
   const ollamaProbe = await probeHttpJson("http://127.0.0.1:11434/api/tags");
-  if (ollamaProbe.ok && ollamaProbe.data && Array.isArray(ollamaProbe.data.models)) {
-    const modelNames = ollamaProbe.data.models.map((m) => m.name || m.model);
+  if (ollamaProbe.ok && ollamaProbe.data && typeof ollamaProbe.data === "object" && "models" in ollamaProbe.data && Array.isArray(ollamaProbe.data.models)) {
+    const rawList = ollamaProbe.data.models;
+    const modelNames = rawList.map((m) => m.name || m.model).filter((n) => Boolean(n));
     runtimes.push({
       name: "Ollama (Local Engine)",
       provider: "ollama",
@@ -1339,8 +1403,9 @@ async function detectAvailableModels(rootDir = process.cwd()) {
     });
   }
   const lmStudioProbe = await probeHttpJson("http://127.0.0.1:1234/v1/models");
-  if (lmStudioProbe.ok && lmStudioProbe.data && Array.isArray(lmStudioProbe.data.data)) {
-    const modelNames = lmStudioProbe.data.data.map((m) => m.id);
+  if (lmStudioProbe.ok && lmStudioProbe.data && typeof lmStudioProbe.data === "object" && "data" in lmStudioProbe.data && Array.isArray(lmStudioProbe.data.data)) {
+    const rawList = lmStudioProbe.data.data;
+    const modelNames = rawList.map((m) => m.id).filter((id) => Boolean(id));
     runtimes.push({
       name: "LM Studio (Local Engine)",
       provider: "lmstudio",
@@ -1395,7 +1460,7 @@ async function handleModelsCommand(rootDir = process.cwd()) {
   logger.info("Probing local LLM engines and cloud credentials...\n");
   const runtimes = await detectAvailableModels(rootDir);
   for (const r of runtimes) {
-    let statusBadge = "";
+    let statusBadge;
     if (r.status === "available") {
       const lat = r.latencyMs ? ` (${r.latencyMs}ms)` : "";
       statusBadge = logger.green(`READY${lat}`);
@@ -1404,21 +1469,32 @@ async function handleModelsCommand(rootDir = process.cwd()) {
     } else {
       statusBadge = logger.dim("Engine Offline");
     }
-    console.log(`${logger.bold(r.name.padEnd(28))} [${statusBadge}]`);
+    logger.log(`${logger.bold(r.name.padEnd(28))} [${statusBadge}]`);
     if (r.endpoint) {
-      console.log(`  Endpoint: ${logger.dim(r.endpoint)}`);
+      logger.log(`  Endpoint: ${logger.dim(r.endpoint)}`);
     }
     if (r.models.length > 0) {
-      console.log(`  Models:   ${logger.dim(r.models.slice(0, 4).join(", "))}`);
+      logger.log(`  Models:   ${logger.dim(r.models.slice(0, 4).join(", "))}`);
     }
-    console.log("");
+    logger.log("");
   }
 }
 function handleModelsUseCommand(provider, model, rootDir = process.cwd()) {
-  const validProviders = ["gemini", "openai", "anthropic", "groq", "nvidia", "ollama", "lmstudio"];
+  const validProviders = [
+    "gemini",
+    "openai",
+    "anthropic",
+    "groq",
+    "nvidia",
+    "ollama",
+    "lmstudio"
+  ];
   const p = provider.toLowerCase();
   if (!validProviders.includes(p)) {
-    throw new VeeError(`Invalid provider '${provider}'. Supported: ${validProviders.join(", ")}`, "ERR_INVALID_ARGS");
+    throw new VeeError(
+      `Invalid provider '${provider}'. Supported: ${validProviders.join(", ")}`,
+      "ERR_INVALID_ARGS"
+    );
   }
   const safeModel = validateModelName(model);
   const config = loadConfig(rootDir);
@@ -1438,7 +1514,10 @@ function handleModelsUseCommand(provider, model, rootDir = process.cwd()) {
 }
 function handleModelsPullCommand(modelName) {
   if (!modelName || !modelName.trim()) {
-    throw new VeeError("Usage: vee models pull <model> (e.g. vee models pull llama3.2)", "ERR_INVALID_ARGS");
+    throw new VeeError(
+      "Usage: vee models pull <model> (e.g. vee models pull llama3.2)",
+      "ERR_INVALID_ARGS"
+    );
   }
   const safeModel = validateModelName(modelName);
   logger.title(`Pulling Model via Ollama: ${safeModel}`);
@@ -1463,22 +1542,27 @@ async function extractMemoryFromContent(content, rootDir = process.cwd(), custom
 // src/commands/capture.ts
 async function handleCaptureCommand(options, rootDir = process.cwd()) {
   logger.title("Capturing Architectural Memory");
-  let content = "";
+  let content;
   if (options.diff) {
     try {
       let rawDiff = "";
       try {
         rawDiff = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
-      } catch {
+      } catch (e) {
+        logger.debug(`git diff HEAD failed: ${e instanceof Error ? e.message : String(e)}`);
         rawDiff = runCommandSafe("git", ["diff"], { cwd: rootDir });
       }
       content = filterDiffByDenylist(rawDiff, rootDir);
     } catch (err) {
-      throw new VeeError(`Failed to read git diff: ${err.message}`, "ERR_PROVIDER_FAILURE");
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new VeeError(`Failed to read git diff: ${msg}`, "ERR_PROVIDER_FAILURE");
     }
   } else if (options.file) {
     if (isDenylistedFile(options.file, rootDir)) {
-      throw new VeeError(`Cannot capture denylisted or ignored file: ${options.file}`, "ERR_SECURITY_VIOLATION");
+      throw new VeeError(
+        `Cannot capture denylisted or ignored file: ${options.file}`,
+        "ERR_SECURITY_VIOLATION"
+      );
     }
     if (!fs5.existsSync(options.file)) {
       throw new VeeError(`File not found: ${options.file}`, "ERR_FILE_NOT_FOUND");
@@ -1498,26 +1582,34 @@ async function handleCaptureCommand(options, rootDir = process.cwd()) {
   const redacted = redactContent(content);
   const capped = capDiffPayload(redacted, maxPayload);
   if (options.showPayload) {
-    console.log(capped);
+    logger.raw(capped);
     return { payload: capped };
   }
   if (options.dryRun) {
-    logger.info(`[DRY-RUN] Would send ${capped.length} bytes of redacted content to extraction engine.`);
+    logger.info(
+      `[DRY-RUN] Would send ${capped.length} bytes of redacted content to extraction engine.`
+    );
     return { payload: capped };
   }
   logger.info("Extracting structural memory delta via background LLM...");
   const delta = await extractMemoryFromContent(capped, rootDir, options.provider, options.model);
   const proposal = createProposal("capture", delta, "cli_capture", rootDir);
-  logger.success(`Extracted memory proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
+  logger.success(
+    `Extracted memory proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`
+  );
   const hasDecisions = Array.isArray(delta.decisions) && delta.decisions.length > 0;
   const shouldAutoApply = (options.auto || config.proposals?.auto_apply_low_risk) && proposal.risk === "low" && !hasDecisions;
   if (shouldAutoApply) {
     const { reconcileResult } = await acceptProposal(proposal.id, "auto_capture", rootDir);
-    logger.success(`[AUTO] Proposal accepted and applied (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
+    logger.success(
+      `[AUTO] Proposal accepted and applied (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`
+    );
     return { proposal, autoApplied: true };
   }
   if (proposal.risk === "high") {
-    logger.warn(`Proposal flagged as HIGH RISK (${proposal.flags.join(", ")}). Human review required.`);
+    logger.warn(
+      `Proposal flagged as HIGH RISK (${proposal.flags.join(", ")}). Human review required.`
+    );
     logger.info(`Run 'vee review' or 'vee accept ${proposal.id}' to inspect and apply.`);
   } else {
     logger.info(`Proposal queued for review. Run 'vee accept ${proposal.id}' to apply.`);
@@ -1574,19 +1666,14 @@ function handleStatusCommand(options = {}, rootDir = process.cwd()) {
   const progressBar = renderProgressBar(percent);
   const exitCode = options.check && driftReport.hasDrift ? 1 : 0;
   if (options.json) {
-    console.log(
-      JSON.stringify(
-        {
-          currentFocus,
-          tasks: { completed: completedTasks, total: totalTasks, percent },
-          decisions: { active: activeDecisionsCount, superseded: supersededDecisionsCount },
-          pendingProposals: pendingProposals.length,
-          drift: driftReport
-        },
-        null,
-        2
-      )
-    );
+    const payload = {
+      currentFocus,
+      tasks: { completed: completedTasks, total: totalTasks, percent },
+      decisions: { active: activeDecisionsCount, superseded: supersededDecisionsCount },
+      pendingProposals: pendingProposals.length,
+      drift: driftReport
+    };
+    logger.json(payload);
     return {
       currentFocus,
       completedTasks,
@@ -1599,27 +1686,39 @@ function handleStatusCommand(options = {}, rootDir = process.cwd()) {
     };
   }
   logger.title("Veeshree Project Memory Status");
-  console.log(`${logger.bold("Active Focus:")}       ${logger.cyan(currentFocus)}`);
-  console.log(`${logger.bold("Task Progress:")}      ${progressBar} ${percent}% (${completedTasks}/${totalTasks} tasks)`);
-  console.log(`${logger.bold("Active Decisions:")}   ${activeDecisionsCount} active (${supersededDecisionsCount} superseded/archived)`);
-  console.log(`${logger.bold("Extractor Model:")}    ${config.extractor?.provider || "gemini"} (${config.extractor?.model || "default"})`);
-  console.log(`${logger.bold("Token Budget:")}       ${config.context?.max_tokens || 2e3} max tokens`);
-  console.log("");
+  logger.log(`${logger.bold("Active Focus:")}       ${logger.cyan(currentFocus)}`);
+  logger.log(
+    `${logger.bold("Task Progress:")}      ${progressBar} ${percent}% (${completedTasks}/${totalTasks} tasks)`
+  );
+  logger.log(
+    `${logger.bold("Active Decisions:")}   ${activeDecisionsCount} active (${supersededDecisionsCount} superseded/archived)`
+  );
+  logger.log(
+    `${logger.bold("Extractor Model:")}    ${config.extractor?.provider || "gemini"} (${config.extractor?.model || "default"})`
+  );
+  logger.log(
+    `${logger.bold("Token Budget:")}       ${config.context?.max_tokens || 2e3} max tokens`
+  );
+  logger.log("");
   if (!driftReport.hasDrift) {
     logger.success("Memory Integrity: All linked code hashes are in sync (0 stale drift).");
   } else {
-    logger.warn(`Memory Integrity: ${driftReport.driftedRecordsCount} record(s) flagged with stale code drift:`);
+    logger.warn(
+      `Memory Integrity: ${driftReport.driftedRecordsCount} record(s) flagged with stale code drift:`
+    );
     for (const r of driftReport.records) {
       if (r.isDrifted) {
-        console.log(`  - ${logger.yellow(`${r.title} (${r.path})`)}`);
+        logger.log(`  - ${logger.yellow(`${r.title} (${r.path})`)}`);
       }
     }
   }
   if (pendingProposals.length > 0) {
-    console.log("");
-    logger.info(`Review Queue: ${logger.bold(String(pendingProposals.length))} proposal(s) pending approval. Run 'vee review' or 'vee accept <id>'.`);
+    logger.log("");
+    logger.info(
+      `Review Queue: ${logger.bold(String(pendingProposals.length))} proposal(s) pending approval. Run 'vee review' or 'vee accept <id>'.`
+    );
   }
-  console.log("");
+  logger.log("");
   return {
     currentFocus,
     completedTasks,
@@ -1647,7 +1746,7 @@ function handleSearchCommand(query, options = {}, rootDir = process.cwd()) {
   }
   const results = searchMemory(query, { includeArchived: options.archived }, rootDir);
   if (options.json) {
-    console.log(JSON.stringify(results, null, 2));
+    logger.json(results);
     return results;
   }
   logger.title(`Search Results for: "${query}"`);
@@ -1657,13 +1756,13 @@ function handleSearchCommand(query, options = {}, rootDir = process.cwd()) {
   }
   for (const item of results) {
     const statusTag = item.status === "active" ? logger.cyan(`[${item.status}]`) : logger.dim(`[${item.status}]`);
-    console.log(`${logger.bold(item.title)} ${statusTag} (Score: ${item.score})`);
-    console.log(`  Path: ${logger.dim(item.path)}`);
+    logger.log(`${logger.bold(item.title)} ${statusTag} (Score: ${item.score})`);
+    logger.log(`  Path: ${logger.dim(item.path)}`);
     if (item.tags.length > 0) {
-      console.log(`  Tags: ${logger.dim(item.tags.join(", "))}`);
+      logger.log(`  Tags: ${logger.dim(item.tags.join(", "))}`);
     }
-    console.log(`  ${item.snippet}`);
-    console.log("");
+    logger.log(`  ${item.snippet}`);
+    logger.log("");
   }
   return results;
 }
@@ -1723,18 +1822,18 @@ Why this choice was selected.
       throw new VeeError(`ADR '${options.id}' not found.`, "ERR_FILE_NOT_FOUND");
     }
     logger.title(`ADR: ${adr.data.title || adr.id}`);
-    console.log(`ID:           ${adr.id}`);
-    console.log(`Status:       ${adr.data.status}`);
-    console.log(`Date:         ${adr.data.date}`);
-    console.log(`File:         ${adr.relPath}`);
+    logger.log(`ID:           ${adr.id}`);
+    logger.log(`Status:       ${adr.data.status}`);
+    logger.log(`Date:         ${adr.data.date}`);
+    logger.log(`File:         ${adr.relPath}`);
     if (adr.data.supersedes) {
-      console.log(`Supersedes:   ${logger.yellow(adr.data.supersedes)}`);
+      logger.log(`Supersedes:   ${logger.yellow(adr.data.supersedes)}`);
     }
     if (adr.data.superseded_by) {
-      console.log(`Superseded By:${logger.yellow(adr.data.superseded_by)}`);
+      logger.log(`Superseded By:${logger.yellow(adr.data.superseded_by)}`);
     }
-    console.log("\n" + "-".repeat(60) + "\n");
-    console.log(adr.content);
+    logger.log("\n" + "-".repeat(60) + "\n");
+    logger.log(adr.content);
     return;
   }
   if (sub === "supersede") {
@@ -1752,7 +1851,13 @@ Why this choice was selected.
     const newFullPath = path6.join(rootDir, DECISIONS_DIR_REL, newFilename);
     oldAdr.data.status = "superseded";
     oldAdr.data.superseded_by = newId;
-    writeAtomic(oldAdr.fullPath, stringifyMarkdownFrontmatter(oldAdr.data, oldAdr.content));
+    writeAtomic(
+      oldAdr.fullPath,
+      stringifyMarkdownFrontmatter(
+        oldAdr.data,
+        oldAdr.content
+      )
+    );
     const newFrontmatter = {
       id: newId,
       title: options.title,
@@ -1801,7 +1906,7 @@ Why the previous approach was superseded.
       adr.data.linked_files = [];
     }
     const existingIdx = adr.data.linked_files.findIndex((item) => {
-      const p = typeof item === "string" ? item : item.path;
+      const p = typeof item === "string" ? item : item?.path;
       return p === safeRel;
     });
     const newEntry = { path: safeRel, sha256: hash || void 0 };
@@ -1810,9 +1915,14 @@ Why the previous approach was superseded.
     } else {
       adr.data.linked_files.push(newEntry);
     }
-    writeAtomic(adr.fullPath, stringifyMarkdownFrontmatter(adr.data, adr.content));
+    writeAtomic(
+      adr.fullPath,
+      stringifyMarkdownFrontmatter(adr.data, adr.content)
+    );
     buildIndex(rootDir);
-    logger.success(`Linked '${safeRel}' (${hash ? hash.slice(0, 12) + "..." : "missing"}) to ADR [${adr.id}].`);
+    logger.success(
+      `Linked '${safeRel}' (${hash ? hash.slice(0, 12) + "..." : "missing"}) to ADR [${adr.id}].`
+    );
     return;
   }
   const indexData = loadOrBuildIndex(rootDir);
@@ -1825,7 +1935,7 @@ Why the previous approach was superseded.
     decisions = decisions.filter((d) => d.status === "active");
   }
   if (isJson) {
-    console.log(JSON.stringify(decisions, null, 2));
+    logger.json(decisions);
     return decisions;
   }
   logger.title("Architectural Decision Records (ADRs)");
@@ -1835,17 +1945,17 @@ Why the previous approach was superseded.
   }
   for (const doc of decisions) {
     const statusBadge = doc.status === "active" ? logger.cyan("[ACTIVE]") : doc.status === "superseded" ? logger.yellow("[SUPERSEDED]") : logger.dim(`[${doc.status.toUpperCase()}]`);
-    const driftBadge = doc.stale ? logger.warn(" [STALE CODE DRIFT]") : "";
-    console.log(`${logger.bold(doc.title)} ${statusBadge}${driftBadge}`);
-    console.log(`  ID:     ${logger.bold(doc.id)}`);
-    console.log(`  File:   ${logger.dim(doc.path)}`);
+    const driftBadge = doc.stale ? logger.yellow(" [STALE CODE DRIFT]") : "";
+    logger.log(`${logger.bold(doc.title)} ${statusBadge}${driftBadge}`);
+    logger.log(`  ID:     ${logger.bold(doc.id)}`);
+    logger.log(`  File:   ${logger.dim(doc.path)}`);
     if (doc.tags.length > 0) {
-      console.log(`  Tags:   ${logger.dim(doc.tags.join(", "))}`);
+      logger.log(`  Tags:   ${logger.dim(doc.tags.join(", "))}`);
     }
     if (doc.linked_files.length > 0) {
-      console.log(`  Linked: ${logger.dim(doc.linked_files.join(", "))}`);
+      logger.log(`  Linked: ${logger.dim(doc.linked_files.join(", "))}`);
     }
-    console.log("");
+    logger.log("");
   }
 }
 function findAdr(identifier, rootDir) {
@@ -1884,14 +1994,18 @@ function handleGcCommand(options = {}, rootDir = process.cwd()) {
   }
   const result = runGarbageCollection(rootDir, { dryRun: options.dryRun });
   if (result.archivedTasksCount > 0) {
-    logger.success(`${options.dryRun ? "Would archive" : "Archived"} ${result.archivedTasksCount} old progress item(s) to docs/memory/archive/completed-tasks.md`);
+    logger.success(
+      `${options.dryRun ? "Would archive" : "Archived"} ${result.archivedTasksCount} old progress item(s) to docs/memory/archive/completed-tasks.md`
+    );
   } else {
     logger.info("Progress buffer within limit. No task archiving needed.");
   }
   if (result.supersededDecisionsCount > 0) {
-    logger.success(`${options.dryRun ? "Would relocate" : "Relocated"} ${result.supersededDecisionsCount} superseded decision(s) to docs/memory/archive/decisions/:`);
+    logger.success(
+      `${options.dryRun ? "Would relocate" : "Relocated"} ${result.supersededDecisionsCount} superseded decision(s) to docs/memory/archive/decisions/:`
+    );
     for (const d of result.relocatedDecisions) {
-      console.log(`  - ${logger.dim(d)}`);
+      logger.log(`  - ${logger.dim(d)}`);
     }
   } else {
     logger.info("No superseded decision records found.");
@@ -1993,7 +2107,8 @@ function writeWatchLog(rootDir, level, message) {
     const line = `[${(/* @__PURE__ */ new Date()).toISOString()}] [${level.toUpperCase()}] ${message}
 `;
     fs9.appendFileSync(logPath, line, "utf-8");
-  } catch {
+  } catch (err) {
+    logger.debug(`Failed to append watch log: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
@@ -2006,10 +2121,18 @@ async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
   let isProcessing = false;
   let backoffAttempts = 0;
   let nextAllowedTime = 0;
-  writeWatchLog(rootDir, "info", `Watcher started (debounce: ${debounceTimeMs / 1e3}s, auto: ${isAuto})`);
+  writeWatchLog(
+    rootDir,
+    "info",
+    `Watcher started (debounce: ${debounceTimeMs / 1e3}s, auto: ${isAuto})`
+  );
   logger.title("Veeshree Ambient Memory Watcher");
-  logger.info(`Watching workspace for code modifications (settle debounce: ${debounceTimeMs / 1e3}s)...`);
-  logger.info(`Auto-apply low risk deltas: ${isAuto ? logger.green("ENABLED") : logger.dim("DISABLED (proposals only)")}`);
+  logger.info(
+    `Watching workspace for code modifications (settle debounce: ${debounceTimeMs / 1e3}s)...`
+  );
+  logger.info(
+    `Auto-apply low risk deltas: ${isAuto ? logger.green("ENABLED") : logger.dim("DISABLED (proposals only)")}`
+  );
   logger.info("Press Ctrl+C to stop.\n");
   async function processCodeModifications() {
     if (isProcessing) return;
@@ -2025,15 +2148,23 @@ async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
         let rawTracked = "";
         try {
           rawTracked = runCommandSafe("git", ["diff", "HEAD"], { cwd: rootDir });
-        } catch {
+        } catch (err) {
+          logger.debug(
+            `git diff HEAD failed, falling back to git diff: ${err instanceof Error ? err.message : String(err)}`
+          );
           rawTracked = runCommandSafe("git", ["diff"], { cwd: rootDir });
         }
         diff = filterDiffByDenylist(rawTracked, rootDir);
       } catch (err) {
-        writeWatchLog(rootDir, "debug", `git diff error: ${err?.message || err}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        writeWatchLog(rootDir, "debug", `git diff error: ${msg}`);
       }
       try {
-        const untrackedOutput = runCommandSafe("git", ["ls-files", "--others", "--exclude-standard"], { cwd: rootDir });
+        const untrackedOutput = runCommandSafe(
+          "git",
+          ["ls-files", "--others", "--exclude-standard"],
+          { cwd: rootDir }
+        );
         const untrackedFiles = untrackedOutput.split("\n").map((f) => f.trim()).filter(Boolean);
         for (const file of untrackedFiles.slice(0, 5)) {
           const filePath = path8.join(rootDir, file);
@@ -2046,36 +2177,67 @@ async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
 @@ -0,0 +1,50 @@
 ${fileContent.slice(0, 3e3)}
 `;
-            } catch {
+            } catch (err) {
+              logger.debug(
+                `Failed to read untracked file ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+              );
             }
           }
         }
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.debug(`Failed to list untracked files: ${msg}`);
       }
       if (!diff || diff.trim().length < 20) {
         return;
       }
       const fingerprint = computeDiffFingerprint(diff);
       if (fingerprint === state.lastDiffFingerprint) {
-        writeWatchLog(rootDir, "debug", `Diff fingerprint unchanged (${fingerprint}). Skipping extraction.`);
+        writeWatchLog(
+          rootDir,
+          "debug",
+          `Diff fingerprint unchanged (${fingerprint}). Skipping extraction.`
+        );
         return;
       }
       if (!canMakeWatchCall(maxCallsPerHour, state)) {
-        writeWatchLog(rootDir, "warn", `Hourly API ceiling reached (${maxCallsPerHour} calls/hr). Skipping.`);
-        logger.warn(`[WATCH] Hourly API limit reached (${maxCallsPerHour} calls/hr). Skipping extraction.`);
+        writeWatchLog(
+          rootDir,
+          "warn",
+          `Hourly API ceiling reached (${maxCallsPerHour} calls/hr). Skipping.`
+        );
+        logger.warn(
+          `[WATCH] Hourly API limit reached (${maxCallsPerHour} calls/hr). Skipping extraction.`
+        );
         return;
       }
-      const { filteredDiff: newHunksDiff, newHashes } = filterOutProcessedHunks(diff, state.processedHunkHashes);
+      const { filteredDiff: newHunksDiff, newHashes } = filterOutProcessedHunks(
+        diff,
+        state.processedHunkHashes
+      );
       const diffToSend = newHunksDiff.trim() ? newHunksDiff : diff;
       const maxPayload = config.privacy?.max_payload_bytes || 24576;
       const redactedDiff = redactContent(diffToSend);
       const cappedDiff = capDiffPayload(redactedDiff, maxPayload);
-      writeWatchLog(rootDir, "info", `Extracting memory for changed code (${diffToSend.split("\n").length} lines)...`);
-      logger.info(`[WATCH] Detected code changes (${diffToSend.split("\n").length} diff lines). Extracting memory...`);
-      const delta = await extractMemoryFromContent(cappedDiff, rootDir, options.provider, options.model);
+      writeWatchLog(
+        rootDir,
+        "info",
+        `Extracting memory for changed code (${diffToSend.split("\n").length} lines)...`
+      );
+      logger.info(
+        `[WATCH] Detected code changes (${diffToSend.split("\n").length} diff lines). Extracting memory...`
+      );
+      const delta = await extractMemoryFromContent(
+        cappedDiff,
+        rootDir,
+        options.provider,
+        options.model
+      );
       state.callsThisHour++;
       state.lastDiffFingerprint = fingerprint;
-      state.processedHunkHashes = Array.from(/* @__PURE__ */ new Set([...state.processedHunkHashes || [], ...newHashes]));
+      state.processedHunkHashes = Array.from(
+        /* @__PURE__ */ new Set([...state.processedHunkHashes || [], ...newHashes])
+      );
       state.lastProcessedAt = (/* @__PURE__ */ new Date()).toISOString();
       saveWatchState(state, rootDir);
       const proposal = createProposal("watch", delta, "watch_daemon", rootDir);
@@ -2084,13 +2246,19 @@ ${fileContent.slice(0, 3e3)}
       if (isAuto && proposal.risk === "low" && !hasDecisions) {
         const { reconcileResult } = await acceptProposal(proposal.id, "watch_auto", rootDir);
         const total = reconcileResult.newDecisions.length + reconcileResult.updatedFiles.length;
-        logger.success(`[WATCH] Auto-applied low-risk proposal ${proposal.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
+        logger.success(
+          `[WATCH] Auto-applied low-risk proposal ${proposal.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`
+        );
         writeWatchLog(rootDir, "info", `Auto-applied proposal ${proposal.id} (${total} updates)`);
       } else {
         if (proposal.risk === "high") {
-          logger.warn(`[WATCH] Generated HIGH-RISK proposal ${logger.bold(proposal.id)}. Requires human review: run 'vee review'`);
+          logger.warn(
+            `[WATCH] Generated HIGH-RISK proposal ${logger.bold(proposal.id)}. Requires human review: run 'vee review'`
+          );
         } else {
-          logger.info(`[WATCH] Generated pending proposal ${logger.bold(proposal.id)}. Review with 'vee review' or 'vee accept ${proposal.id}'`);
+          logger.info(
+            `[WATCH] Generated pending proposal ${logger.bold(proposal.id)}. Review with 'vee review' or 'vee accept ${proposal.id}'`
+          );
         }
       }
       backoffAttempts = 0;
@@ -2099,43 +2267,46 @@ ${fileContent.slice(0, 3e3)}
       backoffAttempts++;
       const backoffSec = Math.min(60, Math.pow(2, backoffAttempts));
       nextAllowedTime = Date.now() + backoffSec * 1e3;
-      writeWatchLog(rootDir, "error", `Watch extraction failure: ${err?.message || err} (backing off ${backoffSec}s)`);
-      logger.warn(`[WATCH] Extraction failed: ${err?.message || err} (retrying in ${backoffSec}s)`);
+      const msg = err instanceof Error ? err.message : String(err);
+      writeWatchLog(
+        rootDir,
+        "error",
+        `Watch extraction failure: ${msg} (backing off ${backoffSec}s)`
+      );
+      logger.warn(`[WATCH] Extraction failed: ${msg} (retrying in ${backoffSec}s)`);
     } finally {
       isProcessing = false;
     }
   }
   let watcher = null;
   try {
-    watcher = fs9.watch(
-      rootDir,
-      { recursive: true },
-      (_eventType, filename) => {
-        if (!filename) return;
-        const normalized = filename.replace(/\\/g, "/");
-        const segments = normalized.split("/");
-        const ignoredDirs = /* @__PURE__ */ new Set([".git", "node_modules", "dist", ".next", ".vee"]);
-        if (segments.some((s) => ignoredDirs.has(s)) || normalized.startsWith("docs/memory")) {
-          return;
-        }
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          processCodeModifications();
-        }, debounceTimeMs);
+    watcher = fs9.watch(rootDir, { recursive: true }, (_eventType, filename) => {
+      if (!filename) return;
+      const normalized = filename.replace(/\\/g, "/");
+      const segments = normalized.split("/");
+      const ignoredDirs = /* @__PURE__ */ new Set([".git", "node_modules", "dist", ".next", ".vee"]);
+      if (segments.some((s) => ignoredDirs.has(s)) || normalized.startsWith("docs/memory")) {
+        return;
       }
-    );
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        void processCodeModifications();
+      }, debounceTimeMs);
+    });
     watcher.on("error", (err) => {
-      writeWatchLog(rootDir, "error", `fs.watch error event: ${err?.message || err}. Falling back to polling.`);
+      const msg = err instanceof Error ? err.message : String(err);
+      writeWatchLog(rootDir, "error", `fs.watch error event: ${msg}. Falling back to polling.`);
       if (!pollingInterval) {
         pollingInterval = setInterval(() => {
-          processCodeModifications();
+          void processCodeModifications();
         }, 3e3);
       }
     });
   } catch (watchErr) {
-    writeWatchLog(rootDir, "error", `Recursive fs.watch failed, falling back to polling: ${watchErr.message}`);
+    const msg = watchErr instanceof Error ? watchErr.message : String(watchErr);
+    writeWatchLog(rootDir, "error", `Recursive fs.watch failed, falling back to polling: ${msg}`);
     pollingInterval = setInterval(() => {
-      processCodeModifications();
+      void processCodeModifications();
     }, 2e3);
     return {
       stop: () => {
@@ -2161,7 +2332,10 @@ function isProcessAlive(pid) {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `isProcessAlive failed for PID ${pid}: ${err instanceof Error ? err.message : String(err)}`
+    );
     return false;
   }
 }
@@ -2177,11 +2351,17 @@ function getDaemonStatus(rootDir = process.cwd()) {
     if (!isNaN(pid) && isProcessAlive(pid)) {
       return { running: true, pid, logPath };
     }
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `Failed to read daemon pid file: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
   try {
     fs10.unlinkSync(pidPath);
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `Failed to unlink stale daemon pid file: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
   return { running: false, logPath };
 }
@@ -2209,7 +2389,10 @@ function resolveCliEntrypoint(rootDir = process.cwd()) {
 async function startDaemon(rootDir = process.cwd(), options = {}) {
   const status = getDaemonStatus(rootDir);
   if (status.running && status.pid) {
-    throw new VeeError(`Watcher daemon is already running (PID: ${status.pid}).`, "ERR_INVALID_ARGS");
+    throw new VeeError(
+      `Watcher daemon is already running (PID: ${status.pid}).`,
+      "ERR_INVALID_ARGS"
+    );
   }
   const veeDir = path9.join(rootDir, VEE_DIR_REL);
   if (!fs10.existsSync(veeDir)) {
@@ -2237,22 +2420,31 @@ async function startDaemon(rootDir = process.cwd(), options = {}) {
   child.unref();
   const pid = child.pid;
   if (!pid) {
-    throw new VeeError("Failed to spawn background watcher daemon process.", "ERR_PROVIDER_FAILURE");
+    throw new VeeError(
+      "Failed to spawn background watcher daemon process.",
+      "ERR_PROVIDER_FAILURE"
+    );
   }
   const pidPath = path9.join(rootDir, WATCH_PID_FILE_REL);
   fs10.writeFileSync(pidPath, String(pid), "utf-8");
   await new Promise((r) => setTimeout(r, 1e3));
-  let alive = false;
+  let alive;
   try {
     process.kill(pid, 0);
     alive = true;
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `Daemon PID ${pid} not alive: ${err instanceof Error ? err.message : String(err)}`
+    );
     alive = false;
   }
   if (!alive) {
     try {
       fs10.unlinkSync(pidPath);
-    } catch {
+    } catch (err) {
+      logger.debug(
+        `Failed to unlink daemon pidPath: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
     let logTail = "";
     if (fs10.existsSync(logPath)) {
@@ -2280,13 +2472,19 @@ function stopDaemon(rootDir = process.cwd()) {
     } else {
       process.kill(pid, "SIGTERM");
     }
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `Failed to kill daemon PID ${pid}: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
   const pidPath = path9.join(rootDir, WATCH_PID_FILE_REL);
   if (fs10.existsSync(pidPath)) {
     try {
       fs10.unlinkSync(pidPath);
-    } catch {
+    } catch (err) {
+      logger.debug(
+        `Failed to unlink daemon pidPath: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
   return { stopped: true, pid };
@@ -2299,7 +2497,7 @@ async function handleWatchCommand(options = {}, rootDir = process.cwd()) {
   if (options.subcommand === "status") {
     const status = getDaemonStatus(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(status, null, 2));
+      logger.json(status);
       return status;
     }
     if (status.running) {
@@ -2312,7 +2510,7 @@ async function handleWatchCommand(options = {}, rootDir = process.cwd()) {
   if (options.subcommand === "stop") {
     const result = stopDaemon(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(result, null, 2));
+      logger.json(result);
       return result;
     }
     if (result.stopped) {
@@ -2346,38 +2544,40 @@ function handleReviewCommand(rootDir = process.cwd()) {
     logger.success("No proposals pending review. Memory is up to date.");
     return [];
   }
-  logger.info(`Found ${logger.bold(String(pending.length))} pending proposal(s) awaiting review:
-`);
+  logger.info(
+    `Found ${logger.bold(String(pending.length))} pending proposal(s) awaiting review:
+`
+  );
   for (const p of pending) {
     const riskBadge = p.risk === "high" ? logger.red("[HIGH RISK]") : logger.green("[LOW RISK]");
-    console.log(`${logger.bold(p.id)} ${riskBadge} (${logger.dim(p.source)} at ${p.created_at})`);
+    logger.log(`${logger.bold(p.id)} ${riskBadge} (${logger.dim(p.source)} at ${p.created_at})`);
     if (p.flags.length > 0) {
-      console.log(`  Flags: ${logger.yellow(p.flags.join(", "))}`);
+      logger.log(`  Flags: ${logger.yellow(p.flags.join(", "))}`);
     }
     if (p.delta.decisions.length > 0) {
-      console.log(`  Decisions (+${p.delta.decisions.length}):`);
+      logger.log(`  Decisions (+${p.delta.decisions.length}):`);
       for (const d of p.delta.decisions) {
-        console.log(`    - ${logger.bold(d.title)}: ${d.decision}`);
+        logger.log(`    - ${logger.bold(d.title)}: ${d.decision}`);
       }
     }
     if (p.delta.constraints.length > 0) {
-      console.log(`  Constraints (+${p.delta.constraints.length}):`);
+      logger.log(`  Constraints (+${p.delta.constraints.length}):`);
       for (const c of p.delta.constraints) {
-        console.log(`    - [${c.type.toUpperCase()}] ${c.rule}`);
+        logger.log(`    - [${c.type.toUpperCase()}] ${c.rule}`);
       }
     }
     if (p.delta.tasks.length > 0) {
-      console.log(`  Tasks (+${p.delta.tasks.length}):`);
+      logger.log(`  Tasks (+${p.delta.tasks.length}):`);
       for (const t of p.delta.tasks) {
-        console.log(`    - [${t.action.toUpperCase()}] ${t.task_name}`);
+        logger.log(`    - [${t.action.toUpperCase()}] ${t.task_name}`);
       }
     }
     if (p.delta.current_state?.current_feature) {
-      console.log(`  Current Focus -> ${p.delta.current_state.current_feature}`);
+      logger.log(`  Current Focus -> ${p.delta.current_state.current_feature}`);
     }
-    console.log(`
+    logger.log(`
   ${logger.dim(`-> To accept: vee accept ${p.id}`)}`);
-    console.log(`  ${logger.dim(`-> To reject: vee reject ${p.id}`)}
+    logger.log(`  ${logger.dim(`-> To reject: vee reject ${p.id}`)}
 `);
   }
   logger.info("Run 'vee accept --all-low' to accept all low-risk proposals at once.");
@@ -2395,7 +2595,9 @@ async function handleAcceptCommand(targetId, options = {}, rootDir = process.cwd
       return [];
     }
     if (options.dryRun) {
-      logger.info(`[DRY-RUN] Would accept ${lowRisk.length} low-risk proposal(s): ${lowRisk.map((p) => p.id).join(", ")}`);
+      logger.info(
+        `[DRY-RUN] Would accept ${lowRisk.length} low-risk proposal(s): ${lowRisk.map((p) => p.id).join(", ")}`
+      );
       return lowRisk.map((p) => p.id);
     }
     logger.title(`Accepting All Low-Risk Proposals (${lowRisk.length})`);
@@ -2403,7 +2605,9 @@ async function handleAcceptCommand(targetId, options = {}, rootDir = process.cwd
     for (const p of lowRisk) {
       const { reconcileResult: reconcileResult2 } = await acceptProposal(p.id, "human_all_low", rootDir);
       acceptedIds.push(p.id);
-      logger.success(`Accepted ${p.id} (+${reconcileResult2.newDecisions.length} decisions, ${reconcileResult2.updatedFiles.length} files updated).`);
+      logger.success(
+        `Accepted ${p.id} (+${reconcileResult2.newDecisions.length} decisions, ${reconcileResult2.updatedFiles.length} files updated).`
+      );
     }
     logger.success(`Successfully applied ${acceptedIds.length} low-risk proposal(s).`);
     return acceptedIds;
@@ -2445,7 +2649,7 @@ function handleProposalsCommand(options = {}, rootDir = process.cwd()) {
   const statusFilter = options.status || void 0;
   const list = listProposals(rootDir, statusFilter);
   if (isJson) {
-    console.log(JSON.stringify(list, null, 2));
+    logger.json(list);
     return list;
   }
   logger.title("Veeshree Proposals");
@@ -2456,9 +2660,9 @@ function handleProposalsCommand(options = {}, rootDir = process.cwd()) {
   for (const p of list) {
     const statusBadge = p.status === "accepted" ? logger.green("[ACCEPTED]") : p.status === "rejected" ? logger.dim("[REJECTED]") : logger.cyan("[PENDING]");
     const riskBadge = p.risk === "high" ? logger.red("[HIGH RISK]") : logger.green("[LOW RISK]");
-    console.log(`${logger.bold(p.id)} ${statusBadge} ${riskBadge} (${p.source} at ${p.created_at})`);
+    logger.log(`${logger.bold(p.id)} ${statusBadge} ${riskBadge} (${p.source} at ${p.created_at})`);
     if (p.flags.length > 0) {
-      console.log(`  Flags: ${logger.yellow(p.flags.join(", "))}`);
+      logger.log(`  Flags: ${logger.yellow(p.flags.join(", "))}`);
     }
   }
   return list;
@@ -2475,7 +2679,9 @@ function handleUndoCommand(stepStr, rootDir = process.cwd()) {
   logger.title(`Undoing Last Memory Modification (Step ${step})`);
   const result = restoreSnapshot(step, rootDir);
   buildIndex(rootDir);
-  logger.success(`Restored memory from snapshot ${logger.bold(result.restoredId)} (${result.timestamp}).`);
+  logger.success(
+    `Restored memory from snapshot ${logger.bold(result.restoredId)} (${result.timestamp}).`
+  );
 }
 
 // src/commands/export.ts
@@ -2516,7 +2722,10 @@ function handleImportCommand(filePath, options = {}, rootDir = process.cwd()) {
   }
   try {
     createMemorySnapshot(rootDir, `Pre-import snapshot from ${path11.basename(filePath)}`);
-  } catch {
+  } catch (err) {
+    logger.debug(
+      `Snapshot creation skipped before import: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
   const raw = fs12.readFileSync(filePath, "utf-8");
   let bundle = {};
@@ -2525,7 +2734,10 @@ function handleImportCommand(filePath, options = {}, rootDir = process.cwd()) {
       const parsed = JSON.parse(raw);
       if (parsed.manifest) {
         if (parsed.manifest.format !== "veeshree-memory-export") {
-          throw new VeeError("Invalid bundle manifest format. Expected 'veeshree-memory-export'.", "ERR_INVALID_ARGS");
+          throw new VeeError(
+            "Invalid bundle manifest format. Expected 'veeshree-memory-export'.",
+            "ERR_INVALID_ARGS"
+          );
         }
       }
       if (parsed.files && Array.isArray(parsed.files)) {
@@ -2539,7 +2751,8 @@ function handleImportCommand(filePath, options = {}, rootDir = process.cwd()) {
       }
     } catch (err) {
       if (err instanceof VeeError) throw err;
-      throw new VeeError(`Failed to parse JSON bundle: ${err.message}`, "ERR_INVALID_ARGS");
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new VeeError(`Failed to parse JSON bundle: ${msg}`, "ERR_INVALID_ARGS");
     }
   } else {
     const regex = /<!-- FILE: ([\s\S]+?) -->\n([\s\S]*?)<!-- END FILE -->/g;
@@ -2565,10 +2778,16 @@ function handleImportCommand(filePath, options = {}, rootDir = process.cwd()) {
     },
     files: Object.entries(bundle).map(([p, content]) => ({ path: p, content }))
   };
-  const { restoredFiles, proposal } = importMemoryFromArchive(rootDir, memoryExportBundle, { yes: options.yes });
+  const { restoredFiles, proposal } = importMemoryFromArchive(rootDir, memoryExportBundle, {
+    yes: options.yes
+  });
   if (proposal) {
-    logger.info(`Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
-    logger.info(`Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`);
+    logger.info(
+      `Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`
+    );
+    logger.info(
+      `Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`
+    );
   }
   if (restoredFiles.length > 0) {
     logger.success(`Successfully imported ${restoredFiles.length} memory file(s).`);
@@ -2582,7 +2801,10 @@ async function handleMcpCommand(action, options = {}, rootDir = process.cwd()) {
   const effectiveRoot = options.root ? path12.resolve(options.root) : rootDir;
   if (action === "install") {
     if (!options.client) {
-      throw new VeeError("Usage: vee mcp install --client <claude|claude-code|cursor|vscode|gemini>", "ERR_INVALID_ARGS");
+      throw new VeeError(
+        "Usage: vee mcp install --client <claude|claude-code|cursor|vscode|gemini>",
+        "ERR_INVALID_ARGS"
+      );
     }
     const client = options.client.toLowerCase();
     const { configPath, backupPath } = installMcpClientConfig(client, effectiveRoot, {
@@ -2605,7 +2827,8 @@ function handleHooksCommand(action = "status", rootDir = process.cwd(), options 
   if (action === "install") {
     const installed = installGitHooks(rootDir);
     if (isJson) {
-      console.log(JSON.stringify({ action: "install", installed }, null, 2));
+      const payload = { action: "install", installed };
+      logger.json(payload);
       return installed;
     }
     logger.success(`Installed Veeshree Git hooks: ${installed.join(", ")}`);
@@ -2614,7 +2837,8 @@ function handleHooksCommand(action = "status", rootDir = process.cwd(), options 
   if (action === "uninstall") {
     const removed = uninstallGitHooks(rootDir);
     if (isJson) {
-      console.log(JSON.stringify({ action: "uninstall", removed }, null, 2));
+      const payload = { action: "uninstall", removed };
+      logger.json(payload);
       return removed;
     }
     if (removed.length > 0) {
@@ -2627,7 +2851,7 @@ function handleHooksCommand(action = "status", rootDir = process.cwd(), options 
   if (action === "status") {
     const status = getHooksStatus(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(status, null, 2));
+      logger.json(status);
       return status;
     }
     logger.title("Veeshree Git Hooks Status");
@@ -2635,13 +2859,22 @@ function handleHooksCommand(action = "status", rootDir = process.cwd(), options 
       logger.warn("Not a Git repository.");
       return status;
     }
-    console.log(`Hooks Directory:  ${logger.dim(status.hooksDir)}`);
-    console.log(`pre-commit:       ${status.preCommitInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
-    console.log(`post-checkout:    ${status.postCheckoutInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
-    console.log(`post-merge:       ${status.postMergeInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`);
+    logger.log(`Hooks Directory:  ${logger.dim(status.hooksDir)}`);
+    logger.log(
+      `pre-commit:       ${status.preCommitInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`
+    );
+    logger.log(
+      `post-checkout:    ${status.postCheckoutInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`
+    );
+    logger.log(
+      `post-merge:       ${status.postMergeInstalled ? logger.green("[INSTALLED]") : logger.dim("[NOT INSTALLED]")}`
+    );
     return status;
   }
-  throw new VeeError(`Unknown hooks action '${action}'. Supported: install, uninstall, status`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown hooks action '${action}'. Supported: install, uninstall, status`,
+    "ERR_INVALID_ARGS"
+  );
 }
 
 // src/commands/rules.ts
@@ -2651,7 +2884,7 @@ function handleRulesCommand(action = "list", options = {}, rootDir = process.cwd
     if (action === "list") {
       logger.title("Veeshree Agent Rule Targets");
       for (const t of KNOWN_AGENT_TARGETS) {
-        console.log(`- ${logger.bold(t.name.padEnd(12))}: ${t.relPath}`);
+        logger.log(`- ${logger.bold(t.name.padEnd(12))}: ${t.relPath}`);
       }
       return;
     }
@@ -2668,7 +2901,10 @@ function handleRulesCommand(action = "list", options = {}, rootDir = process.cwd
     }
     return;
   }
-  throw new VeeError(`Unknown rules action '${action}'. Supported: list, update, uninstall`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown rules action '${action}'. Supported: list, update, uninstall`,
+    "ERR_INVALID_ARGS"
+  );
 }
 
 // src/commands/ci.ts
@@ -2696,7 +2932,7 @@ jobs:
       - name: Verify Architectural Drift
         run: npx --yes veeshree status --check --json
 `;
-function handleCiCommand(action = "init", rootDir = process.cwd()) {
+function handleCiCommand(_action = "init", rootDir = process.cwd()) {
   const workflowPath = path13.join(rootDir, ".github", "workflows", "veeshree.yml");
   writeAtomic(workflowPath, GITHUB_WORKFLOW_TEMPLATE);
   logger.success(`Created GitHub Actions CI workflow: .github/workflows/veeshree.yml`);
@@ -2708,7 +2944,7 @@ function handleConfigCommand(action = "list", key, value, options = {}, rootDir 
   if (isJson) logger.setJson(true);
   if (action === "path") {
     const p = options.global ? getGlobalConfigPath() : getProjectConfigPath(rootDir);
-    console.log(p);
+    logger.raw(p);
     return;
   }
   if (action === "list") {
@@ -2716,19 +2952,26 @@ function handleConfigCommand(action = "list", key, value, options = {}, rootDir 
     if (!isJson) {
       logger.title("Veeshree Configuration (Merged)");
     }
-    console.log(JSON.stringify(config, null, 2));
+    logger.json(config);
     return;
   }
   if (action === "get") {
     if (!key) {
-      throw new VeeError("Usage: vee config get <key> (e.g. vee config get privacy.allow_cloud)", "ERR_INVALID_ARGS");
+      throw new VeeError(
+        "Usage: vee config get <key> (e.g. vee config get privacy.allow_cloud)",
+        "ERR_INVALID_ARGS"
+      );
     }
     const config = loadConfig(rootDir);
     const val = getConfigProperty(config, key);
     if (val === void 0) {
       logger.info(`(not set)`);
     } else {
-      console.log(typeof val === "object" ? JSON.stringify(val, null, 2) : String(val));
+      if (typeof val === "object" && val !== null) {
+        logger.json(val);
+      } else {
+        logger.raw(String(val));
+      }
     }
     return;
   }
@@ -2743,10 +2986,15 @@ function handleConfigCommand(action = "list", key, value, options = {}, rootDir 
     else if (!isNaN(Number(value)) && value.trim() !== "") parsedVal = Number(value);
     setConfigProperty(config, key, parsedVal);
     saveConfig(config, rootDir, options.global);
-    logger.success(`Set ${key} = ${parsedVal} (${options.global ? "global" : "project local"})`);
+    logger.success(
+      `Set ${key} = ${String(parsedVal)} (${options.global ? "global" : "project local"})`
+    );
     return;
   }
-  throw new VeeError(`Unknown config action '${action}'. Supported: get, set, list, path`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown config action '${action}'. Supported: get, set, list, path`,
+    "ERR_INVALID_ARGS"
+  );
 }
 
 // src/commands/completion.ts
@@ -2780,7 +3028,7 @@ function handleCompletionCommand(shell = "bash") {
     "completion"
   ];
   if (shell === "powershell") {
-    console.log(`Register-ArgumentCompleter -Native -CommandName vee,veeshree -ScriptBlock {
+    logger.raw(`Register-ArgumentCompleter -Native -CommandName vee,veeshree -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
   $commands = @(${commands.map((c) => `"${c}"`).join(",")})
   $commands | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
@@ -2790,7 +3038,7 @@ function handleCompletionCommand(shell = "bash") {
     return;
   }
   if (shell === "zsh") {
-    console.log(`#compdef vee veeshree
+    logger.raw(`#compdef vee veeshree
 _vee() {
   local -a commands
   commands=(${commands.join(" ")})
@@ -2800,11 +3048,11 @@ compdef _vee vee veeshree`);
     return;
   }
   if (shell === "fish") {
-    console.log(`complete -c vee -f -a "${commands.join(" ")}"
+    logger.raw(`complete -c vee -f -a "${commands.join(" ")}"
 complete -c veeshree -f -a "${commands.join(" ")}"`);
     return;
   }
-  console.log(`_vee_completions() {
+  logger.raw(`_vee_completions() {
   local cur="\${COMP_WORDS[COMP_CWORD]}"
   local commands="${commands.join(" ")}"
   COMPREPLY=($(compgen -W "\${commands}" -- "\${cur}"))
@@ -2817,22 +3065,34 @@ complete -F _vee_completions veeshree`);
 var nodeVersion = process.versions.node.split(".");
 var majorVersion = parseInt(nodeVersion[0] || "0", 10);
 if (majorVersion < 20) {
-  logger.error(`Veeshree ${VEESHREE_VERSION} requires Node.js v20.0.0 or higher. Current version: ${process.version}`);
+  logger.error(
+    `Veeshree ${VEESHREE_VERSION} requires Node.js v20.0.0 or higher. Current version: ${process.version}`
+  );
   process.exit(1);
 }
 var program = new Command();
-program.name("vee").description("Veeshree: Local-first context persistence layer for multi-model AI software development").version(VEESHREE_VERSION).option("-q, --quiet", "Suppress non-essential console output").option("--json", "Format supported output as structured JSON").option("--no-color", "Disable terminal colors").hook("preAction", (thisCommand, actionCommand) => {
+program.name("vee").description(
+  "Veeshree: Local-first context persistence layer for multi-model AI software development"
+).version(VEESHREE_VERSION).option("-q, --quiet", "Suppress non-essential console output").option("--json", "Format supported output as structured JSON").option("--no-color", "Disable terminal colors").hook("preAction", (thisCommand, actionCommand) => {
   const opts = { ...thisCommand.opts(), ...actionCommand?.opts() };
   if (opts.quiet) logger.setQuiet(true);
   if (opts.json) logger.setJson(true);
 });
-program.command("init").description("Bootstrap Veeshree project memory, heuristic scanner, agent rules, and Git hooks").option("-f, --force", "Overwrite existing memory scaffolds and hooks", false).option("--dry-run", "Preview initialization steps without making filesystem changes", false).option("--agents <list>", "Comma-separated list of target agent rules (claude, cursor, gemini, etc.)").action((options) => {
+program.command("init").description("Bootstrap Veeshree project memory, heuristic scanner, agent rules, and Git hooks").option("-f, --force", "Overwrite existing memory scaffolds and hooks", false).option("--dry-run", "Preview initialization steps without making filesystem changes", false).option(
+  "--agents <list>",
+  "Comma-separated list of target agent rules (claude, cursor, gemini, etc.)"
+).action((options) => {
   runSafe(() => initializeVeeshree(process.cwd(), options));
 });
-program.command("migrate").description("Upgrade a 0.3.x project to Veeshree 1.0.0 schema, frontmatter baselines, and numbered ADRs").option("--dry-run", "Simulate migration plan without writing files", false).action(async (options) => {
+program.command("migrate").description(
+  "Upgrade a 0.3.x project to Veeshree 1.0.0 schema, frontmatter baselines, and numbered ADRs"
+).option("--dry-run", "Simulate migration plan without writing files", false).action(async (options) => {
   await runSafeAsync(() => handleMigrateCommand(options, process.cwd()));
 });
-program.command("sync").description("Re-scan memory, verify SHA-256 code hashes, or explicitly accept drifted baselines").option("-a, --accept [target]", "Explicitly accept drifted baselines into ADR frontmatter (<id> or all)").option("--all", "Accept all drifted baselines (can be combined with --accept)", false).option("-j, --json", "Output drift report in structured JSON format", false).option("-q, --quiet", "Quiet output mode", false).option("--dry-run", "Simulate baseline acceptance without writing files", false).action((options) => {
+program.command("sync").description("Re-scan memory, verify SHA-256 code hashes, or explicitly accept drifted baselines").option(
+  "-a, --accept [target]",
+  "Explicitly accept drifted baselines into ADR frontmatter (<id> or all)"
+).option("--all", "Accept all drifted baselines (can be combined with --accept)", false).option("-j, --json", "Output drift report in structured JSON format", false).option("-q, --quiet", "Quiet output mode", false).option("--dry-run", "Simulate baseline acceptance without writing files", false).action((options) => {
   runSafe(() => {
     let acceptTarget = options.accept;
     if (options.all) {
@@ -2855,16 +3115,23 @@ program.command("sync").description("Re-scan memory, verify SHA-256 code hashes,
     }
   });
 });
-var watchCmd = program.command("watch").description("Start ambient background watcher to observe code diffs and queue memory proposals").option("-d, --debounce <seconds>", "Debounce settle window in seconds before extracting (default: 5)").option("-p, --provider <provider>", "Specific model provider override").option("-m, --model <model>", "Specific model name override").option("--auto", "Automatically apply low-risk memory deltas", false).option("--daemon", "Run watcher in the background as a detached daemon process", false).action(async (options) => {
+var watchCmd = program.command("watch").description("Start ambient background watcher to observe code diffs and queue memory proposals").option(
+  "-d, --debounce <seconds>",
+  "Debounce settle window in seconds before extracting (default: 5)"
+).option("-p, --provider <provider>", "Specific model provider override").option("-m, --model <model>", "Specific model name override").option("--auto", "Automatically apply low-risk memory deltas", false).option("--daemon", "Run watcher in the background as a detached daemon process", false).action(async (options) => {
   await runSafeAsync(() => handleWatchCommand(options, process.cwd()));
 });
 watchCmd.command("status").description("Check if background watcher daemon is currently running").option("-j, --json", "Output daemon status as JSON", false).action(async (options) => {
-  await runSafeAsync(() => handleWatchCommand({ subcommand: "status", ...options }, process.cwd()));
+  await runSafeAsync(
+    () => handleWatchCommand({ subcommand: "status", ...options }, process.cwd())
+  );
 });
 watchCmd.command("stop").description("Stop background watcher daemon").action(async () => {
   await runSafeAsync(() => handleWatchCommand({ subcommand: "stop" }, process.cwd()));
 });
-program.command("capture").description("Extract structured decisions and memory updates from conversation logs or diffs into proposal queue").option("-f, --file <path>", "Path to conversation transcript, session log, or diff file").option("--diff", "Capture git diff directly from working tree", false).option("-p, --provider <provider>", "Extraction provider").option("-m, --model <model>", "Custom model name for extraction").option("--auto", "Automatically apply low-risk memory proposal", false).option("--dry-run", "Preview extraction payload without calling model", false).option("--show-payload", "Print exact redacted payload that would be sent to LLM", false).action(async (options) => {
+program.command("capture").description(
+  "Extract structured decisions and memory updates from conversation logs or diffs into proposal queue"
+).option("-f, --file <path>", "Path to conversation transcript, session log, or diff file").option("--diff", "Capture git diff directly from working tree", false).option("-p, --provider <provider>", "Extraction provider").option("-m, --model <model>", "Custom model name for extraction").option("--auto", "Automatically apply low-risk memory proposal", false).option("--dry-run", "Preview extraction payload without calling model", false).option("--show-payload", "Print exact redacted payload that would be sent to LLM", false).action(async (options) => {
   await runSafeAsync(() => handleCaptureCommand(options, process.cwd()));
 });
 program.command("review").description("Interactive list of pending memory proposals with diffs and risk scores").action(() => {
@@ -2892,12 +3159,20 @@ decisionsCmd.command("show <id>").description("Display full ADR with supersede c
   runSafe(() => handleDecisionsCommand({ subcommand: "show", id }, process.cwd()));
 });
 decisionsCmd.command("supersede <old-id> <new-title>").description("Mark an ADR superseded and generate a replacement ADR").action((oldId, newTitle) => {
-  runSafe(() => handleDecisionsCommand({ subcommand: "supersede", id: oldId, title: newTitle }, process.cwd()));
+  runSafe(
+    () => handleDecisionsCommand({ subcommand: "supersede", id: oldId, title: newTitle }, process.cwd())
+  );
 });
 decisionsCmd.command("link <id> <file-path>").description("Link a source code file to an ADR and record its baseline hash").action((id, filePath) => {
-  runSafe(() => handleDecisionsCommand({ subcommand: "link", id, targetFile: filePath }, process.cwd()));
+  runSafe(
+    () => handleDecisionsCommand({ subcommand: "link", id, targetFile: filePath }, process.cwd())
+  );
 });
-program.command("status").description("Display memory health dashboard, task progress, and live drift alerts").option("-c, --check", "Exit with error code 1 if stale drift is detected (for CI / pre-commit)", false).option("-j, --json", "Output status dashboard as JSON", false).option("-q, --quiet", "Quiet output mode", false).action((options) => {
+program.command("status").description("Display memory health dashboard, task progress, and live drift alerts").option(
+  "-c, --check",
+  "Exit with error code 1 if stale drift is detected (for CI / pre-commit)",
+  false
+).option("-j, --json", "Output status dashboard as JSON", false).option("-q, --quiet", "Quiet output mode", false).action((options) => {
   runSafe(() => {
     const result = handleStatusCommand(options, process.cwd());
     if (result.exitCode !== 0) {
@@ -2908,7 +3183,9 @@ program.command("status").description("Display memory health dashboard, task pro
 program.command("search <query>").description("Search indexed memory and decisions for keywords").option("-a, --archived", "Include archived and superseded records", false).option("-j, --json", "Output results as structured JSON", false).action((query, options) => {
   runSafe(() => handleSearchCommand(query, options, process.cwd()));
 });
-program.command("gc").description("Prune old progress into archive/ and move superseded decisions into archive/decisions/").option("--dry-run", "Simulate archival without modifying files", false).action((options) => {
+program.command("gc").description(
+  "Prune old progress into archive/ and move superseded decisions into archive/decisions/"
+).option("--dry-run", "Simulate archival without modifying files", false).action((options) => {
   runSafe(() => handleGcCommand(options, process.cwd()));
 });
 program.command("undo [step]").description("Restore memory from pre-apply backup snapshots (default: 1 step back)").action((step) => {
@@ -2924,7 +3201,9 @@ var mcpCmd = program.command("mcp").description("Start Model Context Protocol (M
   const rootDir = options.root ? path14.resolve(options.root) : process.cwd();
   await runSafeAsync(() => handleMcpCommand(void 0, options, rootDir));
 });
-mcpCmd.command("install").description("Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)").requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini").option("--root <dir>", "Project or workspace root directory").option("--no-install", "Use local binary instead of npx").action(async (options) => {
+mcpCmd.command("install").description(
+  "Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)"
+).requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini").option("--root <dir>", "Project or workspace root directory").option("--no-install", "Use local binary instead of npx").action(async (options) => {
   const noInstall = options.install === false || options.noInstall === true;
   await runSafeAsync(() => handleMcpCommand("install", { ...options, noInstall }, process.cwd()));
 });
@@ -2952,7 +3231,9 @@ var ciCmd = program.command("ci").description("Continuous Integration setup and 
 ciCmd.command("init").description("Generate GitHub Actions workflow file for automated drift checking").action(() => {
   runSafe(() => handleCiCommand("init", process.cwd()));
 });
-var keysCmd = program.command("keys").description("Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)");
+var keysCmd = program.command("keys").description(
+  "Manage AI provider API keys securely in machine keystore (~/.veeshree/credentials.json)"
+);
 keysCmd.command("list").description("List configured AI model providers with masked keys and sources").option("-j, --json", "Output configured keys as JSON", false).action((options) => {
   runSafe(() => handleKeysCommand("list", void 0, void 0, options, process.cwd()));
 });
@@ -2965,10 +3246,14 @@ keysCmd.command("update <provider> <key>").description("Update an existing API k
 keysCmd.command("remove <provider>").description("Remove stored API key for a provider").option("-l, --local", "Remove from local .vee/config.json only", false).option("-g, --global", "Remove from global keystore only", false).action((provider, options) => {
   runSafe(() => handleKeysCommand("remove", provider, void 0, options, process.cwd()));
 });
-var modelsCmd = program.command("models").description("Scan local engine ports (11434, 1234), active LLM runtimes, and configure model versions").action(async () => {
+var modelsCmd = program.command("models").description(
+  "Scan local engine ports (11434, 1234), active LLM runtimes, and configure model versions"
+).action(async () => {
   await runSafeAsync(() => handleModelsCommand(process.cwd()));
 });
-modelsCmd.command("use <provider> <model>").description("Set default extractor model version (e.g. 'vee models use gemini gemini-2.0-flash')").action((provider, model) => {
+modelsCmd.command("use <provider> <model>").description(
+  "Set default extractor model version (e.g. 'vee models use gemini gemini-2.0-flash')"
+).action((provider, model) => {
   runSafe(() => handleModelsUseCommand(provider, model, process.cwd()));
 });
 modelsCmd.command("pull <model>").description("Pull / update a local model via Ollama (e.g. 'vee models pull llama3.2')").action((model) => {
@@ -2978,16 +3263,26 @@ var configCmd = program.command("config").description("Manage Veeshree configura
 configCmd.command("list").description("Display merged configuration settings").option("-j, --json", "Output merged config as JSON", false).action((options) => {
   runSafe(() => handleConfigCommand("list", void 0, void 0, options, process.cwd()));
 });
-configCmd.command("get <key>").description("Get configuration setting value by dot-notation (e.g. 'vee config get privacy.allow_cloud')").action((key) => {
+configCmd.command("get <key>").description(
+  "Get configuration setting value by dot-notation (e.g. 'vee config get privacy.allow_cloud')"
+).action((key) => {
   runSafe(() => handleConfigCommand("get", key, void 0, {}, process.cwd()));
 });
-configCmd.command("set <key> <value>").description("Set configuration setting value by dot-notation (e.g. 'vee config set privacy.allow_cloud true')").option("-g, --global", "Save to global config (~/.veeshree/config.json)", false).action((key, value, options) => {
+configCmd.command("set <key> <value>").description(
+  "Set configuration setting value by dot-notation (e.g. 'vee config set privacy.allow_cloud true')"
+).option("-g, --global", "Save to global config (~/.veeshree/config.json)", false).action((key, value, options) => {
   runSafe(() => handleConfigCommand("set", key, value, options, process.cwd()));
 });
 configCmd.command("path").description("Display path to configuration file").option("-g, --global", "Show path to global config", false).action((options) => {
   runSafe(() => handleConfigCommand("path", void 0, void 0, options, process.cwd()));
 });
-program.command("doctor").description("Run comprehensive repository health, security, and AI engine connectivity diagnostics").option("--fix", "Automatically repair permissions, missing directories, gitignore, and rules", false).option("-j, --json", "Output diagnostics as JSON", false).action(async (options) => {
+program.command("doctor").description(
+  "Run comprehensive repository health, security, and AI engine connectivity diagnostics"
+).option(
+  "--fix",
+  "Automatically repair permissions, missing directories, gitignore, and rules",
+  false
+).option("-j, --json", "Output diagnostics as JSON", false).action(async (options) => {
   await runSafeAsync(async () => {
     const result = await handleDoctorCommand(options, process.cwd());
     if (result.hasFailures) {

@@ -19,7 +19,15 @@ export interface IndexDocument {
   id: string;
   path: string;
   title: string;
-  type: "decision" | "state" | "tasks" | "constraints" | "rejected" | "discoveries" | "archived_decision" | "other";
+  type:
+    | "decision"
+    | "state"
+    | "tasks"
+    | "constraints"
+    | "rejected"
+    | "discoveries"
+    | "archived_decision"
+    | "other";
   status: "active" | "superseded" | "proposed";
   tags: string[];
   linked_files: string[];

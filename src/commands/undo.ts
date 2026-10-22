@@ -15,5 +15,7 @@ export function handleUndoCommand(stepStr?: string, rootDir: string = process.cw
   const result = restoreSnapshot(step, rootDir);
   buildIndex(rootDir);
 
-  logger.success(`Restored memory from snapshot ${logger.bold(result.restoredId)} (${result.timestamp}).`);
+  logger.success(
+    `Restored memory from snapshot ${logger.bold(result.restoredId)} (${result.timestamp}).`
+  );
 }

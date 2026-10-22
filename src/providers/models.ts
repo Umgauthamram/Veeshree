@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import defaultModelsConfig from "../models.json" with { type: "json" };
-import { VeeError } from "../utils/errors.js";
 
-export type SupportedProvider = "gemini" | "openai" | "anthropic" | "groq" | "nvidia" | "ollama" | "lmstudio";
+export type SupportedProvider =
+  "gemini" | "openai" | "anthropic" | "groq" | "nvidia" | "ollama" | "lmstudio";
 
 export interface ModelsConfig {
   defaults: Record<SupportedProvider, string> & Record<string, string>;
@@ -79,7 +79,9 @@ export function validateModel(
   // Find closest suggestion (prefix or substring match)
   const modelLower = model.toLowerCase();
   const suggested =
-    available.find((m) => m.toLowerCase().includes(modelLower) || modelLower.includes(m.toLowerCase())) ||
+    available.find(
+      (m) => m.toLowerCase().includes(modelLower) || modelLower.includes(m.toLowerCase())
+    ) ||
     config.defaults[normalizedProvider] ||
     available[0];
 

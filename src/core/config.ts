@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { VeeshreeConfigSchema, type VeeshreeConfig } from "../schemas/config.schema.js";
-import { CONFIG_FILE_REL, VEE_DIR_REL } from "../utils/constants.js";
+import { CONFIG_FILE_REL } from "../utils/constants.js";
 import { writeAtomic } from "./memory/atomic.js";
+import { logger } from "../utils/logger.js";
 
 export function getDefaultConfig(): VeeshreeConfig {
   return VeeshreeConfigSchema.parse({});
@@ -25,15 +26,20 @@ export function getProjectConfigPath(rootDir: string = process.cwd()): string {
  * 4. Defaults
  */
 export function loadConfig(targetDir: string = process.cwd()): VeeshreeConfig {
-  let merged: Record<string, any> = {};
+  let merged: Record<string, unknown> = {};
 
   // 1. Global config
   const globalPath = getGlobalConfigPath();
   if (fs.existsSync(globalPath)) {
     try {
-      merged = { ...merged, ...JSON.parse(fs.readFileSync(globalPath, "utf-8")) };
-    } catch {
-      // ignore
+      merged = {
+        ...merged,
+        ...(JSON.parse(fs.readFileSync(globalPath, "utf-8")) as Record<string, unknown>),
+      };
+    } catch (err: unknown) {
+      logger.debug(
+        `Failed to read global config: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
@@ -41,9 +47,14 @@ export function loadConfig(targetDir: string = process.cwd()): VeeshreeConfig {
   const projectPath = getProjectConfigPath(targetDir);
   if (fs.existsSync(projectPath)) {
     try {
-      merged = { ...merged, ...JSON.parse(fs.readFileSync(projectPath, "utf-8")) };
-    } catch {
-      // ignore
+      merged = {
+        ...merged,
+        ...(JSON.parse(fs.readFileSync(projectPath, "utf-8")) as Record<string, unknown>),
+      };
+    } catch (err: unknown) {
+      logger.debug(
+        `Failed to read project config: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
@@ -51,29 +62,33 @@ export function loadConfig(targetDir: string = process.cwd()): VeeshreeConfig {
   if (merged.default_extractor && !merged.extractor) {
     merged.extractor = merged.default_extractor;
   }
-  if (merged.settings?.max_context_tokens && !merged.context?.max_tokens) {
-    if (!merged.context) merged.context = {};
-    merged.context.max_tokens = merged.settings.max_context_tokens;
+  const settings = merged.settings as Record<string, unknown> | undefined;
+  const context = (merged.context as Record<string, unknown> | undefined) || {};
+  if (settings?.max_context_tokens && !context.max_tokens) {
+    merged.context = { ...context, max_tokens: settings.max_context_tokens };
   }
 
   // 3. Environment variable overrides
   if (process.env.VEE_PROVIDER) {
-    if (!merged.extractor) merged.extractor = {};
-    merged.extractor.provider = process.env.VEE_PROVIDER;
+    const ext = (merged.extractor as Record<string, unknown> | undefined) || {};
+    merged.extractor = { ...ext, provider: process.env.VEE_PROVIDER };
   }
   if (process.env.VEE_MODEL) {
-    if (!merged.extractor) merged.extractor = {};
-    merged.extractor.model = process.env.VEE_MODEL;
+    const ext = (merged.extractor as Record<string, unknown> | undefined) || {};
+    merged.extractor = { ...ext, model: process.env.VEE_MODEL };
   }
   if (process.env.VEE_ALLOW_CLOUD) {
-    if (!merged.privacy) merged.privacy = {};
-    merged.privacy.allow_cloud = process.env.VEE_ALLOW_CLOUD === "true" || process.env.VEE_ALLOW_CLOUD === "1";
+    const priv = (merged.privacy as Record<string, unknown> | undefined) || {};
+    merged.privacy = {
+      ...priv,
+      allow_cloud: process.env.VEE_ALLOW_CLOUD === "true" || process.env.VEE_ALLOW_CLOUD === "1",
+    };
   }
   if (process.env.VEE_MAX_TOKENS) {
     const num = parseInt(process.env.VEE_MAX_TOKENS, 10);
     if (!isNaN(num)) {
-      if (!merged.context) merged.context = {};
-      merged.context.max_tokens = num;
+      const ctx = (merged.context as Record<string, unknown> | undefined) || {};
+      merged.context = { ...ctx, max_tokens: num };
     }
   }
 
@@ -85,14 +100,15 @@ export function loadConfig(targetDir: string = process.cwd()): VeeshreeConfig {
   }
 
   // Populate backward compatibility accessors
-  if (!parsed.default_extractor) {
-    (parsed as any).default_extractor = {
+  const compat = parsed as unknown as Record<string, unknown>;
+  if (!compat.default_extractor) {
+    compat.default_extractor = {
       provider: parsed.extractor.provider,
       model: parsed.extractor.model,
     };
   }
-  if (!parsed.settings) {
-    (parsed as any).settings = {
+  if (!compat.settings) {
+    compat.settings = {
       max_context_tokens: parsed.context.max_tokens,
       auto_sync_on_commit: parsed.hooks.enabled,
     };
@@ -113,12 +129,12 @@ export function saveConfig(
 /**
  * Retrieves nested config property by dot-notation path (e.g. 'privacy.allow_cloud')
  */
-export function getConfigProperty(config: Record<string, any>, keyPath: string): any {
+export function getConfigProperty(config: Record<string, unknown>, keyPath: string): unknown {
   const parts = keyPath.split(".");
-  let cur: any = config;
+  let cur: unknown = config;
   for (const p of parts) {
-    if (cur === undefined || cur === null) return undefined;
-    cur = cur[p];
+    if (cur === undefined || cur === null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[p];
   }
   return cur;
 }
@@ -126,16 +142,20 @@ export function getConfigProperty(config: Record<string, any>, keyPath: string):
 /**
  * Sets nested config property by dot-notation path
  */
-export function setConfigProperty(config: Record<string, any>, keyPath: string, value: any): void {
+export function setConfigProperty(
+  config: Record<string, unknown>,
+  keyPath: string,
+  value: unknown
+): void {
   const parts = keyPath.split(".");
-  let cur: any = config;
+  let cur: Record<string, unknown> = config;
   for (let i = 0; i < parts.length - 1; i++) {
     const p = parts[i];
     if (!p) continue;
     if (!cur[p] || typeof cur[p] !== "object") {
       cur[p] = {};
     }
-    cur = cur[p];
+    cur = cur[p] as Record<string, unknown>;
   }
   const lastKey = parts[parts.length - 1];
   if (lastKey) {

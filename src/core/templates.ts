@@ -6,9 +6,15 @@ export function generateCurrentStateTemplate(info: ScannedProjectInfo): string {
     info.languages.length > 0 ? `- **Languages**: ${info.languages.join(", ")}` : "",
     info.frameworks.length > 0 ? `- **Frameworks / Libraries**: ${info.frameworks.join(", ")}` : "",
     info.databases.length > 0 ? `- **Databases / Data Layer**: ${info.databases.join(", ")}` : "",
-    info.domainEntities.length > 0 ? `- **Core Domain Entities**: ${info.domainEntities.join(", ")}` : "",
-    info.apiEndpoints.length > 0 ? `- **Detected API Endpoints**: ${info.apiEndpoints.slice(0, 8).join(", ")}` : "",
-    info.infrastructure.length > 0 ? `- **Infrastructure & Tools**: ${info.infrastructure.join(", ")}` : "",
+    info.domainEntities.length > 0
+      ? `- **Core Domain Entities**: ${info.domainEntities.join(", ")}`
+      : "",
+    info.apiEndpoints.length > 0
+      ? `- **Detected API Endpoints**: ${info.apiEndpoints.slice(0, 8).join(", ")}`
+      : "",
+    info.infrastructure.length > 0
+      ? `- **Infrastructure & Tools**: ${info.infrastructure.join(", ")}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -41,7 +47,6 @@ ${commitSummary}
 - [ ] Set active development goals in \`docs/memory/tasks.md\`
 `;
 }
-
 
 export function generateTasksTemplate(): string {
   return `# Project Tasks & Milestones

@@ -24,7 +24,9 @@ export async function handleAcceptCommand(
     }
 
     if (options.dryRun) {
-      logger.info(`[DRY-RUN] Would accept ${lowRisk.length} low-risk proposal(s): ${lowRisk.map((p) => p.id).join(", ")}`);
+      logger.info(
+        `[DRY-RUN] Would accept ${lowRisk.length} low-risk proposal(s): ${lowRisk.map((p) => p.id).join(", ")}`
+      );
       return lowRisk.map((p) => p.id);
     }
 
@@ -34,7 +36,9 @@ export async function handleAcceptCommand(
     for (const p of lowRisk) {
       const { reconcileResult } = await acceptProposal(p.id, "human_all_low", rootDir);
       acceptedIds.push(p.id);
-      logger.success(`Accepted ${p.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`);
+      logger.success(
+        `Accepted ${p.id} (+${reconcileResult.newDecisions.length} decisions, ${reconcileResult.updatedFiles.length} files updated).`
+      );
     }
 
     logger.success(`Successfully applied ${acceptedIds.length} low-risk proposal(s).`);

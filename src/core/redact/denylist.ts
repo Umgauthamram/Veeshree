@@ -78,7 +78,8 @@ export function isDenylistedFile(filePath: string, rootDir: string = process.cwd
   // Denylisted secrets files
   if (base.startsWith(".env")) return true;
   if (ext === ".pem" || ext === ".key") return true;
-  if (base.startsWith("id_rsa") || base.startsWith("id_ed25519") || base.startsWith("id_ecdsa")) return true;
+  if (base.startsWith("id_rsa") || base.startsWith("id_ed25519") || base.startsWith("id_ecdsa"))
+    return true;
 
   // Lockfiles
   if (LOCKFILE_NAMES.has(base)) return true;
@@ -166,11 +167,16 @@ export function filterDiffByDenylist(rawDiff: string, rootDir: string = process.
     let shouldExclude = false;
 
     // Check diff header: diff --git a/path b/path
-    const gitMatch = chunk.match(/^diff --git (?:a\/|"(?:a\/)?)(.+?)(?:"|\s) (?:b\/|"(?:b\/)?)(.+?)(?:"|\r?\n|$)/m);
+    const gitMatch = chunk.match(
+      /^diff --git (?:a\/|"(?:a\/)?)(.+?)(?:"|\s) (?:b\/|"(?:b\/)?)(.+?)(?:"|\r?\n|$)/m
+    );
     if (gitMatch) {
       const fileA = gitMatch[1]?.trim().replace(/^"|"$/g, "");
       const fileB = gitMatch[2]?.trim().replace(/^"|"$/g, "");
-      if ((fileA && isDenylistedFile(fileA, rootDir)) || (fileB && isDenylistedFile(fileB, rootDir))) {
+      if (
+        (fileA && isDenylistedFile(fileA, rootDir)) ||
+        (fileB && isDenylistedFile(fileB, rootDir))
+      ) {
         shouldExclude = true;
       }
     }
@@ -179,10 +185,19 @@ export function filterDiffByDenylist(rawDiff: string, rootDir: string = process.
     if (!shouldExclude) {
       const headerAMatch = chunk.match(/^---\s+(?:a\/|"?)(.+?)"?(?:\t|\r?\n|$)/m);
       const headerBMatch = chunk.match(/^\+\+\+\s+(?:b\/|"?)(.+?)"?(?:\t|\r?\n|$)/m);
-      const pathA = headerAMatch && headerAMatch[1] && headerAMatch[1] !== "/dev/null" ? headerAMatch[1].trim().replace(/^"|"$/g, "") : null;
-      const pathB = headerBMatch && headerBMatch[1] && headerBMatch[1] !== "/dev/null" ? headerBMatch[1].trim().replace(/^"|"$/g, "") : null;
+      const pathA =
+        headerAMatch && headerAMatch[1] && headerAMatch[1] !== "/dev/null"
+          ? headerAMatch[1].trim().replace(/^"|"$/g, "")
+          : null;
+      const pathB =
+        headerBMatch && headerBMatch[1] && headerBMatch[1] !== "/dev/null"
+          ? headerBMatch[1].trim().replace(/^"|"$/g, "")
+          : null;
 
-      if ((pathA && isDenylistedFile(pathA, rootDir)) || (pathB && isDenylistedFile(pathB, rootDir))) {
+      if (
+        (pathA && isDenylistedFile(pathA, rootDir)) ||
+        (pathB && isDenylistedFile(pathB, rootDir))
+      ) {
         shouldExclude = true;
       }
     }

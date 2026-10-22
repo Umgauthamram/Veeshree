@@ -36,7 +36,7 @@ export function syncVeeshree(
     if (options.dryRun) {
       const rep = checkWorkspaceDrift(rootDir);
       if (isJson) {
-        console.log(JSON.stringify({ dryRun: true, target, report: rep, acceptedCount: 0 }, null, 2));
+        logger.json({ dryRun: true, target, report: rep, acceptedCount: 0 });
       } else {
         logger.info(`[DRY-RUN] Would accept baselines for: ${target}`);
       }
@@ -53,20 +53,16 @@ export function syncVeeshree(
 
     const postReport = checkWorkspaceDrift(rootDir);
     if (isJson) {
-      console.log(
-        JSON.stringify(
-          {
-            target,
-            updatedAdrs: result.updatedAdrs,
-            acceptedCount: result.totalUpdatedFiles,
-            report: postReport,
-          },
-          null,
-          2
-        )
-      );
+      logger.json({
+        target,
+        updatedAdrs: result.updatedAdrs,
+        acceptedCount: result.totalUpdatedFiles,
+        report: postReport,
+      });
     } else {
-      logger.success(`Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`);
+      logger.success(
+        `Updated baseline hashes in ${result.updatedAdrs.length} ADR(s) across ${result.totalUpdatedFiles} linked file(s).`
+      );
     }
 
     return {
@@ -82,14 +78,16 @@ export function syncVeeshree(
   buildIndex(rootDir); // refresh cache
 
   if (isJson) {
-    console.log(JSON.stringify(driftReport, null, 2));
+    logger.json(driftReport);
     return {
       report: driftReport,
       exitCode: driftReport.hasDrift ? 1 : 0,
     };
   }
 
-  logger.info(`Inspected ${logger.bold(String(driftReport.totalRecords))} architectural decision records.`);
+  logger.info(
+    `Inspected ${logger.bold(String(driftReport.totalRecords))} architectural decision records.`
+  );
 
   if (!driftReport.hasDrift) {
     logger.success("All memory records are in sync with live codebase hashes.");
@@ -99,14 +97,16 @@ export function syncVeeshree(
       if (r.isDrifted) {
         for (const f of r.files) {
           if (f.status === "missing") {
-            console.log(`  - ${logger.red("[MISSING]")} ${r.title}: ${f.path}`);
+            logger.log(`  - ${logger.red("[MISSING]")} ${r.title}: ${f.path}`);
           } else if (f.status === "drifted") {
-            console.log(`  - ${logger.yellow("[DRIFTED]")} ${r.title}: ${f.path}`);
+            logger.log(`  - ${logger.yellow("[DRIFTED]")} ${r.title}: ${f.path}`);
           }
         }
       }
     }
-    logger.info(`Run 'vee sync --accept all' or 'vee sync --accept <id>' to accept new baselines into ADR frontmatter.`);
+    logger.info(
+      `Run 'vee sync --accept all' or 'vee sync --accept <id>' to accept new baselines into ADR frontmatter.`
+    );
   }
 
   return {

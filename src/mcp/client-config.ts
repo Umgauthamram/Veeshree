@@ -10,14 +10,23 @@ export type McpClientType = "claude" | "cursor" | "vscode" | "gemini" | "claude-
 /**
  * Resolves the configuration file path for a specified MCP client
  */
-export function resolveClientConfigPath(client: McpClientType, rootDir: string = process.cwd()): string {
+export function resolveClientConfigPath(
+  client: McpClientType,
+  rootDir: string = process.cwd()
+): string {
   switch (client) {
     case "claude": {
       if (process.platform === "win32") {
         const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
         return path.join(appData, "Claude", "claude_desktop_config.json");
       } else if (process.platform === "darwin") {
-        return path.join(os.homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json");
+        return path.join(
+          os.homedir(),
+          "Library",
+          "Application Support",
+          "Claude",
+          "claude_desktop_config.json"
+        );
       } else {
         return path.join(os.homedir(), ".config", "Claude", "claude_desktop_config.json");
       }
@@ -31,7 +40,10 @@ export function resolveClientConfigPath(client: McpClientType, rootDir: string =
     case "gemini":
       return path.join(rootDir, ".gemini", "mcp_config.json");
     default:
-      throw new VeeError(`Unsupported client '${client}'. Supported: claude, claude-code, cursor, vscode, gemini`, "ERR_INVALID_ARGS");
+      throw new VeeError(
+        `Unsupported client '${client}'. Supported: claude, claude-code, cursor, vscode, gemini`,
+        "ERR_INVALID_ARGS"
+      );
   }
 }
 
@@ -52,10 +64,10 @@ export function stripJsonComments(json: string): string {
 /**
  * Strips comments and trailing commas to parse JSONC safely
  */
-export function parseJsonc(raw: string): any {
+export function parseJsonc(raw: string): Record<string, unknown> {
   const stripped = stripJsonComments(raw);
   const withoutTrailingCommas = stripped.replace(/,\s*([}\]])/g, "$1");
-  return JSON.parse(withoutTrailingCommas);
+  return JSON.parse(withoutTrailingCommas) as Record<string, unknown>;
 }
 
 function resolveInstalledVeeBinary(rootDir: string): { command: string; args: string[] } {
@@ -63,7 +75,12 @@ function resolveInstalledVeeBinary(rootDir: string): { command: string; args: st
   if (fs.existsSync(localPkgBin)) {
     return { command: "node", args: [localPkgBin] };
   }
-  const localBin = path.resolve(rootDir, "node_modules", ".bin", process.platform === "win32" ? "vee.cmd" : "vee");
+  const localBin = path.resolve(
+    rootDir,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "vee.cmd" : "vee"
+  );
   if (fs.existsSync(localBin)) {
     return { command: localBin, args: [] };
   }
@@ -111,7 +128,7 @@ export function installMcpClientConfig(
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  let configObj: Record<string, any> = {};
+  let configObj: Record<string, unknown> = {};
   let backupPath: string | undefined;
 
   if (fs.existsSync(configPath)) {
@@ -119,9 +136,9 @@ export function installMcpClientConfig(
     if (raw.trim().length > 0) {
       try {
         configObj = parseJsonc(raw);
-      } catch (err: any) {
+      } catch (err: unknown) {
         throw new VeeError(
-          `Failed to parse existing MCP configuration at '${configPath}': ${err.message}. Aborting to prevent configuration loss.`,
+          `Failed to parse existing MCP configuration at '${configPath}': ${err instanceof Error ? err.message : String(err)}. Aborting to prevent configuration loss.`,
           "ERR_CONFIG_INVALID"
         );
       }
@@ -143,11 +160,13 @@ export function installMcpClientConfig(
   const serverEntry = buildServerEntry(client, rootDir, options);
 
   if (client === "vscode") {
-    if (!configObj.servers) configObj.servers = {};
-    configObj.servers.veeshree = serverEntry;
+    const servers = (configObj.servers || {}) as Record<string, unknown>;
+    servers.veeshree = serverEntry;
+    configObj.servers = servers;
   } else {
-    if (!configObj.mcpServers) configObj.mcpServers = {};
-    configObj.mcpServers.veeshree = serverEntry;
+    const mcpServers = (configObj.mcpServers || {}) as Record<string, unknown>;
+    mcpServers.veeshree = serverEntry;
+    configObj.mcpServers = mcpServers;
   }
 
   writeAtomic(configPath, JSON.stringify(configObj, null, 2));
@@ -166,12 +185,10 @@ export function generateClientConfig(
   const targetPath = resolveClientConfigPath(client, rootDir);
   const serverEntry = buildServerEntry(client, rootDir, options);
 
-  let configObj: Record<string, any> = {};
-  if (client === "vscode") {
-    configObj = { servers: { veeshree: serverEntry } };
-  } else {
-    configObj = { mcpServers: { veeshree: serverEntry } };
-  }
+  const configObj: Record<string, unknown> =
+    client === "vscode"
+      ? { servers: { veeshree: serverEntry } }
+      : { mcpServers: { veeshree: serverEntry } };
 
   return { targetPath, content: JSON.stringify(configObj, null, 2) };
 }

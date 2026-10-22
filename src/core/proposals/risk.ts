@@ -8,7 +8,7 @@ const SUSPICIOUS_PATTERNS = [
   },
   {
     name: "command_substitution",
-    regex: /\$\([^\)]+\)/i,
+    regex: /\$\([^)]+\)/i,
   },
   {
     name: "bash_execution",
@@ -20,7 +20,8 @@ const SUSPICIOUS_PATTERNS = [
   },
   {
     name: "shell_pipe",
-    regex: /(?:curl\s+|wget\s+|powershell|bash|sh|cmd)\b[^\n|]*\|\s*(?:sh|bash|zsh|powershell|cmd)\b/i,
+    regex:
+      /(?:curl\s+|wget\s+|powershell|bash|sh|cmd)\b[^\n|]*\|\s*(?:sh|bash|zsh|powershell|cmd)\b/i,
   },
   {
     name: "base64_shell",
@@ -32,15 +33,18 @@ const SUSPICIOUS_PATTERNS = [
   },
   {
     name: "destructive_command",
-    regex: /\b(?:rm\s+-[a-zA-Z]*r[a-zA-Z]*f|del\s+\/[a-zA-Z]*s|rmdir\s+\/[a-zA-Z]*s|format\s+[a-zA-Z]:)\b/i,
+    regex:
+      /\b(?:rm\s+-[a-zA-Z]*r[a-zA-Z]*f|del\s+\/[a-zA-Z]*s|rmdir\s+\/[a-zA-Z]*s|format\s+[a-zA-Z]:)\b/i,
   },
   {
     name: "instruction_override",
-    regex: /(?:ignore|disregard|forget|bypass|override|drop)\s+(?:(?:the|all|any|earlier|above|previous|prior|system|developer|safety|security)\s+)*(?:instructions|rules|constraints|prompt|guidelines|guardrails)|\b(?:skip\s+tests?|force\s+push|without\s+review)\b/i,
+    regex:
+      /(?:ignore|disregard|forget|bypass|override|drop)\s+(?:(?:the|all|any|earlier|above|previous|prior|system|developer|safety|security)\s+)*(?:instructions|rules|constraints|prompt|guidelines|guardrails)|\b(?:skip\s+tests?|force\s+push|without\s+review)\b/i,
   },
   {
     name: "disable_security_checks",
-    regex: /(?:disable\s+(?:verification|checks|security|auth|doctor|lint|lock|drift|rules|guardrails))/i,
+    regex:
+      /(?:disable\s+(?:verification|checks|security|auth|doctor|lint|lock|drift|rules|guardrails))/i,
   },
   {
     name: "url_link",
@@ -96,7 +100,10 @@ export function scoreProposalRisk(
   return { risk, flags };
 }
 
-export function assessDeltaRisk(delta: Partial<ExtractionDelta>): { isHighRisk: boolean; reasons: string[] } {
+export function assessDeltaRisk(delta: Partial<ExtractionDelta>): {
+  isHighRisk: boolean;
+  reasons: string[];
+} {
   const { risk, flags } = scoreProposalRisk(delta);
   return { isHighRisk: risk === "high", reasons: flags };
 }
@@ -125,8 +132,10 @@ function extractAllText(delta: Partial<ExtractionDelta>): string {
 
   if (delta.current_state) {
     if (delta.current_state.current_feature) chunks.push(delta.current_state.current_feature);
-    if (delta.current_state.completed_in_session) chunks.push(...delta.current_state.completed_in_session);
-    if (delta.current_state.next_immediate_steps) chunks.push(...delta.current_state.next_immediate_steps);
+    if (delta.current_state.completed_in_session)
+      chunks.push(...delta.current_state.completed_in_session);
+    if (delta.current_state.next_immediate_steps)
+      chunks.push(...delta.current_state.next_immediate_steps);
   }
 
   if (delta.rejected_approaches) {

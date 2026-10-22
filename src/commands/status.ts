@@ -71,19 +71,14 @@ export function handleStatusCommand(
   const exitCode = options.check && driftReport.hasDrift ? 1 : 0;
 
   if (options.json) {
-    console.log(
-      JSON.stringify(
-        {
-          currentFocus,
-          tasks: { completed: completedTasks, total: totalTasks, percent },
-          decisions: { active: activeDecisionsCount, superseded: supersededDecisionsCount },
-          pendingProposals: pendingProposals.length,
-          drift: driftReport,
-        },
-        null,
-        2
-      )
-    );
+    const payload = {
+      currentFocus,
+      tasks: { completed: completedTasks, total: totalTasks, percent },
+      decisions: { active: activeDecisionsCount, superseded: supersededDecisionsCount },
+      pendingProposals: pendingProposals.length,
+      drift: driftReport,
+    };
+    logger.json(payload);
     return {
       currentFocus,
       completedTasks,
@@ -98,31 +93,43 @@ export function handleStatusCommand(
 
   logger.title("Veeshree Project Memory Status");
 
-  console.log(`${logger.bold("Active Focus:")}       ${logger.cyan(currentFocus)}`);
-  console.log(`${logger.bold("Task Progress:")}      ${progressBar} ${percent}% (${completedTasks}/${totalTasks} tasks)`);
-  console.log(`${logger.bold("Active Decisions:")}   ${activeDecisionsCount} active (${supersededDecisionsCount} superseded/archived)`);
-  console.log(`${logger.bold("Extractor Model:")}    ${config.extractor?.provider || "gemini"} (${config.extractor?.model || "default"})`);
-  console.log(`${logger.bold("Token Budget:")}       ${config.context?.max_tokens || 2000} max tokens`);
+  logger.log(`${logger.bold("Active Focus:")}       ${logger.cyan(currentFocus)}`);
+  logger.log(
+    `${logger.bold("Task Progress:")}      ${progressBar} ${percent}% (${completedTasks}/${totalTasks} tasks)`
+  );
+  logger.log(
+    `${logger.bold("Active Decisions:")}   ${activeDecisionsCount} active (${supersededDecisionsCount} superseded/archived)`
+  );
+  logger.log(
+    `${logger.bold("Extractor Model:")}    ${config.extractor?.provider || "gemini"} (${config.extractor?.model || "default"})`
+  );
+  logger.log(
+    `${logger.bold("Token Budget:")}       ${config.context?.max_tokens || 2000} max tokens`
+  );
 
-  console.log("");
+  logger.log("");
   if (!driftReport.hasDrift) {
     logger.success("Memory Integrity: All linked code hashes are in sync (0 stale drift).");
   } else {
-    logger.warn(`Memory Integrity: ${driftReport.driftedRecordsCount} record(s) flagged with stale code drift:`);
+    logger.warn(
+      `Memory Integrity: ${driftReport.driftedRecordsCount} record(s) flagged with stale code drift:`
+    );
     for (const r of driftReport.records) {
       if (r.isDrifted) {
-        console.log(`  - ${logger.yellow(`${r.title} (${r.path})`)}`);
+        logger.log(`  - ${logger.yellow(`${r.title} (${r.path})`)}`);
       }
     }
   }
 
   // Pending proposals reminder (Section 3.4)
   if (pendingProposals.length > 0) {
-    console.log("");
-    logger.info(`Review Queue: ${logger.bold(String(pendingProposals.length))} proposal(s) pending approval. Run 'vee review' or 'vee accept <id>'.`);
+    logger.log("");
+    logger.info(
+      `Review Queue: ${logger.bold(String(pendingProposals.length))} proposal(s) pending approval. Run 'vee review' or 'vee accept <id>'.`
+    );
   }
 
-  console.log("");
+  logger.log("");
 
   return {
     currentFocus,

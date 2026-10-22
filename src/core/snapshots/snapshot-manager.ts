@@ -107,7 +107,10 @@ export function restoreSnapshot(
 ): { restoredId: string; timestamp: string } {
   const snapshots = listSnapshots(rootDir);
   if (snapshots.length === 0) {
-    throw new VeeError("No snapshots found in .vee/snapshots/. Nothing to undo.", "ERR_FILE_NOT_FOUND");
+    throw new VeeError(
+      "No snapshots found in .vee/snapshots/. Nothing to undo.",
+      "ERR_FILE_NOT_FOUND"
+    );
   }
 
   const index = Math.max(0, step - 1);

@@ -1,16 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { writeAtomic } from "../core/memory/atomic.js";
-import { buildIndex } from "../core/indexer.js";
 import { createMemorySnapshot } from "../core/snapshots/snapshot-manager.js";
 import { importMemoryFromArchive } from "../core/transfer/export-import.js";
-import { createProposal } from "../core/proposals/queue.js";
-import { parseDecisionFrontmatter } from "../core/memory/frontmatter.js";
-import { sanitizeRelativePath } from "../utils/paths.js";
 import { logger } from "../utils/logger.js";
 import { VeeError } from "../utils/errors.js";
 import type { Proposal } from "../schemas/proposal.schema.js";
-import type { ExtractionDelta } from "../schemas/extraction.schema.js";
 
 export interface ImportOptions {
   yes?: boolean;
@@ -28,8 +22,10 @@ export function handleImportCommand(
   // 1. Create safety snapshot before any changes
   try {
     createMemorySnapshot(rootDir, `Pre-import snapshot from ${path.basename(filePath)}`);
-  } catch {
-    // If docs/memory doesn't exist yet, proceed
+  } catch (err: unknown) {
+    logger.debug(
+      `Snapshot creation skipped before import: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   const raw = fs.readFileSync(filePath, "utf-8");
@@ -40,7 +36,10 @@ export function handleImportCommand(
       const parsed = JSON.parse(raw);
       if (parsed.manifest) {
         if (parsed.manifest.format !== "veeshree-memory-export") {
-          throw new VeeError("Invalid bundle manifest format. Expected 'veeshree-memory-export'.", "ERR_INVALID_ARGS");
+          throw new VeeError(
+            "Invalid bundle manifest format. Expected 'veeshree-memory-export'.",
+            "ERR_INVALID_ARGS"
+          );
         }
       }
       if (parsed.files && Array.isArray(parsed.files)) {
@@ -52,9 +51,10 @@ export function handleImportCommand(
       } else {
         bundle = parsed;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof VeeError) throw err;
-      throw new VeeError(`Failed to parse JSON bundle: ${err.message}`, "ERR_INVALID_ARGS");
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new VeeError(`Failed to parse JSON bundle: ${msg}`, "ERR_INVALID_ARGS");
     }
   } else {
     // Markdown bundle parsing
@@ -85,11 +85,17 @@ export function handleImportCommand(
     files: Object.entries(bundle).map(([p, content]) => ({ path: p, content })),
   };
 
-  const { restoredFiles, proposal } = importMemoryFromArchive(rootDir, memoryExportBundle, { yes: options.yes });
+  const { restoredFiles, proposal } = importMemoryFromArchive(rootDir, memoryExportBundle, {
+    yes: options.yes,
+  });
 
   if (proposal) {
-    logger.info(`Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`);
-    logger.info(`Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`);
+    logger.info(
+      `Import staged in review queue as proposal: ${logger.bold(proposal.id)} [Risk: ${proposal.risk.toUpperCase()}]`
+    );
+    logger.info(
+      `Run 'vee accept ${proposal.id}' to inspect and apply, or re-run with --yes to import directly.`
+    );
   }
 
   if (restoredFiles.length > 0) {

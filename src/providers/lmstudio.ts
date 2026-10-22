@@ -7,7 +7,11 @@ export class LmStudioExtractor implements Extractor {
   readonly name = "lmstudio";
   readonly isLocal = true;
 
-  async extract(payload: string, model: string, options: ProviderCallOptions = {}): Promise<ExtractionDelta> {
+  async extract(
+    payload: string,
+    model: string,
+    options: ProviderCallOptions = {}
+  ): Promise<ExtractionDelta> {
     const endpoint = (options.baseUrl || "http://127.0.0.1:1234/v1").replace(/\/+$/, "");
 
     const controller = new AbortController();
@@ -30,21 +34,32 @@ export class LmStudioExtractor implements Extractor {
       });
 
       if (!response.ok) {
-        throw new VeeError(`LM Studio returned status ${response.status}: ${await response.text()}`, "ERR_PROVIDER_FAILURE");
+        throw new VeeError(
+          `LM Studio returned status ${response.status}: ${await response.text()}`,
+          "ERR_PROVIDER_FAILURE"
+        );
       }
 
-      const data = (await response.json()) as any;
+      interface LmStudioResponse {
+        choices?: Array<{ message?: { content?: string } }>;
+      }
+      const data = (await response.json()) as LmStudioResponse;
       const rawText = data.choices?.[0]?.message?.content;
       if (!rawText) {
         throw new VeeError("LM Studio returned empty completion response.", "ERR_PROVIDER_FAILURE");
       }
 
       return validateExtractionJson(rawText);
-    } catch (err: any) {
-      if (err.name === "AbortError") {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
         throw new VeeError("LM Studio extraction request timed out.", "ERR_PROVIDER_FAILURE");
       }
-      throw err instanceof VeeError ? err : new VeeError(`LM Studio call failed: ${err.message}`, "ERR_PROVIDER_FAILURE");
+      throw err instanceof VeeError
+        ? err
+        : new VeeError(
+            `LM Studio call failed: ${err instanceof Error ? err.message : String(err)}`,
+            "ERR_PROVIDER_FAILURE"
+          );
     } finally {
       clearTimeout(timeout);
     }

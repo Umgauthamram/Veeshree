@@ -88,6 +88,14 @@ class Logger {
     console.log(msg);
   }
 
+  public raw(msg: string): void {
+    console.log(msg);
+  }
+
+  public json(data: unknown): void {
+    console.log(JSON.stringify(data, null, 2));
+  }
+
   public title(msg: string): void {
     if (this.config.quiet || this.config.json) return;
     console.log("\n" + pc.bold(pc.magenta(`=== ${msg} ===`)) + "\n");

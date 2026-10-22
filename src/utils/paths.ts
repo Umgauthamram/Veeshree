@@ -18,7 +18,10 @@ export function sanitizeRelativePath(relPath: string): string {
   }
   const parts = normalized.split("/");
   if (parts.includes("..")) {
-    throw new VeeError(`Directory traversal ('..') is not permitted: ${relPath}`, "ERR_SECURITY_VIOLATION");
+    throw new VeeError(
+      `Directory traversal ('..') is not permitted: ${relPath}`,
+      "ERR_SECURITY_VIOLATION"
+    );
   }
   return path.posix.normalize(normalized);
 }

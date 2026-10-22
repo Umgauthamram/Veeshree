@@ -20,24 +20,32 @@ export function handleKeysCommand(
   key?: string,
   options: KeysCommandOptions = {},
   rootDir: string = process.cwd()
-): any {
+): unknown {
   const isJson = options.json || logger.isJson();
   if (isJson) logger.setJson(true);
 
   if (action === "list") {
     const keys = listApiKeys(rootDir);
     if (isJson) {
-      console.log(JSON.stringify(keys, null, 2));
+      logger.json(keys);
       return keys;
     }
     logger.title("Configured AI Provider API Keys");
     for (const [p, info] of Object.entries(keys)) {
-      const statusStr = info.configured ? logger.cyan(`Configured via ${info.source}`) : logger.dim("Not Configured");
-      const warningStr = info.insecureWarning ? ` ${logger.yellow(`[WARN: ${info.insecureWarning}]`)}` : "";
-      console.log(`- ${logger.bold(p.toUpperCase().padEnd(10))}: ${info.masked} [${statusStr}]${warningStr}`);
+      const statusStr = info.configured
+        ? logger.cyan(`Configured via ${info.source}`)
+        : logger.dim("Not Configured");
+      const warningStr = info.insecureWarning
+        ? ` ${logger.yellow(`[WARN: ${info.insecureWarning}]`)}`
+        : "";
+      logger.log(
+        `- ${logger.bold(p.toUpperCase().padEnd(10))}: ${info.masked} [${statusStr}]${warningStr}`
+      );
     }
-    console.log("");
-    logger.info("Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure.");
+    logger.log("");
+    logger.info(
+      "Keys stored in your global keystore (~/.veeshree/credentials.json) apply to all projects without Git exposure."
+    );
     return keys;
   }
 
@@ -60,7 +68,9 @@ export function handleKeysCommand(
     setApiKey(p, key, rootDir, isGlobal);
 
     if (isGlobal) {
-      logger.success(`API key stored securely in global keystore (~/.veeshree/credentials.json) for provider: ${p}`);
+      logger.success(
+        `API key stored securely in global keystore (~/.veeshree/credentials.json) for provider: ${p}`
+      );
     } else {
       logger.success(`API key stored locally in .vee/config.json for provider: ${p}`);
       logger.warn("Project-local key storage detected. Avoid committing .vee/config.json.");
@@ -70,7 +80,10 @@ export function handleKeysCommand(
 
   if (action === "remove") {
     if (!provider) {
-      throw new VeeError("Usage: vee keys remove <provider> [--local|--global]", "ERR_INVALID_ARGS");
+      throw new VeeError(
+        "Usage: vee keys remove <provider> [--local|--global]",
+        "ERR_INVALID_ARGS"
+      );
     }
     const p = provider.toLowerCase() as KeyProvider;
     const isGlobal = options.local ? false : options.global ? true : undefined;
@@ -79,5 +92,8 @@ export function handleKeysCommand(
     return;
   }
 
-  throw new VeeError(`Unknown keys action: '${action}'. Supported: list, set, update, remove.`, "ERR_INVALID_ARGS");
+  throw new VeeError(
+    `Unknown keys action: '${action}'. Supported: list, set, update, remove.`,
+    "ERR_INVALID_ARGS"
+  );
 }

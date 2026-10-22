@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { LOCK_FILE_REL, LOCK_STALE_MS, VEE_DIR_REL } from "../../utils/constants.js";
 import { VeeError } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 export interface LockHandle {
   release: () => void;
@@ -31,13 +32,18 @@ export function acquireLock(rootDir: string = process.cwd(), timeoutMs: number =
             // Lock is stale, unlink it
             fs.unlinkSync(lockPath);
           }
-        } catch {
-          // another process may have just unlinked it
+        } catch (err: unknown) {
+          logger.debug(
+            `Failed to stat/unlink stale lock: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
       }
 
       // O_CREAT | O_EXCL
-      const fd = fs.openSync(lockPath, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+      const fd = fs.openSync(
+        lockPath,
+        fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY
+      );
       const payload = JSON.stringify({ pid: process.pid, time: new Date().toISOString() });
       fs.writeSync(fd, payload);
       fs.closeSync(fd);
@@ -51,13 +57,16 @@ export function acquireLock(rootDir: string = process.cwd(), timeoutMs: number =
             if (fs.existsSync(lockPath)) {
               fs.unlinkSync(lockPath);
             }
-          } catch {
-            // ignore
+          } catch (err: unknown) {
+            logger.debug(
+              `Failed to release lock file: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         },
       };
-    } catch (err: any) {
-      if (err.code === "EEXIST") {
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "EEXIST") {
         // Wait and retry
         const delay = 50;
         const waitUntil = Date.now() + delay;
@@ -66,7 +75,8 @@ export function acquireLock(rootDir: string = process.cwd(), timeoutMs: number =
         }
         continue;
       }
-      throw new VeeError(`Failed to acquire process lock: ${err.message}`, "ERR_LOCK_TIMEOUT");
+      const message = err instanceof Error ? err.message : String(err);
+      throw new VeeError(`Failed to acquire process lock: ${message}`, "ERR_LOCK_TIMEOUT");
     }
   }
 

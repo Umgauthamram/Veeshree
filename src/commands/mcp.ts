@@ -12,7 +12,10 @@ export async function handleMcpCommand(
   const effectiveRoot = options.root ? path.resolve(options.root) : rootDir;
   if (action === "install") {
     if (!options.client) {
-      throw new VeeError("Usage: vee mcp install --client <claude|claude-code|cursor|vscode|gemini>", "ERR_INVALID_ARGS");
+      throw new VeeError(
+        "Usage: vee mcp install --client <claude|claude-code|cursor|vscode|gemini>",
+        "ERR_INVALID_ARGS"
+      );
     }
     const client = options.client.toLowerCase() as McpClientType;
     const { configPath, backupPath } = installMcpClientConfig(client, effectiveRoot, {

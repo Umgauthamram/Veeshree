@@ -8,7 +8,7 @@ import { buildIndex } from "../indexer.js";
 
 export interface MemoryExportBundle {
   manifest: {
-    format: "veeshree-memory-export";
+    format: "veeshree-memory-export" | "veeshree-memory-markdown-export";
     version: string;
     exported_at: string;
   };
@@ -32,7 +32,7 @@ export function exportMemoryToArchive(
 
   return {
     manifest: {
-      format: "veeshree-memory-export",
+      format: format === "md" ? "veeshree-memory-markdown-export" : "veeshree-memory-export",
       version: VEESHREE_VERSION,
       exported_at: new Date().toISOString(),
     },
@@ -58,12 +58,18 @@ export function importMemoryFromArchive(
   options: ImportMemoryArchiveOptions = {}
 ): { restoredFiles: string[]; proposal?: Proposal } {
   if (!bundle || !bundle.manifest || bundle.manifest.format !== "veeshree-memory-export") {
-    throw new VeeError("Invalid memory export bundle: missing or invalid manifest format", "ERR_INVALID_ARGS");
+    throw new VeeError(
+      "Invalid memory export bundle: missing or invalid manifest format",
+      "ERR_INVALID_ARGS"
+    );
   }
 
   // Safety snapshot before applying imported changes (undo support)
   try {
-    createMemorySnapshot(rootDir, `Pre-import snapshot (bundle v${bundle.manifest.version || "1.0.0"})`);
+    createMemorySnapshot(
+      rootDir,
+      `Pre-import snapshot (bundle v${bundle.manifest.version || "1.0.0"})`
+    );
   } catch {
     // If docs/memory doesn't exist yet, proceed
   }
@@ -123,7 +129,8 @@ export function importMemoryFromArchive(
       const { flags } = scoreProposalRisk(constraintDelta);
       const hasSuspiciousPatterns = flags.some((f) => f.startsWith("suspicious_pattern:"));
       const isExistingDifferent =
-        existingConstraintsContent !== null && existingConstraintsContent.trim() !== file.content.trim();
+        existingConstraintsContent !== null &&
+        existingConstraintsContent.trim() !== file.content.trim();
 
       // If malicious/suspicious pattern found OR modifying existing constraints without --yes, route through proposal
       if (hasSuspiciousPatterns || isExistingDifferent || existingConstraintsContent !== null) {
@@ -144,7 +151,8 @@ export function importMemoryFromArchive(
         title: data.title || path.basename(safeRel, ".md"),
         decision: body.slice(0, 1000).trim(),
         reason: "Imported from external memory bundle",
-        alternatives_considered: (data as any).alternatives_considered || [],
+        alternatives_considered:
+          (data as { alternatives_considered?: string[] }).alternatives_considered || [],
         linked_files: (data.linked_files || []).map((f) => (typeof f === "string" ? f : f.path)),
         tags: data.tags || ["import"],
         status: data.status || "active",

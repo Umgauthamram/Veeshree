@@ -63,10 +63,15 @@ export async function startMcpServer(rootDir: string = process.cwd()): Promise<v
       return {
         content: [{ type: "text", text }],
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       return {
         isError: true,
-        content: [{ type: "text", text: `Error executing ${name}: ${err.message}` }],
+        content: [
+          {
+            type: "text",
+            text: `Error executing ${name}: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
       };
     }
   });
@@ -83,7 +88,8 @@ export async function startMcpServer(rootDir: string = process.cwd()): Promise<v
       {
         uri: "memory://state",
         name: "Current Project State",
-        description: "Current focus, recent milestones, and next immediate steps (current-state.md)",
+        description:
+          "Current focus, recent milestones, and next immediate steps (current-state.md)",
         mimeType: "text/markdown",
       },
     ];
@@ -123,7 +129,9 @@ export async function startMcpServer(rootDir: string = process.cwd()): Promise<v
     } else if (uri.startsWith("memory://decisions/")) {
       const id = uri.replace("memory://decisions/", "");
       if (!/^[A-Za-z0-9._-]+$/.test(id)) {
-        throw new Error(`Invalid decision ID '${id}'. Decision IDs may only contain letters, numbers, dots, underscores, and hyphens.`);
+        throw new Error(
+          `Invalid decision ID '${id}'. Decision IDs may only contain letters, numbers, dots, underscores, and hyphens.`
+        );
       }
 
       const decisionsDir = path.resolve(rootDir, DECISIONS_DIR_REL);

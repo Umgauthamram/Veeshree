@@ -4,7 +4,7 @@ import { logger } from "../utils/logger.js";
 import { resolveEngine } from "../providers/resolver.js";
 import { verifyModelEndpoint } from "../providers/models.js";
 import { checkWorkspaceDrift } from "../core/drift/status.js";
-import { listApiKeys, getGlobalCredentialsPath, loadGlobalCredentials } from "../core/auth.js";
+import { getGlobalCredentialsPath, loadGlobalCredentials } from "../core/auth.js";
 import { runCommandSafe } from "../utils/process.js";
 import { ensureGitIgnoreProtection } from "../core/moderator.js";
 import { installGitHooks, getHooksStatus } from "../core/hooks/manager.js";
@@ -85,7 +85,11 @@ export async function handleDoctorCommand(
     } else {
       if (options.fix) {
         for (const f of missing) {
-          fs.writeFileSync(path.join(memoryDir, f), `# ${f.replace(".md", "").toUpperCase()}\n`, "utf-8");
+          fs.writeFileSync(
+            path.join(memoryDir, f),
+            `# ${f.replace(".md", "").toUpperCase()}\n`,
+            "utf-8"
+          );
         }
         checks.push({
           category: "Memory Scaffold",
@@ -154,7 +158,8 @@ export async function handleDoctorCommand(
     }
   } else {
     const gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
-    const hasConfigIgnored = gitignoreContent.includes(".vee/config.json") || gitignoreContent.includes(".vee/");
+    const hasConfigIgnored =
+      gitignoreContent.includes(".vee/config.json") || gitignoreContent.includes(".vee/");
     if (hasConfigIgnored) {
       checks.push({
         category: "Git Security",
@@ -262,7 +267,12 @@ export async function handleDoctorCommand(
   // 7. Check AI Engine Connectivity & Model Verification
   try {
     const engine = await resolveEngine(rootDir);
-    const modelCheck = await verifyModelEndpoint(engine.provider, engine.model, engine.apiKey, engine.baseUrl);
+    const modelCheck = await verifyModelEndpoint(
+      engine.provider,
+      engine.model,
+      engine.apiKey,
+      engine.baseUrl
+    );
     if (!modelCheck.ok) {
       checks.push({
         category: "AI Extraction Engine",
@@ -279,13 +289,14 @@ export async function handleDoctorCommand(
         message: `${engine.provider} (${engine.model}) verified`,
       });
     }
-  } catch (err: any) {
-    if (err.code === "ERR_INVALID_MODEL") {
+  } catch (err: unknown) {
+    const errorObj = err as { code?: string; message?: string };
+    if (errorObj?.code === "ERR_INVALID_MODEL") {
       checks.push({
         category: "AI Extraction Engine",
         name: "Model Validation",
         status: "fail",
-        message: err.message,
+        message: errorObj.message || "Invalid model name",
         remedy: "Update extractor.model in .vee/config.json with a supported model name.",
       });
     } else {
@@ -328,29 +339,19 @@ export async function handleDoctorCommand(
   }
 
   if (isJson) {
-    console.log(
-      JSON.stringify(
-        {
-          checks,
-          hasFailures,
-          hasWarnings,
-          fixedCount,
-        },
-        null,
-        2
-      )
-    );
-    return {
+    const payload = {
       checks,
       hasFailures,
       hasWarnings,
       fixedCount,
     };
+    logger.json(payload);
+    return payload;
   }
 
-  console.log("");
+  logger.log("");
   for (const item of checks) {
-    let icon = "";
+    let icon: string;
     if (item.status === "ok") {
       icon = logger.green("[PASS]");
     } else if (item.status === "warn") {
@@ -359,13 +360,15 @@ export async function handleDoctorCommand(
       icon = logger.red("[FAIL]");
     }
 
-    console.log(`${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`);
+    logger.log(
+      `${icon} ${logger.bold(item.category.padEnd(20))} | ${item.name.padEnd(28)} : ${item.message}`
+    );
     if (item.remedy && !item.fixed) {
-      console.log(`       ${logger.cyan("-> Remedy: " + item.remedy)}`);
+      logger.log(`       ${logger.cyan("-> Remedy: " + item.remedy)}`);
     }
   }
 
-  console.log("\n" + "-".repeat(70));
+  logger.log("\n" + "-".repeat(70));
   if (options.fix && fixedCount > 0) {
     logger.success(`Doctor successfully repaired ${fixedCount} issue(s)!`);
   }

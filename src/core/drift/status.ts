@@ -35,7 +35,10 @@ export interface WorkspaceDriftReport {
  * Checks live drift status by comparing disk code hashes with committed baseline hashes in ADR frontmatter.
  * Never relies on a local gitignored cache to detect drift!
  */
-export function checkWorkspaceDrift(rootDir: string = process.cwd(), specificId?: string): WorkspaceDriftReport {
+export function checkWorkspaceDrift(
+  rootDir: string = process.cwd(),
+  specificId?: string
+): WorkspaceDriftReport {
   const dirs = [
     path.join(rootDir, DECISIONS_DIR_REL),
     path.join(rootDir, ARCHIVE_DECISIONS_DIR_REL),

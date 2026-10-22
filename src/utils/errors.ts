@@ -23,7 +23,12 @@ export class VeeError extends Error {
   public readonly exitCode: number;
   public readonly details?: unknown;
 
-  constructor(message: string, code: VeeErrorCode = "ERR_UNKNOWN", exitCode: number = 2, details?: unknown) {
+  constructor(
+    message: string,
+    code: VeeErrorCode = "ERR_UNKNOWN",
+    exitCode: number = 2,
+    details?: unknown
+  ) {
     super(message);
     this.name = "VeeError";
     this.code = code;

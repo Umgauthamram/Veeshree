@@ -73,7 +73,11 @@ export function validateExtractionJson(rawText: string): ExtractionDelta {
       );
     }
     return result.data;
-  } catch (err: any) {
-    throw new VeeError(`Failed to parse extraction JSON: ${err.message}`, "ERR_PROVIDER_FAILURE");
+  } catch (err: unknown) {
+    if (err instanceof VeeError) throw err;
+    throw new VeeError(
+      `Failed to parse extraction JSON: ${err instanceof Error ? err.message : String(err)}`,
+      "ERR_PROVIDER_FAILURE"
+    );
   }
 }

@@ -1,8 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { PROPOSALS_DIR_REL, VEE_DIR_REL, DECISIONS_DIR_REL } from "../../utils/constants.js";
-import { ProposalSchema, type Proposal, type ProposalSource, type ProposalStatus } from "../../schemas/proposal.schema.js";
+import { PROPOSALS_DIR_REL, DECISIONS_DIR_REL } from "../../utils/constants.js";
+import {
+  ProposalSchema,
+  type Proposal,
+  type ProposalSource,
+  type ProposalStatus,
+} from "../../schemas/proposal.schema.js";
 import type { ExtractionDelta } from "../../schemas/extraction.schema.js";
 import { scoreProposalRisk } from "./risk.js";
 import { writeAtomic } from "../memory/atomic.js";
@@ -12,6 +17,7 @@ import { buildIndex } from "../indexer.js";
 import { parseDecisionFrontmatter } from "../memory/frontmatter.js";
 import { slugifyTitle } from "../memory/section-editor.js";
 import { VeeError } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Creates a new Proposal and writes it to .vee/proposals/<id>.json
@@ -22,10 +28,10 @@ export function createProposal(
   agentOrRootDir?: string,
   rootDirArg?: string
 ): Proposal {
-  let source: ProposalSource = "watch";
+  let source: ProposalSource;
   let delta: ExtractionDelta;
   let agent: string | undefined;
-  let rootDir: string = process.cwd();
+  let rootDir: string;
 
   if (typeof sourceOrDelta === "string") {
     source = sourceOrDelta as ProposalSource;
@@ -35,10 +41,8 @@ export function createProposal(
   } else {
     delta = sourceOrDelta;
     source = "cli";
-    if (typeof deltaOrRootDir === "string") {
-      rootDir = deltaOrRootDir;
-      agent = agentOrRootDir;
-    }
+    rootDir = typeof deltaOrRootDir === "string" ? deltaOrRootDir : process.cwd();
+    agent = agentOrRootDir;
   }
 
   const proposalsDir = path.join(rootDir, PROPOSALS_DIR_REL);
@@ -81,8 +85,10 @@ export function createProposal(
               Array.isArray(data.linked_files) &&
               dec.linked_files.length > 0 &&
               dec.linked_files.some((lf) => {
-                const pathStr = typeof lf === "string" ? lf : (lf as any).path;
-                return data.linked_files?.some((ex) => (typeof ex === "string" ? ex : (ex as any).path) === pathStr);
+                const pathStr = typeof lf === "string" ? lf : (lf as { path: string }).path;
+                return data.linked_files?.some(
+                  (ex) => (typeof ex === "string" ? ex : (ex as { path: string }).path) === pathStr
+                );
               });
 
             if (isSameTitle || hasOverlappingFiles) {
@@ -91,8 +97,10 @@ export function createProposal(
                 dec.supersedes = existingId;
               }
             }
-          } catch {
-            // ignore unreadable file
+          } catch (err: unknown) {
+            logger.debug(
+              `Failed to read decision file: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         }
       }
@@ -174,7 +182,9 @@ export function listProposals(
     }
   }
 
-  return proposals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return proposals.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 }
 
 /**
@@ -188,8 +198,8 @@ export async function acceptProposal(
   reviewerOrRootDir: string = "human",
   rootDirArg?: string
 ): Promise<{ proposal: Proposal; reconcileResult: ReconcileResult; success: boolean }> {
-  let reviewer = "human";
-  let rootDir = process.cwd();
+  let reviewer: string;
+  let rootDir: string;
 
   if (rootDirArg) {
     reviewer = reviewerOrRootDir;
@@ -204,7 +214,8 @@ export async function acceptProposal(
     rootDir = reviewerOrRootDir;
     reviewer = "human";
   } else {
-    reviewer = reviewerOrRootDir;
+    reviewer = reviewerOrRootDir || "human";
+    rootDir = process.cwd();
   }
 
   const proposal = getProposal(id, rootDir);
@@ -232,8 +243,8 @@ export async function acceptProposal(
   // Auto maintenance (Section 3.4)
   try {
     runGarbageCollection(rootDir);
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(`Auto GC error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Update index cache
@@ -254,8 +265,8 @@ export function rejectProposal(
   reviewerOrRootDir: string = "human",
   rootDirArg?: string
 ): { proposal: Proposal; success: boolean } {
-  let reviewer = "human";
-  let rootDir = process.cwd();
+  let reviewer: string;
+  let rootDir: string;
 
   if (rootDirArg) {
     reviewer = reviewerOrRootDir;
@@ -270,7 +281,8 @@ export function rejectProposal(
     rootDir = reviewerOrRootDir;
     reviewer = "human";
   } else {
-    reviewer = reviewerOrRootDir;
+    reviewer = reviewerOrRootDir || "human";
+    rootDir = process.cwd();
   }
 
   const proposal = getProposal(id, rootDir);

@@ -123,7 +123,11 @@ export function moderateAndBootstrap(
       if (!options.dryRun) {
         fs.writeFileSync(
           dbAdrPath,
-          generateDecisionStubTemplate("Database Architecture", "Database", scan.databases.join(", ")),
+          generateDecisionStubTemplate(
+            "Database Architecture",
+            "Database",
+            scan.databases.join(", ")
+          ),
           "utf-8"
         );
       }
@@ -137,7 +141,11 @@ export function moderateAndBootstrap(
       if (!options.dryRun) {
         fs.writeFileSync(
           frameworkAdrPath,
-          generateDecisionStubTemplate("Application Framework", "Framework", scan.frameworks.join(", ")),
+          generateDecisionStubTemplate(
+            "Application Framework",
+            "Framework",
+            scan.frameworks.join(", ")
+          ),
           "utf-8"
         );
       }

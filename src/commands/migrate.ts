@@ -1,7 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
-import { BACKUP_03X_DIR_REL, MEMORY_DIR_REL, DECISIONS_DIR_REL, CONFIG_FILE_REL, INDEX_FILE_REL, VEESHREE_VERSION } from "../utils/constants.js";
-import { parseDecisionFrontmatter, stringifyMarkdownFrontmatter } from "../core/memory/frontmatter.js";
+import {
+  BACKUP_03X_DIR_REL,
+  MEMORY_DIR_REL,
+  DECISIONS_DIR_REL,
+  INDEX_FILE_REL,
+  VEESHREE_VERSION,
+} from "../utils/constants.js";
+import {
+  parseDecisionFrontmatter,
+  stringifyMarkdownFrontmatter,
+} from "../core/memory/frontmatter.js";
 import { writeAtomic } from "../core/memory/atomic.js";
 import { slugifyTitle, getNextAdrNumber } from "../core/memory/section-editor.js";
 import { installAgentRules } from "../core/rules/manager.js";
@@ -54,7 +63,10 @@ export async function handleMigrateCommand(
 
   const memoryDir = path.join(rootDir, MEMORY_DIR_REL);
   if (!fs.existsSync(memoryDir)) {
-    throw new VeeError("docs/memory directory not found. Nothing to migrate.", "ERR_NOT_INITIALIZED");
+    throw new VeeError(
+      "docs/memory directory not found. Nothing to migrate.",
+      "ERR_NOT_INITIALIZED"
+    );
   }
 
   if (opts.dryRun) {
@@ -79,7 +91,7 @@ export async function handleMigrateCommand(
 
   // 2. Read old hashes from .vee/index.json
   const indexPath = path.join(rootDir, INDEX_FILE_REL);
-  let oldHashesMap: Record<string, Record<string, string>> = {};
+  const oldHashesMap: Record<string, Record<string, string>> = {};
   if (fs.existsSync(indexPath)) {
     try {
       const oldIndex = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
@@ -90,8 +102,10 @@ export async function handleMigrateCommand(
           }
         }
       }
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      logger.debug(
+        `Failed to read old index.json: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
@@ -110,15 +124,20 @@ export async function handleMigrateCommand(
       const cachedHashes = oldHashesMap[relDocPath] || {};
 
       const linked = Array.isArray(data.linked_files) ? data.linked_files : [];
-      const newLinkedFiles = linked.map((item: any) => {
-        const p = typeof item === "string" ? item : item.path;
-        let sha256 = (typeof item === "object" && item.sha256) ? item.sha256 : cachedHashes[p];
+      const newLinkedFiles = linked.map((item: unknown) => {
+        const p = typeof item === "string" ? item : (item as { path: string }).path;
+        let sha256 =
+          typeof item === "object" && item !== null && "sha256" in item
+            ? (item as { sha256?: string }).sha256
+            : cachedHashes[p];
         if (!sha256) {
           try {
             const safeRel = sanitizeRelativePath(p);
             sha256 = calculateNormalizedFileHash(path.join(rootDir, safeRel)) || undefined;
-          } catch {
-            // ignore
+          } catch (err: unknown) {
+            logger.debug(
+              `Failed to calculate hash during migration: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         }
         return { path: p, sha256 };
@@ -136,16 +155,24 @@ export async function handleMigrateCommand(
         const newFilename = `${nextNum}-${slug}.md`;
         const newFullPath = path.join(decisionsDir, newFilename);
 
-        data.id = data.id || base; // keep old name as alias
-        writeAtomic(newFullPath, stringifyMarkdownFrontmatter(data as any, content));
+        data.id = `${nextNum}-${slug}`;
+        writeAtomic(
+          newFullPath,
+          stringifyMarkdownFrontmatter(data as unknown as Record<string, unknown>, content)
+        );
         try {
           fs.unlinkSync(fullPath);
-        } catch {
-          // ignore
+        } catch (err: unknown) {
+          logger.debug(
+            `Failed to unlink old ADR file: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
         logger.info(`   Renamed ADR: ${file} -> ${newFilename}`);
       } else {
-        writeAtomic(fullPath, stringifyMarkdownFrontmatter(data as any, content));
+        writeAtomic(
+          fullPath,
+          stringifyMarkdownFrontmatter(data as unknown as Record<string, unknown>, content)
+        );
       }
     }
   }
@@ -166,7 +193,10 @@ export async function handleMigrateCommand(
   try {
     const installedHooks = installGitHooks(rootDir);
     logger.success(`6. Installed Git hooks: ${installedHooks.join(", ")}`);
-  } catch {
+  } catch (err: unknown) {
+    logger.debug(
+      `Git hooks installation skipped: ${err instanceof Error ? err.message : String(err)}`
+    );
     logger.warn("6. Git hooks skipped (not a Git repository or hooks disabled).");
   }
 
