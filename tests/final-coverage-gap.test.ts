@@ -45,6 +45,10 @@ import { handleGcCommand } from "../src/commands/gc.js";
 import { handleProposalsCommand } from "../src/commands/proposals.js";
 import { handleModelsCommand, handleModelsUseCommand } from "../src/commands/models.js";
 import * as coreModelsModule from "../src/core/models.js";
+import { searchMemory } from "../src/core/search.js";
+import { handleConfigCommand } from "../src/commands/config.js";
+import { scoreProposalRisk } from "../src/core/proposals/risk.js";
+import { reconcileExtractionSafe } from "../src/core/reconcile/reconciler.js";
 import { generateCurrentStateTemplate } from "../src/core/templates.js";
 import {
   installAgentRules,
@@ -971,6 +975,46 @@ describe("Final Coverage Gap Closure Suite", () => {
       handleModelsUseCommand("openai", "gpt-4o", tempDir);
       const updated = loadConfig(tempDir);
       expect(updated.extractor?.provider).toBe("openai");
+
+      // 7. searchMemory empty query & empty docs branches
+      expect(searchMemory("", {}, tempDir)).toEqual([]);
+      const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "vee-empty-search-"));
+      expect(searchMemory("test", {}, emptyDir)).toEqual([]);
+      try { fs.rmSync(emptyDir, { recursive: true, force: true }); } catch {}
+
+      // 8. unknown config action branch
+      expect(() => handleConfigCommand("unknown" as any, undefined, undefined, {}, tempDir)).toThrow("Unknown config action");
+
+      // 9. link ADR without existing linked_files array branch
+      const unlinkedAdr = path.join(tempDir, "docs", "memory", "decisions", "0090-unlinked.md");
+      fs.writeFileSync(unlinkedAdr, "---\nid: 0090-unlinked\ntitle: Unlinked\nstatus: active\n---\n# Unlinked", "utf-8");
+      const sampleCode = path.join(tempDir, "src", "unlinked-code.ts");
+      fs.writeFileSync(sampleCode, "export const c = 1;", "utf-8");
+      handleDecisionsCommand({ subcommand: "link", id: "0090-unlinked", targetFile: "src/unlinked-code.ts" }, tempDir);
+
+      // 10. scoreProposalRisk with rejected_approaches branch
+      const riskWithRejected = scoreProposalRisk({
+        rejected_approaches: [{ approach: "Old Approach", reason: "Too slow" }],
+      });
+      expect(riskWithRejected).toBeDefined();
+
+      // 11. reconcile superseded decision in fresh directory branch
+      const freshReconcileDir = fs.mkdtempSync(path.join(os.tmpdir(), "vee-reconcile-fresh-"));
+      initializeVeeshree(freshReconcileDir);
+      await reconcileExtractionSafe(
+        {
+          decisions: [
+            {
+              title: "Old Archived Decision",
+              decision: "Use old technique",
+              status: "superseded",
+              linked_files: ["../invalid-escape.ts"],
+            },
+          ],
+        },
+        freshReconcileDir
+      );
+      try { fs.rmSync(freshReconcileDir, { recursive: true, force: true }); } catch {}
     });
   });
 });
