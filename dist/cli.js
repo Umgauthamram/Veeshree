@@ -2473,7 +2473,12 @@ function stopDaemon(rootDir = process.cwd()) {
   const pid = status.pid;
   try {
     if (process.platform === "win32") {
-      spawn("taskkill", ["/pid", String(pid), "/f", "/t"]);
+      const killer = spawn("taskkill", ["/pid", String(pid), "/f", "/t"]);
+      killer.on("error", (err) => {
+        logger.debug(
+          `taskkill error for PID ${pid}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      });
     } else {
       process.kill(pid, "SIGTERM");
     }

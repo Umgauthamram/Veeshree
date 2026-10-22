@@ -43,6 +43,8 @@ import { handleExportCommand } from "../src/commands/export.js";
 import { handleUndoCommand } from "../src/commands/undo.js";
 import { handleGcCommand } from "../src/commands/gc.js";
 import { handleProposalsCommand } from "../src/commands/proposals.js";
+import { handleModelsCommand, handleModelsUseCommand } from "../src/commands/models.js";
+import * as coreModelsModule from "../src/core/models.js";
 import { generateCurrentStateTemplate } from "../src/core/templates.js";
 import {
   installAgentRules,
@@ -599,15 +601,10 @@ describe("Final Coverage Gap Closure Suite", () => {
       const pidPath = path.join(tempDir, ".vee", "watch.pid");
       fs.mkdirSync(path.dirname(pidPath), { recursive: true });
       fs.writeFileSync(pidPath, "88888", "utf-8");
-      const origPlatform = process.platform;
-      try {
-        Object.defineProperty(process, "platform", { value: "win32", configurable: true });
-        vi.spyOn(process, "kill").mockImplementation(() => true);
-        const res = stopDaemon(tempDir);
-        expect(res.stopped).toBe(true);
-      } finally {
-        Object.defineProperty(process, "platform", { value: origPlatform, configurable: true });
-      }
+      const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+      const res = stopDaemon(tempDir);
+      expect(res.stopped).toBe(true);
+      killSpy.mockRestore();
 
       // 2. getDaemonStatus stale pid cleanup
       const pidPath2 = path.join(tempDir, ".vee", "watch.pid");
@@ -885,7 +882,7 @@ describe("Final Coverage Gap Closure Suite", () => {
       expect(res.updatedAdrs).toBeDefined();
     });
 
-    it("covers export default format, gc live archive, import proposal staging, and lock release error", () => {
+    it("covers export default format, gc live archive, import proposal staging, and lock release error", async () => {
       // 1. Export default format (options.format is undefined)
       let stdoutContent = "";
       const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation((str: any) => {
@@ -948,6 +945,32 @@ describe("Final Coverage Gap Closure Suite", () => {
       );
       const res = acceptBaselines("0050-target-a", tempDir);
       expect(res.updatedAdrs).toContain("0050-target-a");
+
+      // 6. models command branches: latencyMs and missing extractor
+      vi.spyOn(coreModelsModule, "detectAvailableModels").mockResolvedValueOnce([
+        {
+          name: "Gemini",
+          provider: "gemini",
+          status: "available",
+          latencyMs: 120,
+          models: ["gemini-2.0-flash"],
+          endpoint: "https://generativelanguage.googleapis.com",
+        },
+        {
+          name: "Ollama",
+          provider: "ollama",
+          status: "offline",
+          models: [],
+        },
+      ]);
+      await handleModelsCommand(tempDir);
+
+      const cfg = loadConfig(tempDir);
+      delete (cfg as any).extractor;
+      saveConfig(cfg, tempDir);
+      handleModelsUseCommand("openai", "gpt-4o", tempDir);
+      const updated = loadConfig(tempDir);
+      expect(updated.extractor?.provider).toBe("openai");
     });
   });
 });
