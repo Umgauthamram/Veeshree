@@ -56,9 +56,12 @@ program
   .option("--json", "Format supported output as structured JSON")
   .option("--no-color", "Disable terminal colors")
   .hook("preAction", (thisCommand, actionCommand) => {
-    const opts = { ...thisCommand.opts(), ...actionCommand?.opts() };
-    if (opts.quiet) logger.setQuiet(true);
-    if (opts.json) logger.setJson(true);
+    const parentOpts = thisCommand.opts();
+    const cmdOpts = actionCommand?.opts() || {};
+    const isQuiet = Boolean(parentOpts.quiet || cmdOpts.quiet);
+    const isJson = Boolean(parentOpts.json || cmdOpts.json);
+    if (isQuiet) logger.setQuiet(true);
+    if (isJson) logger.setJson(true);
   });
 
 // 1. init
@@ -216,7 +219,8 @@ program
   .option("--explain", "Show breakdown of token usage per tier and budget caps", false)
   .option("--format <format>", "Output format: markdown, json, or xml", "markdown")
   .action((request, options) => {
-    runSafe(() => generateContext(request, options, process.cwd()));
+    const isJson = Boolean(options.json || logger.isJson());
+    runSafe(() => generateContext(request, { ...options, json: isJson }, process.cwd()));
   });
 
 // 8. decisions
@@ -333,9 +337,11 @@ const mcpCmd = program
   .command("mcp")
   .description("Start Model Context Protocol (MCP) stdio server")
   .option("--root <dir>", "Project or workspace root directory")
-  .action(async (options) => {
-    const rootDir = options.root ? path.resolve(options.root) : process.cwd();
-    await runSafeAsync(() => handleMcpCommand(undefined, options, rootDir));
+  .action(async (options, command) => {
+    const parentOpts = command.parent ? command.parent.opts() : {};
+    const allOpts = { ...parentOpts, ...command.opts() };
+    const rootDir = allOpts.root ? path.resolve(allOpts.root) : process.cwd();
+    await runSafeAsync(() => handleMcpCommand(undefined, allOpts, rootDir));
   });
 
 mcpCmd
@@ -346,9 +352,11 @@ mcpCmd
   .requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini")
   .option("--root <dir>", "Project or workspace root directory")
   .option("--no-install", "Use local binary instead of npx")
-  .action(async (options) => {
-    const noInstall = options.install === false || options.noInstall === true;
-    await runSafeAsync(() => handleMcpCommand("install", { ...options, noInstall }, process.cwd()));
+  .action(async (options, command) => {
+    const parentOpts = command.parent ? command.parent.opts() : {};
+    const allOpts = { ...parentOpts, ...command.opts() };
+    const noInstall = allOpts.install === false || allOpts.noInstall === true;
+    await runSafeAsync(() => handleMcpCommand("install", { ...allOpts, noInstall }, process.cwd()));
   });
 
 // 15. hooks

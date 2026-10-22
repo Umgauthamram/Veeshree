@@ -2,7 +2,7 @@ import type { ScannedProjectInfo } from "../types/index.js";
 
 export function generateCurrentStateTemplate(info: ScannedProjectInfo): string {
   const stackSummary = [
-    `- **Primary Purpose**: ${info.purpose}`,
+    info.purpose ? `- **Primary Purpose**: ${info.purpose}` : "",
     info.languages.length > 0 ? `- **Languages**: ${info.languages.join(", ")}` : "",
     info.frameworks.length > 0 ? `- **Frameworks / Libraries**: ${info.frameworks.join(", ")}` : "",
     info.databases.length > 0 ? `- **Databases / Data Layer**: ${info.databases.join(", ")}` : "",

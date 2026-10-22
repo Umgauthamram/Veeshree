@@ -62,7 +62,11 @@ export function getDaemonStatus(rootDir: string = process.cwd()): DaemonStatus {
 }
 
 export function resolveCliEntrypoint(rootDir: string = process.cwd()): string {
-  if (process.argv[1]) {
+  if (
+    process.argv[1] &&
+    !process.argv[1].includes("vitest") &&
+    !process.argv[1].includes("node_modules")
+  ) {
     const candidate = path.resolve(process.argv[1]);
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
       return candidate;
@@ -72,6 +76,8 @@ export function resolveCliEntrypoint(rootDir: string = process.cwd()): string {
   const candidates = [
     path.resolve(rootDir, "dist", "cli.js"),
     path.resolve(rootDir, "bin", "vee.js"),
+    path.resolve(process.cwd(), "bin", "vee.js"),
+    path.resolve(process.cwd(), "dist", "cli.js"),
     path.resolve(__dirname, "cli.js"),
     path.resolve(__dirname, "../cli.js"),
     path.resolve(__dirname, "../../dist/cli.js"),
@@ -194,7 +200,12 @@ export function stopDaemon(rootDir: string = process.cwd()): { stopped: boolean;
   const pid = status.pid;
   try {
     if (process.platform === "win32") {
-      spawn("taskkill", ["/pid", String(pid), "/f", "/t"]);
+      const killer = spawn("taskkill", ["/pid", String(pid), "/f", "/t"]);
+      killer.on("error", (err: unknown) => {
+        logger.debug(
+          `taskkill error for PID ${pid}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      });
     } else {
       process.kill(pid, "SIGTERM");
     }

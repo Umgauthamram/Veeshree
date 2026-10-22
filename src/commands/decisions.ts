@@ -229,7 +229,7 @@ Why the previous approach was superseded.
 
   if (decisions.length === 0) {
     logger.info("No architectural decision records found.");
-    return;
+    return decisions;
   }
 
   for (const doc of decisions) {
@@ -253,6 +253,7 @@ Why the previous approach was superseded.
     }
     logger.log("");
   }
+  return decisions;
 }
 
 function findAdr(

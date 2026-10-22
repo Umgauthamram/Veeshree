@@ -13,6 +13,12 @@ export function normalizePosix(p: string): string {
  */
 export function sanitizeRelativePath(relPath: string): string {
   const normalized = normalizePosix(relPath).trim();
+  if (normalized.includes("\0")) {
+    throw new VeeError(
+      `Null bytes are not permitted in path: ${relPath}`,
+      "ERR_SECURITY_VIOLATION"
+    );
+  }
   if (path.isAbsolute(relPath) || normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized)) {
     throw new VeeError(`Absolute paths are not permitted: ${relPath}`, "ERR_SECURITY_VIOLATION");
   }

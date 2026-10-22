@@ -3,7 +3,11 @@ import { createRequire } from "node:module";
 
 declare const __VERSION__: string | undefined;
 
-function getResolvedVersion(): string {
+export function getResolvedVersion(): string {
+  const customGlobal = globalThis as unknown as { __VERSION__?: string };
+  if (typeof customGlobal.__VERSION__ !== "undefined") {
+    return customGlobal.__VERSION__;
+  }
   if (typeof __VERSION__ !== "undefined") {
     return __VERSION__;
   }

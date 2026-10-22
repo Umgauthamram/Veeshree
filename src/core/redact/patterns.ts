@@ -28,17 +28,17 @@ export const SECRET_PATTERNS: RedactionPattern[] = [
     regex: /ya29\.[0-9A-Za-z\-_]{20,}/g,
     replacement: "[REDACTED:gcp_token]",
   },
+  // Anthropic API Key (must precede OpenAI key as sk-ant- matches general sk- pattern)
+  {
+    name: "anthropic_key",
+    regex: /sk-ant-[A-Za-z0-9_-]{20,}/g,
+    replacement: "[REDACTED:anthropic_key]",
+  },
   // OpenAI API Key
   {
     name: "openai_key",
     regex: /sk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{20,}/g,
     replacement: "[REDACTED:openai_key]",
-  },
-  // Anthropic API Key
-  {
-    name: "anthropic_key",
-    regex: /sk-ant-[A-Za-z0-9_-]{20,}/g,
-    replacement: "[REDACTED:anthropic_key]",
   },
   // GitHub Tokens (classic and fine-grained)
   {
@@ -125,7 +125,7 @@ export const SECRET_PATTERNS: RedactionPattern[] = [
  * Generic assignment pattern for high entropy values assigned to key/token/secret variables
  */
 const HIGH_ENTROPY_ASSIGNMENT =
-  /((?:api_?key|token|secret|access_?key|private_?key)\s*[:=]\s*["']?)([A-Za-z0-9_\-+/]{16,})(["']?)/gi;
+  /((?:api_?key|token|secret|access_?key|private_?key)\s*[:=]\s*["']?)(\[REDACTED:[^\]]+\]|[A-Za-z0-9_\-+/]{16,})(["']?)/gi;
 
 /**
  * Redacts known sensitive patterns and high-entropy secret assignments.

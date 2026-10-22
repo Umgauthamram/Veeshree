@@ -20,20 +20,30 @@ The Veeshree team takes software security seriously. If you discover a vulnerabi
 
 Veeshree operates as a persistence layer for multi-model AI software engineering. It is designed around the principle of **Safe by Default**:
 
-### 1. Proposal Queue & Memory Poisoning Protection
-LLM extractions never write directly to architectural constraints or supersede existing decisions without explicit human review. Any extraction containing sensitive keywords, instructions to disable safety checks, or rule updates is automatically assigned high-risk status and staged in `.vee/proposals/`.
+### Threat Model & Defense Boundaries
 
-### 2. Secret Redaction & Data Privacy
-- **Automatic Pattern Redaction**: Diff payloads and context prompts pass through a pattern-matching filter covering OpenAI, Google Gemini, Anthropic, AWS, GCP, Stripe, GitHub, Slack tokens, private keys, bearer authorization headers, and JWTs.
-- **Redaction Limits & Best-Effort Nature**: Automatic secret redaction operates as a defense-in-depth heuristic safety guardrail. It is best-effort and does **not** guarantee detection of arbitrary, bespoke, or custom-formatted secret strings. Developers and teams must never commit raw production credentials to version control.
-- **Sensitive File Denylist**: Files matching `.env*`, `*.pem`, `*.key`, `id_rsa*`, lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`), `.veeignore`, and binaries are excluded from diffs and memory processing.
-- **Size Capping**: Outgoing diff payloads are capped at 24KB by default to prevent inadvertent data exposure and token budget exhaustion.
-- **Explicit Cloud Consent**: External cloud AI requests are disabled by default (`privacy.allow_cloud: false`). When run in a terminal without cloud consent, Veeshree prompts interactively; in non-interactive CI environments, it blocks execution until explicitly opted in or configured for local offline models (Ollama / LM Studio).
+#### 1. What Redaction Does and Does Not Guarantee
+- **Heuristic Defense-in-Depth**: Automatic pattern redaction is a local heuristic guardrail covering known token formats (OpenAI, Gemini, Anthropic, AWS, GCP, Stripe, GitHub, Slack, DB connection strings, bearer tokens, private keys, JWTs).
+- **No Absolute Guarantees**: Redaction does **not** guarantee detection of arbitrary, custom-formatted, obfuscated, or bespoke secret strings. It must never replace proper secrets management (e.g., environment variables or secret vaults). Developers must never commit production credentials to version control.
+- **Sensitive File Denylist & Size Capping**: Files matching `.env*`, `*.pem`, `*.key`, `id_rsa*`, lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`), `.veeignore`, and binaries are excluded from diffs. Outgoing payloads are capped at 24KB by default.
 
-### 3. Safe Execution & Path Traversal Prevention
+#### 2. Why Cloud Upload Is Opt-In
+- **Zero Inadvertent Data Leakage**: By default, `privacy.allow_cloud` is set to `false`. Diff payloads and contextual prompts never leave the local environment unless explicit consent is granted by the user.
+- **Offline / Local First**: Teams can use local offline models (Ollama, LM Studio) without cloud credentials or consent prompts. In CI environments, operations requiring remote LLMs fail closed unless `privacy.allow_cloud: true` is explicitly configured.
+
+#### 3. How the Proposal Queue Defends Against Memory Poisoning
+- **Staged Untrusted Deltas**: Extractions from LLMs and unverified import bundles never write directly to architectural constraints, tasks, or ADRs.
+- **Risk Scoring**: Any extraction containing flagged patterns (system prompt overrides, instruction to disable safety checks, bypass tests, or alter constraints) receives a `high` risk score and is staged in `.vee/proposals/` for human review.
+
+#### 4. Limits of Memory Poisoning Defenses
+- **Natural-Language Poisoning Limits**: Subtle natural-language poisoning, semantic ambiguity, indirect prompt injection, and carefully phrased adversarial suggestions cannot be fully or reliably detected by heuristic pattern matching alone.
+- **Human Review as Final Authority**: The proposal queue, automated git diffs, and version-controlled `docs/memory/` Markdown files ensure all architectural mutations remain transparent, inspectable, and reversible via standard Git history and `vee undo`.
+
+### Safe Execution & Path Traversal Prevention
 - All file writes are strictly constrained to `docs/memory/` and `.vee/` using path sanitization that rejects directory traversal (`..`, absolute paths, and null bytes).
-- Subprocesses executed by the CLI are run with safe argument arrays (`execFileSync`) rather than shell interpolation, eliminating shell injection risks.
+- Subprocesses executed by the CLI are run with safe argument arrays (`execFileSync`, `spawn`) rather than shell interpolation, eliminating shell injection risks.
 - Model names are restricted to safe alphanumeric and punctuation patterns.
 
-### 4. Zero Native Dependencies
+### Zero Native Dependencies
 Veeshree guarantees 100% pure JavaScript/TypeScript execution with zero C++ native extensions, minimizing attack surface and eliminating compilation exploits.
+
