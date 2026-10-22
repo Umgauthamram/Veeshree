@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 declare const VEESHREE_VERSION: string;
 
@@ -1192,9 +1194,9 @@ interface ResolvedEngine {
 declare function resolveEngine(rootDir?: string, customProvider?: string, customModel?: string): Promise<ResolvedEngine>;
 
 /**
- * Starts the Veeshree MCP Server over stdio
+ * Starts the Veeshree MCP Server over stdio or custom transport
  */
-declare function startMcpServer(rootDir?: string): Promise<void>;
+declare function startMcpServer(rootDir?: string, transport?: Transport): Promise<Server>;
 
 type McpClientType = "claude" | "cursor" | "vscode" | "gemini" | "claude-code";
 interface InstallMcpOptions {

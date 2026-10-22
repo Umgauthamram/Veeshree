@@ -27,8 +27,9 @@ export function handleStatusCommand(
   options: StatusOptions = {},
   rootDir: string = process.cwd()
 ): StatusResult {
+  const isJson = Boolean(options.json || logger.isJson());
   if (options.quiet) logger.setQuiet(true);
-  if (options.json) logger.setJson(true);
+  if (isJson) logger.setJson(true);
 
   const config = loadConfig(rootDir);
   // Re-hash live files (Fix BUG-2: never read a stale cache in status --check!)
@@ -70,7 +71,7 @@ export function handleStatusCommand(
 
   const exitCode = options.check && driftReport.hasDrift ? 1 : 0;
 
-  if (options.json) {
+  if (isJson) {
     const payload = {
       currentFocus,
       tasks: { completed: completedTasks, total: totalTasks, percent },

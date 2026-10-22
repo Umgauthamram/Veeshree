@@ -40,7 +40,8 @@
     "prepublishOnly": "npm run lint && npm run build && npm test",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "publishConfig": {
     "provenance": true
@@ -69,6 +70,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.13.0",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
     "tsup": "^8.2.0",

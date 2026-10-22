@@ -76,7 +76,7 @@ import {
   validateModelName,
   verifyModelEndpoint,
   writeAtomic
-} from "./chunk-LKJDKT4W.js";
+} from "./chunk-4OXFZE7X.js";
 
 // src/cli.ts
 import path14 from "path";
@@ -344,7 +344,7 @@ function detectGitContext(targetDir, result) {
 // src/core/templates.ts
 function generateCurrentStateTemplate(info) {
   const stackSummary = [
-    `- **Primary Purpose**: ${info.purpose}`,
+    info.purpose ? `- **Primary Purpose**: ${info.purpose}` : "",
     info.languages.length > 0 ? `- **Languages**: ${info.languages.join(", ")}` : "",
     info.frameworks.length > 0 ? `- **Frameworks / Libraries**: ${info.frameworks.join(", ")}` : "",
     info.databases.length > 0 ? `- **Databases / Data Layer**: ${info.databases.join(", ")}` : "",
@@ -1633,8 +1633,9 @@ async function readStdin() {
 import fs6 from "fs";
 import path5 from "path";
 function handleStatusCommand(options = {}, rootDir = process.cwd()) {
+  const isJson = Boolean(options.json || logger.isJson());
   if (options.quiet) logger.setQuiet(true);
-  if (options.json) logger.setJson(true);
+  if (isJson) logger.setJson(true);
   const config = loadConfig(rootDir);
   const driftReport = checkWorkspaceDrift(rootDir);
   let activeDecisionsCount = 0;
@@ -1665,7 +1666,7 @@ function handleStatusCommand(options = {}, rootDir = process.cwd()) {
   const percent = totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0;
   const progressBar = renderProgressBar(percent);
   const exitCode = options.check && driftReport.hasDrift ? 1 : 0;
-  if (options.json) {
+  if (isJson) {
     const payload = {
       currentFocus,
       tasks: { completed: completedTasks, total: totalTasks, percent },
@@ -1740,12 +1741,13 @@ function renderProgressBar(percent, length = 16) {
 
 // src/commands/search.ts
 function handleSearchCommand(query, options = {}, rootDir = process.cwd()) {
-  if (options.json) logger.setJson(true);
+  const isJson = Boolean(options.json || logger.isJson());
+  if (isJson) logger.setJson(true);
   if (!query || !query.trim()) {
     throw new VeeError('Search query required. Usage: vee search "<query>"', "ERR_INVALID_ARGS");
   }
   const results = searchMemory(query, { includeArchived: options.archived }, rootDir);
-  if (options.json) {
+  if (isJson) {
     logger.json(results);
     return results;
   }
@@ -1941,7 +1943,7 @@ Why the previous approach was superseded.
   logger.title("Architectural Decision Records (ADRs)");
   if (decisions.length === 0) {
     logger.info("No architectural decision records found.");
-    return;
+    return decisions;
   }
   for (const doc of decisions) {
     const statusBadge = doc.status === "active" ? logger.cyan("[ACTIVE]") : doc.status === "superseded" ? logger.yellow("[SUPERSEDED]") : logger.dim(`[${doc.status.toUpperCase()}]`);
@@ -1957,6 +1959,7 @@ Why the previous approach was superseded.
     }
     logger.log("");
   }
+  return decisions;
 }
 function findAdr(identifier, rootDir) {
   const dirs = [
@@ -2366,7 +2369,7 @@ function getDaemonStatus(rootDir = process.cwd()) {
   return { running: false, logPath };
 }
 function resolveCliEntrypoint(rootDir = process.cwd()) {
-  if (process.argv[1]) {
+  if (process.argv[1] && !process.argv[1].includes("vitest") && !process.argv[1].includes("node_modules")) {
     const candidate = path9.resolve(process.argv[1]);
     if (fs10.existsSync(candidate) && fs10.statSync(candidate).isFile()) {
       return candidate;
@@ -2375,6 +2378,8 @@ function resolveCliEntrypoint(rootDir = process.cwd()) {
   const candidates = [
     path9.resolve(rootDir, "dist", "cli.js"),
     path9.resolve(rootDir, "bin", "vee.js"),
+    path9.resolve(process.cwd(), "bin", "vee.js"),
+    path9.resolve(process.cwd(), "dist", "cli.js"),
     path9.resolve(__dirname, "cli.js"),
     path9.resolve(__dirname, "../cli.js"),
     path9.resolve(__dirname, "../../dist/cli.js")
@@ -3074,9 +3079,12 @@ var program = new Command();
 program.name("vee").description(
   "Veeshree: Local-first context persistence layer for multi-model AI software development"
 ).version(VEESHREE_VERSION).option("-q, --quiet", "Suppress non-essential console output").option("--json", "Format supported output as structured JSON").option("--no-color", "Disable terminal colors").hook("preAction", (thisCommand, actionCommand) => {
-  const opts = { ...thisCommand.opts(), ...actionCommand?.opts() };
-  if (opts.quiet) logger.setQuiet(true);
-  if (opts.json) logger.setJson(true);
+  const parentOpts = thisCommand.opts();
+  const cmdOpts = actionCommand?.opts() || {};
+  const isQuiet = Boolean(parentOpts.quiet || cmdOpts.quiet);
+  const isJson = Boolean(parentOpts.json || cmdOpts.json);
+  if (isQuiet) logger.setQuiet(true);
+  if (isJson) logger.setJson(true);
 });
 program.command("init").description("Bootstrap Veeshree project memory, heuristic scanner, agent rules, and Git hooks").option("-f, --force", "Overwrite existing memory scaffolds and hooks", false).option("--dry-run", "Preview initialization steps without making filesystem changes", false).option(
   "--agents <list>",
@@ -3147,7 +3155,8 @@ program.command("proposals").description("List memory update proposals in queue"
   runSafe(() => handleProposalsCommand(options, process.cwd()));
 });
 program.command("context [request]").description("Generate token-budgeted system prompt context payload from active memory").option("-m, --max-tokens <tokens>", "Maximum total context tokens budget").option("-t, --tasks", "Include project tasks list in context", false).option("-j, --json", "Output structured JSON metadata", false).option("-r, --raw", "Output pure prompt text without stderr notices", false).option("--explain", "Show breakdown of token usage per tier and budget caps", false).option("--format <format>", "Output format: markdown, json, or xml", "markdown").action((request, options) => {
-  runSafe(() => generateContext(request, options, process.cwd()));
+  const isJson = Boolean(options.json || logger.isJson());
+  runSafe(() => generateContext(request, { ...options, json: isJson }, process.cwd()));
 });
 var decisionsCmd = program.command("decisions").description("List and manage Architectural Decision Records (ADRs)").option("-a, --all", "Include superseded and proposed decisions", false).option("-s, --status <status>", "Filter by status (active, superseded, proposed)").option("-j, --json", "Output decisions as JSON", false).action((options) => {
   runSafe(() => handleDecisionsCommand({ ...options, subcommand: "list" }, process.cwd()));
@@ -3197,15 +3206,19 @@ program.command("export").description("Export docs/memory as a bundled JSON or M
 program.command("import <file>").description("Import memory bundle into docs/memory").option("-y, --yes", "Apply import directly without creating review proposals", false).action((file, options) => {
   runSafe(() => handleImportCommand(file, options, process.cwd()));
 });
-var mcpCmd = program.command("mcp").description("Start Model Context Protocol (MCP) stdio server").option("--root <dir>", "Project or workspace root directory").action(async (options) => {
-  const rootDir = options.root ? path14.resolve(options.root) : process.cwd();
-  await runSafeAsync(() => handleMcpCommand(void 0, options, rootDir));
+var mcpCmd = program.command("mcp").description("Start Model Context Protocol (MCP) stdio server").option("--root <dir>", "Project or workspace root directory").action(async (options, command) => {
+  const parentOpts = command.parent ? command.parent.opts() : {};
+  const allOpts = { ...parentOpts, ...command.opts() };
+  const rootDir = allOpts.root ? path14.resolve(allOpts.root) : process.cwd();
+  await runSafeAsync(() => handleMcpCommand(void 0, allOpts, rootDir));
 });
 mcpCmd.command("install").description(
   "Install Veeshree MCP server into client configuration (claude, claude-code, cursor, vscode, gemini)"
-).requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini").option("--root <dir>", "Project or workspace root directory").option("--no-install", "Use local binary instead of npx").action(async (options) => {
-  const noInstall = options.install === false || options.noInstall === true;
-  await runSafeAsync(() => handleMcpCommand("install", { ...options, noInstall }, process.cwd()));
+).requiredOption("--client <client>", "Client type: claude, claude-code, cursor, vscode, gemini").option("--root <dir>", "Project or workspace root directory").option("--no-install", "Use local binary instead of npx").action(async (options, command) => {
+  const parentOpts = command.parent ? command.parent.opts() : {};
+  const allOpts = { ...parentOpts, ...command.opts() };
+  const noInstall = allOpts.install === false || allOpts.noInstall === true;
+  await runSafeAsync(() => handleMcpCommand("install", { ...allOpts, noInstall }, process.cwd()));
 });
 var hooksCmd = program.command("hooks").description("Manage Git hooks (pre-commit drift checks, post-checkout sync)");
 hooksCmd.command("install").description("Install Git hooks in repository").action(() => {

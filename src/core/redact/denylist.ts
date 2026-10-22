@@ -168,7 +168,7 @@ export function filterDiffByDenylist(rawDiff: string, rootDir: string = process.
 
     // Check diff header: diff --git a/path b/path
     const gitMatch = chunk.match(
-      /^diff --git (?:a\/|"(?:a\/)?)(.+?)(?:"|\s) (?:b\/|"(?:b\/)?)(.+?)(?:"|\r?\n|$)/m
+      /^diff --git (?:a\/|"(?:a\/)?)(.+?)(?:"\s+|\s+)(?:b\/|"(?:b\/)?)(.+?)(?:"|\r?\n|$)/m
     );
     if (gitMatch) {
       const fileA = gitMatch[1]?.trim().replace(/^"|"$/g, "");

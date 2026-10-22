@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
@@ -17,9 +18,12 @@ import {
 } from "../utils/constants.js";
 
 /**
- * Starts the Veeshree MCP Server over stdio
+ * Starts the Veeshree MCP Server over stdio or custom transport
  */
-export async function startMcpServer(rootDir: string = process.cwd()): Promise<void> {
+export async function startMcpServer(
+  rootDir: string = process.cwd(),
+  transport?: Transport
+): Promise<Server> {
   const server = new Server(
     {
       name: "veeshree",
@@ -154,6 +158,7 @@ export async function startMcpServer(rootDir: string = process.cwd()): Promise<v
     throw new Error(`Resource not found: ${uri}`);
   });
 
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  const activeTransport = transport || new StdioServerTransport();
+  await server.connect(activeTransport);
+  return server;
 }
