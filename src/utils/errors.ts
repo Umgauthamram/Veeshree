@@ -37,3 +37,11 @@ export class VeeError extends Error {
     Object.setPrototypeOf(this, VeeError.prototype);
   }
 }
+
+/**
+ * Checks if an error represents an ENOENT (file not found) error.
+ */
+export function isEnoent(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  return (err as { code?: string }).code === "ENOENT";
+}

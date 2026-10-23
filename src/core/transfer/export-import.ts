@@ -5,6 +5,8 @@ import { MEMORY_DIR_REL, VEESHREE_VERSION } from "../../utils/constants.js";
 import { normalizePosix, sanitizeRelativePath } from "../../utils/paths.js";
 import { writeAtomic } from "../memory/atomic.js";
 import { buildIndex } from "../indexer.js";
+import { isEnoent } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 export interface MemoryExportBundle {
   manifest: {
@@ -70,8 +72,12 @@ export function importMemoryFromArchive(
       rootDir,
       `Pre-import snapshot (bundle v${bundle.manifest.version || "1.0.0"})`
     );
-  } catch {
-    // If docs/memory doesn't exist yet, proceed
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.warn(
+        `Failed to create pre-import snapshot: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
   const restoredFiles: string[] = [];

@@ -77,8 +77,10 @@ export function initializeVeeshree(
       const installedHooks = installGitHooks(targetDir);
       logger.success(`Installed Git hooks: ${installedHooks.join(", ")}`);
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(
+      `Failed to automatically install git hooks during init: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   logger.log("");

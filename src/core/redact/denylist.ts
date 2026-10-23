@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { normalizePosix } from "../../utils/paths.js";
+import { isEnoent } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 const BINARY_EXTENSIONS = new Set([
   ".png",
@@ -56,7 +58,12 @@ export function parseIgnoreFile(filePath: string): string[] {
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"));
-  } catch {
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.warn(
+        `Failed to read ignore file at ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     return [];
   }
 }
@@ -146,8 +153,10 @@ export function matchesSimpleGlob(filePath: string, pattern: string): boolean {
     if (regex.test(normalized) || regex.test(base)) {
       return true;
     }
-  } catch {
-    // fallback
+  } catch (err: unknown) {
+    logger.warn(
+      `Failed to parse regex pattern for ignore rule '${pattern}': ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   return false;

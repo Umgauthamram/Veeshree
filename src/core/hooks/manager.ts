@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { runCommandSafe } from "../../utils/process.js";
-import { VeeError } from "../../utils/errors.js";
+import { VeeError, isEnoent } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 const HOOK_START_MARKER = "# veeshree:start";
 const HOOK_END_MARKER = "# veeshree:end";
@@ -38,8 +39,10 @@ export function resolveGitHooksDir(rootDir: string = process.cwd()): string | nu
         ? customHooksPath
         : path.join(rootDir, customHooksPath);
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(
+      `Failed to query core.hooksPath via git config: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   return path.join(gitDir, "hooks");
@@ -212,7 +215,12 @@ function checkHookFile(filePath: string): boolean {
   try {
     const content = fs.readFileSync(filePath, "utf-8");
     return content.includes(HOOK_START_MARKER);
-  } catch {
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.warn(
+        `Failed to inspect git hook file at ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     return false;
   }
 }
@@ -237,7 +245,11 @@ function writeHookFile(filePath: string, markerBlock: string): void {
 
   try {
     fs.chmodSync(filePath, 0o755);
-  } catch {
-    // Windows chmod no-op
+  } catch (err: unknown) {
+    if (process.platform !== "win32") {
+      logger.warn(
+        `Failed to set mode 0755 on hook ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 }

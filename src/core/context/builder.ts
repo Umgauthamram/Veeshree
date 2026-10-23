@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { estimateTokens, truncateToTokens } from "./estimator.js";
 import { loadConfig } from "../config.js";
+import { logger } from "../../utils/logger.js";
 import { checkWorkspaceDrift } from "../drift/status.js";
 import { buildIndex, createSearchEngine } from "../indexer.js";
 import type { IndexDocument } from "../../types/index.js";
@@ -251,8 +252,10 @@ You are operating within a project utilizing Veeshree for model-independent memo
         const unmatched = activeDecisions.filter((d) => !scoredIds.has(d.id));
         activeDecisions = [...matched, ...unmatched];
       }
-    } catch {
-      // If search fails, fallback to natural order
+    } catch (err: unknown) {
+      logger.debug(
+        `Context search ranking fallback: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 

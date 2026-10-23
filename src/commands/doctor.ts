@@ -209,8 +209,10 @@ export async function handleDoctorCommand(
         message: ".vee/config.json is not tracked by Git",
       });
     }
-  } catch {
-    // not a git repo
+  } catch (err: unknown) {
+    logger.debug(
+      `Doctor git tracking check skipped (not a git repo): ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   // 4. Check Credentials Permissions (SEC-3)

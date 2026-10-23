@@ -33,15 +33,17 @@
     "url": "https://github.com/Umgauthamram/veeshree/issues"
   },
   "scripts": {
-    "build": "tsup",
+    "sync:models": "node -e \"require('fs').copyFileSync('models.json', 'src/models.json')\"",
+    "check:catches": "node -e \"const fs=require('fs'),path=require('path');function walk(d){let r=[];for(const f of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,f.name);if(f.isDirectory())r.push(...walk(p));else if(f.name.endsWith('.ts'))r.push(p);}return r;}let c=0;for(const f of walk('src')){const m=fs.readFileSync(f,'utf-8').matchAll(/catch(?:\\s*\\([^)]*\\))?\\s*\\{([^}]*)\\}/g);for(const match of m){const b=match[1].replace(/\\/\\/[^\\n]*/g,'').replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').trim();if(b.length===0){console.error('Silent catch in '+f);c++;}}}if(c>0)process.exit(1);\"",
+    "build": "npm run sync:models && tsup",
     "lint": "eslint src",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepublishOnly": "npm run lint && npm run build && npm test",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "npm run sync:models && vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "npm run sync:models && vitest run --coverage"
   },
   "publishConfig": {
     "provenance": true
@@ -62,6 +64,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "commander": "^12.1.0",
+    "jsonc-parser": "^3.3.1",
     "minisearch": "^7.1.0",
     "picocolors": "^1.1.0",
     "yaml": "^2.9.1",

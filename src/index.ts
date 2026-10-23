@@ -7,7 +7,7 @@ export * from "./schemas/index.js";
 
 // Utilities
 export { logger, type LogLevel } from "./utils/logger.js";
-export { VeeError, type VeeErrorCode } from "./utils/errors.js";
+export { VeeError, type VeeErrorCode, isEnoent } from "./utils/errors.js";
 export { sanitizeRelativePath, normalizePosix } from "./utils/paths.js";
 export { calculateNormalizedFileHash } from "./core/drift/hasher.js";
 

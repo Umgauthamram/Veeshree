@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import type { ScannedProjectInfo } from "../types/index.js";
+import { isEnoent } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Enhanced Local Heuristic Scanner
@@ -93,8 +95,12 @@ function detectProjectPurpose(targetDir: string, result: ScannedProjectInfo): vo
         if (paragraphs.length > 0) {
           result.purpose = paragraphs.join(" ");
         }
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        if (!isEnoent(err)) {
+          logger.debug(
+            `Scanner failed to read ${r}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
       break;
     }
@@ -108,8 +114,12 @@ function detectProjectPurpose(targetDir: string, result: ScannedProjectInfo): vo
       if (pkg.description) {
         result.purpose = pkg.description;
       }
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Scanner failed to read/parse package.json: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 
@@ -148,8 +158,12 @@ function detectNodeStack(targetDir: string, result: ScannedProjectInfo): void {
 
       if (deps["tailwindcss"]) result.infrastructure.push("Tailwind CSS");
       if (deps["docker"]) result.infrastructure.push("Docker");
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Scanner failed to parse dependencies in package.json: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 }
@@ -183,8 +197,12 @@ function detectGoStack(targetDir: string, result: ScannedProjectInfo): void {
       if (/gin-gonic\/gin/i.test(content)) result.frameworks.push("Gin");
       if (/gofiber\/fiber/i.test(content)) result.frameworks.push("Fiber");
       if (/gorm\.io\/gorm/i.test(content)) result.databases.push("GORM");
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Scanner failed to read go.mod: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 }
@@ -200,8 +218,12 @@ function detectRustStack(targetDir: string, result: ScannedProjectInfo): void {
       if (/tokio/i.test(content)) result.frameworks.push("Tokio");
       if (/diesel/i.test(content)) result.databases.push("Diesel ORM");
       if (/sqlx/i.test(content)) result.databases.push("SQLx");
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Scanner failed to read Cargo.toml: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 }
@@ -244,8 +266,12 @@ function detectDomainEntities(targetDir: string, result: ScannedProjectInfo): vo
             result.domainEntities.push(name);
           }
         }
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        if (!isEnoent(err)) {
+          logger.debug(
+            `Scanner failed to read prisma schema: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
   }
@@ -265,8 +291,12 @@ function detectDomainEntities(targetDir: string, result: ScannedProjectInfo): vo
           if (name !== "Meta") result.domainEntities.push(name);
         }
       }
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Scanner failed to read models.py: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 }
@@ -300,8 +330,12 @@ function scanRouteDirs(dir: string, baseRoute: string, endpoints: string[]): voi
         endpoints.push(baseRoute);
       }
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.debug(
+        `Scanner failed to read route directory ${dir}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 }
 
@@ -334,7 +368,10 @@ function detectGitContext(targetDir: string, result: ScannedProjectInfo): void {
     if (!result.activeFeatureFocus && result.recentCommits.length > 0) {
       result.activeFeatureFocus = `Recent work: ${result.recentCommits[0]}`;
     }
-  } catch {
+  } catch (err: unknown) {
+    logger.debug(
+      `Scanner git context detection skipped (not a git repo): ${err instanceof Error ? err.message : String(err)}`
+    );
     result.recentCommits = [];
   }
 }

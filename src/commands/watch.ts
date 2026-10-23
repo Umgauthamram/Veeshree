@@ -55,9 +55,9 @@ export async function handleWatchCommand(
     return;
   }
 
-  const debounceSeconds = options.debounce ? parseInt(options.debounce, 10) : undefined;
+  const debounceSeconds = options.debounce ? parseFloat(options.debounce) : undefined;
   await startMemoryWatcher(rootDir, {
-    debounceSeconds,
+    debounceSeconds: !isNaN(debounceSeconds as number) ? debounceSeconds : undefined,
     provider: options.provider,
     model: options.model,
     auto: options.auto,

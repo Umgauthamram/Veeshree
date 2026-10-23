@@ -5,10 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-10-16
+## [Unreleased]
+
+## [1.0.0-rc.1]
+
+### Installation
+```bash
+npm install veeshree@next
+# or run directly:
+npx veeshree@next init
+```
 
 ### Major Highlights
-- **1.0.0 Release**: Transitioned Veeshree from early prototype to an enterprise-grade, model-independent architectural memory layer with zero native dependencies.
+- **1.0.0-rc.1 Release**: Transitioned Veeshree from early prototype to a reliable, model-independent architectural memory layer with zero native dependencies.
 - **Safe by Default**: The review queue is enabled by default. External cloud LLM calls require explicit consent (`privacy.allow_cloud`).
 - **MCP Server**: Official Model Context Protocol stdio server with tools for context assembly, drift inspection, decision proposals, and task updates.
 - **Automated Git Hooks & Agent Rules**: Idempotent marker blocks for `pre-commit`, `post-checkout`, `post-merge` and instructions for Cursor, Claude, Gemini, Antigravity, AGENTS.md, and GitHub Copilot.
@@ -46,4 +55,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `package.json` specifies Node.js `>= 20.0.0` and exports map with TypeScript definitions.
 - Config upgraded to `schema_version: 1` with full backwards-compatibility mappings for 0.3.x keys.
 
-[1.0.0]: https://github.com/Umgauthamram/veeshree/releases/tag/v1.0.0
+[1.0.0-rc.1]: https://github.com/Umgauthamram/veeshree/releases/tag/v1.0.0-rc.1

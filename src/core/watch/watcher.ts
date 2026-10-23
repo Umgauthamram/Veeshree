@@ -50,7 +50,10 @@ export async function startMemoryWatcher(
   options: WatcherOptions = {}
 ): Promise<{ stop: () => void }> {
   const config = loadConfig(rootDir);
-  const debounceTimeMs = (options.debounceSeconds || config.watch?.debounce_seconds || 5) * 1000;
+  const debounceTimeMs =
+    (options.debounceSeconds !== undefined
+      ? options.debounceSeconds
+      : config.watch?.debounce_seconds || 5) * 1000;
   const maxCallsPerHour = config.watch?.max_calls_per_hour || 30;
   const isAuto = options.auto !== undefined ? options.auto : config.watch?.auto || false;
 

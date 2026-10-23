@@ -23,6 +23,8 @@ import {
   REJECTED_FILE_REL,
   DISCOVERIES_FILE_REL,
 } from "../../utils/constants.js";
+import { isEnoent } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 export interface ReconcileOptions {
   source?: string;
@@ -50,8 +52,12 @@ export async function reconcileExtractionSafe(
     if (options.createSnapshot !== false) {
       try {
         createMemorySnapshot(rootDir, `Reconcile delta (${options.source || "manual"})`);
-      } catch {
-        // If memory dir does not exist yet (fresh repo), ignore
+      } catch (err: unknown) {
+        if (!isEnoent(err)) {
+          logger.warn(
+            `Failed to create pre-reconcile memory snapshot: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
 
@@ -80,7 +86,10 @@ export async function reconcileExtractionSafe(
             const safeRel = sanitizeRelativePath(rel);
             const hash = calculateNormalizedFileHash(path.join(rootDir, safeRel));
             return { path: safeRel, sha256: hash || undefined };
-          } catch {
+          } catch (err: unknown) {
+            logger.warn(
+              `Failed to calculate baseline hash for linked file '${rel}': ${err instanceof Error ? err.message : String(err)}`
+            );
             return { path: rel, sha256: undefined };
           }
         });
