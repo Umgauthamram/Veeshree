@@ -10,6 +10,7 @@ import { assertCloudConsent } from "../core/redact/redactor.js";
 import { DEFAULT_MODELS } from "../utils/constants.js";
 import { validateModel } from "./models.js";
 import { VeeError } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 
 export interface ResolvedEngine {
   extractor: Extractor;
@@ -47,7 +48,7 @@ export async function resolveEngine(
       break;
     case "anthropic":
       extractor = new AnthropicExtractor();
-      defaultModel = DEFAULT_MODELS.anthropic || "claude-3-5-sonnet-20241022";
+      defaultModel = DEFAULT_MODELS.anthropic || "claude-3-5-haiku-20241022";
       break;
     case "groq":
       extractor = new OpenAIExtractor("groq", "https://api.groq.com/openai/v1");
@@ -75,9 +76,8 @@ export async function resolveEngine(
 
   const validation = validateModel(provider, model);
   if (!validation.valid) {
-    throw new VeeError(
-      `Unknown model '${model}' for provider '${provider}'. Did you mean '${validation.suggested}'? Available models: ${validation.available.join(", ")}`,
-      "ERR_INVALID_MODEL"
+    logger.warn(
+      `Model '${model}' is not in the known model catalog for '${provider}'. Did you mean '${validation.suggested}'? Available models: ${validation.available.join(", ")}`
     );
   }
 

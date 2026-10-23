@@ -200,8 +200,8 @@ describe("Phase B: Security Gaps Regression Tests", () => {
       const config = loadModelsConfig(tempDir);
       expect(config.defaults).toBeDefined();
       expect(config.defaults.gemini).toBe("gemini-2.0-flash");
-      expect(config.defaults.anthropic).toBe("claude-3-5-sonnet-20241022");
-      expect(config.known_models.anthropic).toContain("claude-3-5-sonnet-20241022");
+      expect(config.defaults.anthropic).toBe("claude-3-5-haiku-20241022");
+      expect(config.known_models.anthropic).toContain("claude-3-5-haiku-20241022");
       expect(config.known_models.gemini).toContain("gemini-2.0-flash");
     });
 
@@ -209,27 +209,33 @@ describe("Phase B: Security Gaps Regression Tests", () => {
       const validGemini = validateModel("gemini", "gemini-2.0-flash");
       expect(validGemini.valid).toBe(true);
 
-      const validAnthropic = validateModel("anthropic", "claude-3-5-sonnet-20241022");
+      const validAnthropic = validateModel("anthropic", "claude-3-5-haiku-20241022");
       expect(validAnthropic.valid).toBe(true);
     });
 
-    it("unknown model produces a clear error with a suggested fix, not a raw API failure", async () => {
-      await expect(
-        resolveEngine(tempDir, "anthropic", "claude-2-retired")
-      ).rejects.toThrow(/Unknown model 'claude-2-retired' for provider 'anthropic'\. Did you mean '.*'? Available models:/);
+    it("unknown model warns and runs in resolver, but flags in doctor / verifyModelEndpoint", async () => {
+      process.env.VEE_ALLOW_CLOUD = "1";
+      try {
+        const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+        const engine = await resolveEngine(tempDir, "anthropic", "claude-custom-unlisted");
+        expect(engine.model).toBe("claude-custom-unlisted");
+        expect(warnSpy).toHaveBeenCalled();
+        const warnMsg = warnSpy.mock.calls.flat().join(" ");
+        expect(warnMsg).toContain("not in the known model catalog");
 
-      const checkResult = await verifyModelEndpoint("anthropic", "claude-2-retired");
-      expect(checkResult.ok).toBe(false);
-      expect(checkResult.message).toContain("Unknown model 'claude-2-retired' for provider 'anthropic'");
-      expect(checkResult.remedy).toContain("Update extractor.model in .vee/config.json");
-      expect(checkResult.suggested).toBeDefined();
+        const checkResult = await verifyModelEndpoint("anthropic", "claude-2-retired");
+        expect(checkResult.ok).toBe(false);
+        expect(checkResult.message).toContain("Unknown model 'claude-2-retired' for provider 'anthropic'");
+        expect(checkResult.remedy).toContain("Update extractor.model in .vee/config.json");
+        expect(checkResult.suggested).toBeDefined();
+      } finally {
+        delete process.env.VEE_ALLOW_CLOUD;
+      }
     });
   });
 
-  describe("B4: MCP config rewrite drops comments warning", () => {
-    it("prints a clear warning when existing MCP config contains comments and keeps backup", () => {
-      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-
+  describe("B4: MCP config preserves comments and keeps backup", () => {
+    it("preserves existing JSONC comments and creates a backup", () => {
       const mcpConfigDir = path.join(tempDir, ".cursor");
       fs.mkdirSync(mcpConfigDir, { recursive: true });
       const mcpConfigPath = path.join(mcpConfigDir, "mcp.json");
@@ -243,19 +249,14 @@ describe("Phase B: Security Gaps Regression Tests", () => {
 
       const result = installMcpClientConfig("cursor", tempDir, {});
 
-      // Assert warning was emitted
-      expect(warnSpy).toHaveBeenCalled();
-      const warningMessage = warnSpy.mock.calls.flat().join(" ");
-      expect(warningMessage).toContain("contains comments which will be removed");
-      expect(warningMessage).toContain(".bak");
-
       // Assert backup was created and retained
       expect(result.backupPath).toBeDefined();
       expect(fs.existsSync(result.backupPath!)).toBe(true);
-      const backupContent = fs.readFileSync(result.backupPath!, "utf-8");
-      expect(backupContent).toContain("// User custom configuration comment");
 
-      warnSpy.mockRestore();
+      // Assert updated content preserves the comment
+      const updatedContent = fs.readFileSync(mcpConfigPath, "utf-8");
+      expect(updatedContent).toContain("// User custom configuration comment");
+      expect(updatedContent).toContain('"veeshree"');
     });
   });
 });

@@ -4,6 +4,7 @@ import os from "node:os";
 import { loadConfig, saveConfig } from "./config.js";
 import { writeAtomic } from "./memory/atomic.js";
 import { logger } from "../utils/logger.js";
+import { isEnoent } from "../utils/errors.js";
 
 export type KeyProvider = "gemini" | "groq" | "nvidia" | "openai" | "anthropic";
 
@@ -46,14 +47,21 @@ export function loadGlobalCredentials(): Record<string, string> {
       fs.chmodSync(dir, 0o700);
       fs.chmodSync(filePath, 0o600);
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.warn(
+      `Failed to repair global credentials permissions (0600): ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
     return JSON.parse(raw);
-  } catch {
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.warn(
+        `Failed to parse global credentials JSON: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     return {};
   }
 }
@@ -71,8 +79,10 @@ export function saveGlobalCredentials(credentials: Record<string, string>): void
     if (process.platform !== "win32") {
       fs.chmodSync(dir, 0o700);
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.warn(
+      `Failed to set global credentials directory permissions (0700): ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   const filePath = getGlobalCredentialsPath();
@@ -97,8 +107,12 @@ function parseEnvFile(filePath: string): Record<string, string> {
         result[k] = v;
       }
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.warn(
+        `Failed to read env file at ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
   return result;
 }

@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import defaultModelsConfig from "../models.json" with { type: "json" };
+import { isEnoent } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 
 export type SupportedProvider =
   "gemini" | "openai" | "anthropic" | "groq" | "nvidia" | "ollama" | "lmstudio";
@@ -31,8 +33,10 @@ export function loadModelsConfig(rootDir: string = process.cwd()): ModelsConfig 
       path.join(currentDir, "..", "..", "models.json"),
       path.join(currentDir, "models.json")
     );
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    logger.debug(
+      `Failed to resolve module path for models.json: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   for (const candidate of candidatePaths) {
@@ -45,8 +49,12 @@ export function loadModelsConfig(rootDir: string = process.cwd()): ModelsConfig 
           return cachedModelsConfig;
         }
       }
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Failed to read/parse models config at ${candidate}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 
@@ -129,8 +137,10 @@ export async function verifyModelEndpoint(
           };
         }
       }
-    } catch {
-      // Local daemon might be offline; doctor already handles connectivity
+    } catch (err: unknown) {
+      logger.debug(
+        `Ollama tags probe failed during model verification: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 

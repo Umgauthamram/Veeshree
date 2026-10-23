@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { isEnoent } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Writes data to a file atomically using a temporary file and atomic rename.
@@ -28,16 +30,24 @@ export function writeAtomic(
     if (options.mode !== undefined) {
       try {
         fs.chmodSync(filePath, options.mode);
-      } catch {
-        // Windows may ignore some chmod calls
+      } catch (chmodErr: unknown) {
+        if (process.platform !== "win32") {
+          logger.warn(
+            `Failed to set mode ${options.mode.toString(8)} on ${filePath}: ${chmodErr instanceof Error ? chmodErr.message : String(chmodErr)}`
+          );
+        }
       }
     }
   } catch (err) {
     if (fs.existsSync(tempPath)) {
       try {
         fs.unlinkSync(tempPath);
-      } catch {
-        // ignore cleanup error
+      } catch (unlinkErr: unknown) {
+        if (!isEnoent(unlinkErr)) {
+          logger.warn(
+            `Failed to clean up atomic temp file ${tempPath}: ${unlinkErr instanceof Error ? unlinkErr.message : String(unlinkErr)}`
+          );
+        }
       }
     }
     throw err;

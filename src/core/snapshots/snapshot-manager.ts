@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { SNAPSHOTS_DIR_REL, MEMORY_DIR_REL } from "../../utils/constants.js";
-import { VeeError } from "../../utils/errors.js";
+import { VeeError, isEnoent } from "../../utils/errors.js";
+import { logger } from "../../utils/logger.js";
 
 const MAX_SNAPSHOTS = 20;
 
@@ -93,8 +94,12 @@ export function listSnapshots(rootDir: string = process.cwd()): SnapshotMeta[] {
       try {
         const meta: SnapshotMeta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
         list.push(meta);
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        if (!isEnoent(err)) {
+          logger.debug(
+            `Failed to read snapshot meta at ${metaPath}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
   }
@@ -172,7 +177,10 @@ export function restoreMemorySnapshot(
     fs.rmSync(memoryDir, { recursive: true, force: true });
     copyDirSync(path.join(target.path, "memory"), memoryDir);
     return true;
-  } catch {
+  } catch (err: unknown) {
+    logger.debug(
+      `restoreMemorySnapshot failed: ${err instanceof Error ? err.message : String(err)}`
+    );
     return false;
   }
 }
@@ -197,7 +205,9 @@ function pruneOldSnapshots(snapshotsDir: string): void {
         fs.rmSync(old.path, { recursive: true, force: true });
       }
     }
-  } catch {
-    // ignore
+  } catch (err: unknown) {
+    if (!isEnoent(err)) {
+      logger.debug(`pruneOldSnapshots failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 }

@@ -121,8 +121,10 @@ export async function assertCloudConsent(
         currentConfig.privacy.allow_cloud = isGranted;
       }
       saveConfig(currentConfig, rootDir);
-    } catch {
-      // ignore persistence error
+    } catch (err: unknown) {
+      logger.warn(
+        `Failed to persist cloud consent choice to config: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 

@@ -78,6 +78,22 @@ describe("Veeshree 1.0.0 Release Regression Tests", () => {
       expect(updated.mcpServers.veeshree).toBeDefined();
     });
 
+    it("preserves existing comments and other server keys when installing MCP server", () => {
+      const cursorDir = path.join(tempDir, ".cursor");
+      fs.mkdirSync(cursorDir, { recursive: true });
+      const configFile = path.join(cursorDir, "mcp.json");
+      const initialJsonc = `{\n  // Important user comment\n  "mcpServers": {\n    // Existing server\n    "other-tool": {\n      "command": "other"\n    }\n  }\n}`;
+      fs.writeFileSync(configFile, initialJsonc, "utf-8");
+
+      installMcpClientConfig("cursor", tempDir, { root: tempDir });
+
+      const updatedContent = fs.readFileSync(configFile, "utf-8");
+      expect(updatedContent).toContain("// Important user comment");
+      expect(updatedContent).toContain("// Existing server");
+      expect(updatedContent).toContain('"other-tool"');
+      expect(updatedContent).toContain('"veeshree"');
+    });
+
     it("supports claude-code targeting .mcp.json with root-level mcpServers", () => {
       const targetPath = resolveClientConfigPath("claude-code", tempDir);
       expect(targetPath).toBe(path.join(tempDir, ".mcp.json"));

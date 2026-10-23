@@ -13,6 +13,8 @@ import {
   ARCHIVE_DIR_REL,
   DEFAULT_GC_MAX_PROGRESS,
 } from "../utils/constants.js";
+import { isEnoent } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 
 export interface GCResult {
   archivedTasksCount: number;
@@ -142,8 +144,12 @@ export function runGarbageCollection(
           supersededDecisionsCount++;
           relocatedDecisions.push(file);
         }
-      } catch {
-        // ignore
+      } catch (err: unknown) {
+        if (!isEnoent(err)) {
+          logger.debug(
+            `GC failed to parse decision frontmatter in ${file}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
   }

@@ -7,6 +7,8 @@ import { calculateNormalizedFileHash } from "./drift/hasher.js";
 import { sanitizeRelativePath, normalizePosix } from "../utils/paths.js";
 import { writeAtomic } from "./memory/atomic.js";
 import { MEMORY_DIR_REL, INDEX_FILE_REL, VEE_DIR_REL } from "../utils/constants.js";
+import { isEnoent } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Calculates normalized SHA-256 hash of a file on disk
@@ -116,7 +118,12 @@ export function parseMemoryFile(
       } else {
         isStale = true;
       }
-    } catch {
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Failed to calculate file hash for ${relPath}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
       isStale = true;
     }
   }
@@ -148,8 +155,12 @@ export function buildIndex(rootDir: string = process.cwd()): VeeshreeIndexData {
   if (fs.existsSync(indexPath)) {
     try {
       previousIndex = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-    } catch {
-      // Ignore corrupted index cache
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Failed to read previous index cache: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 
@@ -210,7 +221,12 @@ export function loadOrBuildIndex(rootDir: string = process.cwd()): VeeshreeIndex
   if (fs.existsSync(indexPath)) {
     try {
       return JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-    } catch {
+    } catch (err: unknown) {
+      if (!isEnoent(err)) {
+        logger.debug(
+          `Failed to read index cache at ${indexPath}, rebuilding: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
       return buildIndex(rootDir);
     }
   }

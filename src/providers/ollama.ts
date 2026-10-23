@@ -2,6 +2,7 @@ import type { Extractor, ProviderCallOptions } from "./types.js";
 import type { ExtractionDelta } from "../schemas/extraction.schema.js";
 import { EXTRACTION_SYSTEM_PROMPT, validateExtractionJson } from "./common.js";
 import { VeeError } from "../utils/errors.js";
+import { logger } from "../utils/logger.js";
 
 const EMBEDDING_MODEL_PATTERNS = [/embed/i, /bge/i, /minilm/i, /nomic/i, /bert/i, /rerank/i];
 
@@ -87,8 +88,8 @@ export class OllamaExtractor implements Extractor {
           return nonEmbedding[0];
         }
       }
-    } catch {
-      // fallback
+    } catch (err: unknown) {
+      logger.debug(`Ollama tags probe failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     return "llama3.2";
   }

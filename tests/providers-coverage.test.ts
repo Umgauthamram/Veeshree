@@ -267,7 +267,8 @@ describe("Providers and Engine Coverage Suite", () => {
         expect(lmstudioRes.provider).toBe("lmstudio");
 
         await expect(resolveEngine(testDir, "unsupported-provider")).rejects.toThrow(VeeError);
-        await expect(resolveEngine(testDir, "openai", "non-existent-gpt-999")).rejects.toThrow(VeeError);
+        const resolvedUnlisted = await resolveEngine(testDir, "openai", "non-existent-gpt-999");
+        expect(resolvedUnlisted.model).toBe("non-existent-gpt-999");
       } finally {
         if (origCloud) process.env.VEE_ALLOW_CLOUD = origCloud;
         else delete process.env.VEE_ALLOW_CLOUD;
