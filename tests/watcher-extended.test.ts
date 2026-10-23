@@ -60,13 +60,17 @@ describe("Watcher Extended Processing Cycle Suite", () => {
     // Modify file to trigger watcher
     fs.writeFileSync(srcFile, "export const v = 2;\nexport const extra = 'diff content longer than 20 chars';", "utf-8");
 
-    // Wait for debounce and processing (e.g. 500ms)
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    // Wait for debounce and processing to complete (poll up to 5s for CI stability)
+    const startTime = Date.now();
+    let state = loadWatchState(tempDir);
+    while (state.callsThisHour === 0 && Date.now() - startTime < 5000) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      state = loadWatchState(tempDir);
+    }
 
     watcher.stop();
 
     // Verify watch state updated
-    const state = loadWatchState(tempDir);
     expect(state.callsThisHour).toBeGreaterThan(0);
     expect(state.lastDiffFingerprint).toBeDefined();
   });
@@ -86,12 +90,19 @@ describe("Watcher Extended Processing Cycle Suite", () => {
     // Mutate file to generate diff
     fs.writeFileSync(srcFile, "export const e = 999;\nexport const diff_stuff = 'extra lines here';", "utf-8");
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const logFile = path.join(tempDir, ".vee", "logs", "watch.log");
+    const startTime = Date.now();
+    let content = "";
+    while (Date.now() - startTime < 5000) {
+      if (fs.existsSync(logFile)) {
+        content = fs.readFileSync(logFile, "utf-8");
+        if (content.includes("backing off")) break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
 
     watcher.stop();
 
-    const logFile = path.join(tempDir, ".vee", "logs", "watch.log");
-    const content = fs.readFileSync(logFile, "utf-8");
     expect(content).toContain("backing off");
   });
 });

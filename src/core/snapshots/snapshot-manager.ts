@@ -32,6 +32,8 @@ function copyDirSync(src: string, dest: string): void {
   }
 }
 
+let snapshotCounter = 0;
+
 /**
  * Creates a pre-apply backup snapshot of docs/memory to support vee undo
  */
@@ -49,8 +51,10 @@ export function createMemorySnapshot(
     fs.mkdirSync(snapshotsDir, { recursive: true });
   }
 
+  snapshotCounter++;
+  const now = Date.now();
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const id = `snap_${Date.now()}`;
+  const id = `snap_${now}_${String(snapshotCounter).padStart(4, "0")}`;
   const targetDir = path.join(snapshotsDir, `${timestamp}_${id}`);
 
   copyDirSync(memoryDir, path.join(targetDir, "memory"));
@@ -95,7 +99,11 @@ export function listSnapshots(rootDir: string = process.cwd()): SnapshotMeta[] {
     }
   }
 
-  return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return list.sort((a, b) => {
+    const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return b.id.localeCompare(a.id);
+  });
 }
 
 /**
@@ -176,9 +184,13 @@ function pruneOldSnapshots(snapshotsDir: string): void {
       .filter((d) => d.isDirectory())
       .map((d) => ({
         path: path.join(snapshotsDir, d.name),
+        name: d.name,
         mtime: fs.statSync(path.join(snapshotsDir, d.name)).mtimeMs,
       }))
-      .sort((a, b) => b.mtime - a.mtime);
+      .sort((a, b) => {
+        if (b.mtime !== a.mtime) return b.mtime - a.mtime;
+        return b.name.localeCompare(a.name);
+      });
 
     if (dirs.length > MAX_SNAPSHOTS) {
       for (const old of dirs.slice(MAX_SNAPSHOTS)) {

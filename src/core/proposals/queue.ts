@@ -50,12 +50,15 @@ export function createProposal(
     fs.mkdirSync(proposalsDir, { recursive: true });
   }
 
-  const pending = listProposals(rootDir, "pending");
-  if (pending.length >= 50) {
-    throw new VeeError(
-      "Pending proposal limit reached (maximum 50 pending proposals). Review and accept or reject existing proposals first.",
-      "ERR_PROPOSAL_LIMIT"
-    );
+  const proposalFiles = fs.readdirSync(proposalsDir).filter((f) => f.endsWith(".json"));
+  if (proposalFiles.length >= 50) {
+    const pending = listProposals(rootDir, "pending");
+    if (pending.length >= 50) {
+      throw new VeeError(
+        "Pending proposal limit reached (maximum 50 pending proposals). Review and accept or reject existing proposals first.",
+        "ERR_PROPOSAL_LIMIT"
+      );
+    }
   }
 
   // Detect duplicate/same-title decisions and link as supersede (Phase 2.6)

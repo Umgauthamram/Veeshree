@@ -655,8 +655,9 @@ describe("Final Coverage Gap Closure Suite", () => {
   });
 
   describe("undo.ts stepStr branch", () => {
-    it("handles explicit stepStr argument", () => {
+    it("handles explicit stepStr argument", async () => {
       createMemorySnapshot(tempDir, "Step 1 snapshot");
+      await new Promise((resolve) => setTimeout(resolve, 20));
       createMemorySnapshot(tempDir, "Step 2 snapshot");
       handleUndoCommand("2", tempDir);
     });

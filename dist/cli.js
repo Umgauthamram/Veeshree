@@ -76,7 +76,7 @@ import {
   validateModelName,
   verifyModelEndpoint,
   writeAtomic
-} from "./chunk-4OXFZE7X.js";
+} from "./chunk-7JHPCH6M.js";
 
 // src/cli.ts
 import path14 from "path";
@@ -2116,7 +2116,7 @@ function writeWatchLog(rootDir, level, message) {
 }
 async function startMemoryWatcher(rootDir = process.cwd(), options = {}) {
   const config = loadConfig(rootDir);
-  const debounceTimeMs = (options.debounceSeconds || config.watch?.debounce_seconds || 5) * 1e3;
+  const debounceTimeMs = (options.debounceSeconds !== void 0 ? options.debounceSeconds : config.watch?.debounce_seconds || 5) * 1e3;
   const maxCallsPerHour = config.watch?.max_calls_per_hour || 30;
   const isAuto = options.auto !== void 0 ? options.auto : config.watch?.auto || false;
   let debounceTimer = null;
@@ -2537,9 +2537,9 @@ async function handleWatchCommand(options = {}, rootDir = process.cwd()) {
     logger.info(`Check status anytime with 'vee watch status' or stop with 'vee watch stop'.`);
     return;
   }
-  const debounceSeconds = options.debounce ? parseInt(options.debounce, 10) : void 0;
+  const debounceSeconds = options.debounce ? parseFloat(options.debounce) : void 0;
   await startMemoryWatcher(rootDir, {
-    debounceSeconds,
+    debounceSeconds: !isNaN(debounceSeconds) ? debounceSeconds : void 0,
     provider: options.provider,
     model: options.model,
     auto: options.auto
